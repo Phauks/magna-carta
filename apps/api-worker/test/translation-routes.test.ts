@@ -1,8 +1,7 @@
 /*
- * Translation through the real chokepoint. Three gates are pinned in the order a request meets them:
- * the member's tools:translation, the firm's translation.enabled switch (off until an administrator
- * turns it on), and whether the deployment has a Google key at all. Google itself is answered by a
- * stub on globalThis.fetch, the shape address-lookup-routes.test.ts takes for Google Places.
+ * Translation through the real chokepoint. Two gates are pinned in the order a request meets them:
+ * the member's tools:translation, and whether the deployment has a Google key at all. Google itself is
+ * answered by a stub on globalThis.fetch, the shape address-lookup-routes.test.ts takes for Google Places.
  */
 import { env } from "cloudflare:test";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
@@ -63,25 +62,6 @@ function request(
   ];
 }
 
-let settingWrites = 0;
-async function setTranslationEnabled(enabled: boolean): Promise<void> {
-  settingWrites += 1;
-  const response = await app.request(
-    ...request(
-      "PATCH",
-      "firm/translation-settings",
-      ownerCookie,
-      { enabled },
-      {
-        "Idempotency-Key": `translation-switch-${String(settingWrites)}`,
-      },
-    ),
-    KEYED,
-  );
-  expect(response.status).toBe(200);
-  expect(await response.json()).toEqual({ enabled, engineConnected: true });
-}
-
 /** Answer Google's translation host from a script and let every other request through. */
 const originalFetch = globalThis.fetch;
 const googleCalls: { url: string; init: RequestInit | undefined }[] = [];
@@ -123,45 +103,10 @@ describe("who may translate", () => {
     );
     expect(response.status).toBe(403);
   });
-
-  it("refuses a member without firm:manageAiSettings to read the firm's switch", async () => {
-    const response = await app.request(
-      ...request("GET", "firm/translation-settings", unprivilegedCookie),
-      KEYED,
-    );
-    expect(response.status).toBe(403);
-  });
 });
 
-describe("the firm's switch", () => {
-  it("starts off, and an off switch sends nothing to Google", async () => {
-    answerGoogleWith(() => new Response("must not be called", { status: 500 }));
-    const settings = await app.request(
-      ...request("GET", "firm/translation-settings", ownerCookie),
-      KEYED,
-    );
-    expect(await settings.json()).toEqual({ enabled: false, engineConnected: true });
-
-    const response = await app.request(
-      ...request("POST", "translation/translate", ownerCookie, { text: SPANISH, target: "en" }),
-      KEYED,
-    );
-    expect(response.status).toBe(422);
-    expect(googleCalls).toHaveLength(0);
-  });
-
-  it("says when the deployment has no key", async () => {
-    const settings = await app.request(
-      ...request("GET", "firm/translation-settings", ownerCookie),
-      UNKEYED,
-    );
-    expect(await settings.json()).toEqual({ enabled: false, engineConnected: false });
-  });
-});
-
-describe("translating, with the switch on", () => {
+describe("translating", () => {
   it("answers each paragraph beside its translation and keeps the key out of the URL", async () => {
-    await setTranslationEnabled(true);
     answerGoogleWith(({ q }) =>
       Response.json({
         data: {
@@ -198,7 +143,6 @@ describe("translating, with the switch on", () => {
   });
 
   it("answers that translation is not set up when the deployment has no key", async () => {
-    await setTranslationEnabled(true);
     answerGoogleWith(() => new Response("must not be called", { status: 500 }));
     const response = await app.request(
       ...request("POST", "translation/translate", ownerCookie, { text: SPANISH, target: "en" }),
@@ -209,7 +153,6 @@ describe("translating, with the switch on", () => {
   });
 
   it("answers 502 when Google does not answer", async () => {
-    await setTranslationEnabled(true);
     answerGoogleWith(() => new Response("down", { status: 503 }));
     const response = await app.request(
       ...request("POST", "translation/translate", ownerCookie, { text: SPANISH, target: "en" }),

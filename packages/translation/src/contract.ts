@@ -59,16 +59,3 @@ export const TranslationLanguage = z
 export const TranslationLanguagesResponse = z
   .object({ languages: z.array(TranslationLanguage) })
   .meta({ id: "TranslationLanguagesResponse" });
-
-export const FirmTranslationSettingsResponse = z
-  .object({
-    enabled: z.boolean().meta({ description: "Whether members may translate text." }),
-    engineConnected: z.boolean().meta({
-      description: "Whether a translation engine is set up in this deployment. Read-only.",
-    }),
-  })
-  .meta({ id: "FirmTranslationSettingsResponse" });
-
-export const PatchFirmTranslationSettingsRequest = z
-  .object({ enabled: z.boolean().optional() })
-  .meta({ id: "PatchFirmTranslationSettingsRequest" });

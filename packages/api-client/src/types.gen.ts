@@ -411,12 +411,12 @@ export type ConnectedServiceStatus = {
 };
 
 export type FeatureStatus = {
-    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'googleCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'aiTextDetection' | 'translation' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
+    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'googleCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'translation' | 'aiTextDetection' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
     state: 'working' | 'not-set-up' | 'fault';
 };
 
 export type FeatureRequirements = {
-    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'googleCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'aiTextDetection' | 'translation' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
+    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'googleCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'translation' | 'aiTextDetection' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
     alternatives: Array<Array<{
         name: string;
         present: boolean;
@@ -1422,21 +1422,6 @@ export type SearchStatusRecordPlace = {
 
 export type FirmSearchRebuildResponse = {
     requestedAt: string;
-};
-
-export type FirmTranslationSettingsResponse = {
-    /**
-     * Whether members may translate text.
-     */
-    enabled: boolean;
-    /**
-     * Whether a translation engine is set up in this deployment. Read-only.
-     */
-    engineConnected: boolean;
-};
-
-export type PatchFirmTranslationSettingsRequest = {
-    enabled?: boolean;
 };
 
 export type ExportRenderRequest = {
@@ -17657,95 +17642,6 @@ export type FirmSearchStatusRebuildResponses = {
 
 export type FirmSearchStatusRebuildResponse = FirmSearchStatusRebuildResponses[keyof FirmSearchStatusRebuildResponses];
 
-export type FirmTranslationSettingsGetData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/v1/firm/translation-settings';
-};
-
-export type FirmTranslationSettingsGetErrors = {
-    /**
-     * No valid session
-     */
-    401: Problem;
-    /**
-     * The session member lacks firm:manageAiSettings
-     */
-    403: Problem;
-    /**
-     * The firm is unreachable or the member is deactivated
-     */
-    404: Problem;
-    /**
-     * Rate limit exceeded
-     */
-    429: Problem;
-};
-
-export type FirmTranslationSettingsGetError = FirmTranslationSettingsGetErrors[keyof FirmTranslationSettingsGetErrors];
-
-export type FirmTranslationSettingsGetResponses = {
-    /**
-     * The firm's translation settings
-     */
-    200: FirmTranslationSettingsResponse;
-};
-
-export type FirmTranslationSettingsGetResponse = FirmTranslationSettingsGetResponses[keyof FirmTranslationSettingsGetResponses];
-
-export type FirmTranslationSettingsUpdateData = {
-    body: PatchFirmTranslationSettingsRequest;
-    headers: {
-        'idempotency-key': string;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/v1/firm/translation-settings';
-};
-
-export type FirmTranslationSettingsUpdateErrors = {
-    /**
-     * The Idempotency-Key header is missing on a write
-     */
-    400: Problem;
-    /**
-     * No valid session
-     */
-    401: Problem;
-    /**
-     * The session member lacks firm:manageAiSettings
-     */
-    403: Problem;
-    /**
-     * The firm is unreachable or the member is deactivated
-     */
-    404: Problem;
-    /**
-     * A request with this Idempotency-Key is already in progress
-     */
-    409: Problem;
-    /**
-     * The request body is invalid, or the Idempotency-Key was reused with a different body
-     */
-    422: Problem;
-    /**
-     * Rate limit exceeded
-     */
-    429: Problem;
-};
-
-export type FirmTranslationSettingsUpdateError = FirmTranslationSettingsUpdateErrors[keyof FirmTranslationSettingsUpdateErrors];
-
-export type FirmTranslationSettingsUpdateResponses = {
-    /**
-     * The firm's translation settings after the change
-     */
-    200: FirmTranslationSettingsResponse;
-};
-
-export type FirmTranslationSettingsUpdateResponse = FirmTranslationSettingsUpdateResponses[keyof FirmTranslationSettingsUpdateResponses];
-
 export type ReportsExportRenderData = {
     body: ExportRenderRequest;
     path?: never;
@@ -23957,7 +23853,7 @@ export type TranslationTranslateErrors = {
      */
     403: Problem;
     /**
-     * Translation is off for this firm, no engine is set up, the text has nothing to translate, a paragraph is too long, or the engine refused the request
+     * No engine is set up, the text has nothing to translate, a paragraph is too long, or the engine refused the request
      */
     422: Problem;
     /**

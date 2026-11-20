@@ -18,6 +18,7 @@
   import Button from "@magna-carta/design-system/button";
   import Checkbox from "@magna-carta/design-system/checkbox";
   import Label from "@magna-carta/design-system/label";
+  import TranslateLine from "$lib/translation/translate-line.svelte";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import type { ParsedMessage } from "@magna-carta/email";
   import { saveToTarget } from "$lib/export/save-target.ts";
@@ -272,6 +273,8 @@
             </DataTable.Row>
           </DataTable.Body>
         </DataTable.Root>
+        <!-- An email in another language is read here as often as anywhere. -->
+        <TranslateLine text={body ?? ""} />
       </div>
     </div>
 

@@ -27,6 +27,7 @@
   import Button from "@magna-carta/design-system/button";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
+  import TranslateLine from "$lib/translation/translate-line.svelte";
   import Textarea from "@magna-carta/design-system/textarea";
   import PrintSheet from "@magna-carta/design-system/print-sheet";
   import RecordAttachments, {
@@ -443,6 +444,10 @@
         disabled={!fieldsOpen || saving}
         bind:value={bodyText}
       />
+      {#if note !== null}
+        <!-- A note somebody else wrote, in a language the reader does not read. -->
+        <TranslateLine text={bodyText} {matterId} />
+      {/if}
     </div>
 
     {#if note !== null && note.lastEditedBy !== null}

@@ -118,6 +118,20 @@ export const CATALOG: readonly ToolManifest[] = [
     // firm ever bills postage back, with the whole recovery path built and unable to fire.
     matterContext: "optional",
   },
+  // Language — words in another language.
+  {
+    // Sends the text a member gives it to Google Cloud Translation and stores none of it. Every
+    // default role holds the key: the owner ruled on 2026-11-20 that any role may translate.
+    id: "translate",
+    name: "Translate",
+    icon: "languages",
+    subjectGroup: "language",
+    permission: assertPermission("tools:translation"),
+    contextTags: ["none"],
+    backing: { kind: "library" },
+    // The matter only names the run on the firm's log; nothing is filed to it.
+    matterContext: "optional",
+  },
   // Files — a file that belongs to no matter.
   {
     id: "file-workbench",

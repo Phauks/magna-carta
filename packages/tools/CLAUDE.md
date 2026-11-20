@@ -14,8 +14,8 @@ Depends only on `@magna-carta/access-control` (the `Permission` type + validatio
   two-sided screen cost every tool a navigation column listing the tools it is not, and the index
   that briefly replaced it was a stop on the way to work; the descriptors and the search it carried
   were never its own (the presentation layer's, rendered by the command palette).
-- **`subjectGroup` is the rail CLUSTER a tool folds into**, and the four are named for what a member
-  is doing: `records`, `internet`, `mailing`, `files`. There were eight, which over nine tools is a
+- **`subjectGroup` is the rail CLUSTER a tool folds into**, and the five are named for what a member
+  is doing: `records`, `internet`, `mailing`, `files`, `language`. There were eight, which over nine tools is a
   heading per tool. The cluster's NAME and glyph are not here — they live where the rail draws them
   (`apps/web/src/lib/navigation/clusters.ts`), because a cluster is a thing the interface renders.
 - `file-workbench` is the only row in `files`, and deliberately so: the ten file utilities that used

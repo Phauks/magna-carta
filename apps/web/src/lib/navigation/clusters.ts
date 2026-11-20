@@ -27,6 +27,7 @@ import Library from "@lucide/svelte/icons/library";
 import Network from "@lucide/svelte/icons/network";
 import Mail from "@lucide/svelte/icons/mail";
 import Files from "@lucide/svelte/icons/files";
+import Speech from "@lucide/svelte/icons/speech";
 import type { DestinationGroup } from "./destinations.ts";
 
 export interface NavigationCluster {
@@ -54,6 +55,7 @@ export const NAVIGATION_CLUSTERS: readonly NavigationCluster[] = [
   { id: "internet", group: "tools", label: "Internet", icon: Network },
   { id: "mailing", group: "tools", label: "Mailing", icon: Mail },
   { id: "files", group: "tools", label: "Files", icon: Files },
+  { id: "language", group: "tools", label: "Language", icon: Speech },
 ];
 
 /** One cluster by id, or null — null means the rows naming it render as plain rows in their group. */

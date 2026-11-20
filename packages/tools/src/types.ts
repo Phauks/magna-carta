@@ -15,6 +15,7 @@ export const SUBJECT_GROUP_ORDER = [
   "internet", // the network and what is on it — WHOIS, an untrusted site, this connection
   "mailing", // what the firm sends — postage, labels, and printing
   "files", // a file that belongs to no matter — read, verify, repair, convert
+  "language", // words in another language — translate
 ] as const;
 
 export type SubjectGroup = (typeof SUBJECT_GROUP_ORDER)[number];
