@@ -5,6 +5,7 @@ import {
   type VisibleMatterPredicate,
 } from "@magna-carta/calendar/visibility";
 import type { Permission } from "@magna-carta/access-control/registry";
+import type { UserId } from "@magna-carta/identifiers/types";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { RECORD_QUERY_MATTERS_LIMIT } from "@magna-carta/search/record-index-query";
 import type { FileContentsAnswer, MatterFileContentsSearcher } from "../src/file-contents.ts";
@@ -12,6 +13,7 @@ import { narrowedVisibility, type MatterNarrowing } from "../src/narrowing.ts";
 import { runSearchAcrossMatters } from "../src/run-across-matters.ts";
 import { runMatterSearch } from "../src/run.ts";
 import { matterSearchSources } from "../src/sources/all.ts";
+import type { SearchDateRange } from "../src/sources/registry.ts";
 import type { AcrossMattersGroup, AcrossMattersSearchAnswer } from "../src/types.ts";
 import {
   ACTOR,
@@ -74,6 +76,8 @@ interface AskOptions {
   readonly visibility?: VisibleMatterPredicate;
   readonly narrowing?: MatterNarrowing;
   readonly fileContents?: MatterFileContentsSearcher | null;
+  readonly dates?: SearchDateRange;
+  readonly actorUserId?: UserId;
 }
 
 function ask(
@@ -92,6 +96,8 @@ function ask(
     ...(options.candidateCap === undefined ? {} : { candidateCap: options.candidateCap }),
     ...(options.narrowing === undefined ? {} : { narrowing: options.narrowing }),
     ...(options.fileContents === undefined ? {} : { fileContents: options.fileContents }),
+    ...(options.dates === undefined ? {} : { dates: options.dates }),
+    ...(options.actorUserId === undefined ? {} : { actorUserId: options.actorUserId }),
   });
 }
 
@@ -381,6 +387,80 @@ describe("what a search across matters does not ask", () => {
     const { database } = seededDatabase();
     const answer = await ask(database, "easement", { sourceKeys: ["notes"] });
     expect(answer.groups.map((group) => group.source)).toEqual(["notes"]);
+  });
+});
+
+describe("a search across matters held to the days its reader asked about", () => {
+  // The fixture's records are all stamped 2026-08-01, except one note written about 2026-07-14.
+
+  it("answers only from records dated inside the days, by the date each place lists by", async () => {
+    const { database } = seededDatabase();
+    const july = await ask(database, "easement", {
+      dates: { from: "2026-07-01", before: "2026-08-01" },
+    });
+    // The note is about July 14, though it was typed on August 1: a note lists by its own date.
+    expect(hitIds(july, "notes")).toEqual(["matterNote_occurred"]);
+    // A file lists by its upload, which was August 1, so July holds none.
+    expect(hitIds(july, "files")).toEqual([]);
+    const august = await ask(database, "easement", { dates: { from: "2026-08-01" } });
+    expect(hitIds(august, "notes")).toEqual(["matterNote_decoy", "matterNote_easement"]);
+    expect(hitIds(august, "files")).toContain("file_survey");
+  });
+
+  it("holds a moment to its day, the last day included through the day after it", async () => {
+    const { database } = seededDatabase();
+    // Stamped 2026-08-01T00:00:00.000Z: inside a range ending on August 1, outside one ending the
+    // day before.
+    const through = await ask(database, "easement", { dates: { before: "2026-08-02" } });
+    expect(hitIds(through, "files")).toContain("file_survey");
+    const before = await ask(database, "easement", { dates: { before: "2026-08-01" } });
+    expect(hitIds(before, "files")).toEqual([]);
+  });
+
+  it("is answered by every place that answers across matters, none refusing the days", async () => {
+    const { database } = seededDatabase();
+    const answer = await ask(database, "easement", {
+      dates: { from: "2020-01-01", before: "2030-01-01" },
+    });
+    const undated = await ask(database, "easement");
+    // A range wide enough to hold every record answers what no range answers.
+    for (const group of undated.groups) {
+      expect(groupOf(answer, group.source).skipped).toBe(group.skipped);
+      expect(hitIds(answer, group.source)).toEqual(hitIds(undated, group.source));
+    }
+  });
+
+  it("still never reaches a matter the predicate excludes", async () => {
+    const { database } = seededDatabase();
+    const answer = await ask(database, "easement", {
+      visibility: visibleMatterPredicateExcluding([OTHER_MATTER]),
+      dates: { from: "2026-08-01" },
+    });
+    expect(hitIds(answer, "notes")).toEqual(["matterNote_easement"]);
+  });
+});
+
+describe("a search across matters held to the one person its reader asked about", () => {
+  it("answers from the rows that person wrote, and from no one else's", async () => {
+    const { database } = seededDatabase();
+    const anyone = await ask(database, "easement");
+    const theirs = await ask(database, "easement", { actorUserId: ACTOR });
+    expect(hitIds(theirs, "notes")).toEqual(hitIds(anyone, "notes"));
+    const nobody = await ask(database, "easement", { actorUserId: "user_nobodyHere00" as UserId });
+    expect(hitIds(nobody, "notes")).toEqual([]);
+    expect(groupOf(nobody, "notes").skipped).toBeNull();
+  });
+
+  it("says a place that records no author was not asked, rather than answering it unheld", async () => {
+    const { database } = seededDatabase();
+    const answer = await ask(database, "easement", { actorUserId: ACTOR });
+    for (const source of ["files", "parties", "custody", "billing", "costs"]) {
+      expect(groupOf(answer, source).skipped).toBe("no-author");
+      expect(hitIds(answer, source)).toEqual([]);
+    }
+    for (const source of ["notes", "time", "communications"]) {
+      expect(groupOf(answer, source).skipped).not.toBe("no-author");
+    }
   });
 });
 

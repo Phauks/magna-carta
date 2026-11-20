@@ -156,6 +156,8 @@ const notesSource: MatterSearchSource = {
   // predicate alone, so a matter that becomes closed to a reader leaves their search with it.
   acrossMatters: {
     reads: "record-index",
+    // Every row names its member: the author, the one who logged it, the timekeeper.
+    recordsAuthor: true,
     matchedFields: ["the note's text"],
     buildStatements: (request) => {
       const match = recordIndexNewestMatch(request, "notes", MATTER_NOTE_TABLE);
@@ -620,6 +622,8 @@ const communicationsSource: MatterSearchSource = {
   // on no matter is still out of reach here: the visible-matter predicate asks for a matter.
   acrossMatters: {
     reads: "record-index",
+    // Every row names its member: the author, the one who logged it, the timekeeper.
+    recordsAuthor: true,
     matchedFields: ["what was said", "the caller's name"],
     buildStatements: (request) => {
       const match = recordIndexNewestMatch(request, "communications", COMMUNICATION_TABLE);
@@ -843,6 +847,8 @@ const timeSource: MatterSearchSource = {
   project: projectInto("time", "time"),
   acrossMatters: {
     reads: "record-index",
+    // Every row names its member: the author, the one who logged it, the timekeeper.
+    recordsAuthor: true,
     matchedFields: ["time narratives"],
     buildStatements: (request) => {
       const match = recordIndexNewestMatch(request, "time", TIME_ENTRY_TABLE);

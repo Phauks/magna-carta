@@ -8,13 +8,12 @@
    * leave a reader looking at blank space with no way to tell a slow read from an empty account,
    * and no way to see that a section they expected is missing.
    *
-   * SEVEN SECTIONS, SIX OF THEM ABOUT THIS ACCOUNT AND ONE ABOUT THE FIRM. The queue, the position,
-   * the reconciliations, the statements, the cushion and the unclaimed-funds diligence all move
-   * when the selection moves. The authorization posture does not: it is one rule for every account
+   * The queue, the position, the cushion and the unclaimed-funds diligence move when the selection
+   * moves, and Reconciliation and Checks open the account's own screens. The authorization posture does not: it is one rule for every account
    * the firm holds, and the section says so in its own line rather than leaving a reader to infer
    * that changing it here would change it only here.
    *
-   * EACH READ FAILS ON ITS OWN. A firm whose statements cannot be read still has an approval queue
+   * EACH READ FAILS ON ITS OWN. A firm whose cushion cannot be read still has an approval queue
    * somebody owes an answer to, so a failed read stands inside its own section — through the one
    * failure device, which carries the whole failure record, the Error ID and the way to ask again —
    * and leaves the rest of the panel standing. The register behind the panel is unaffected either
@@ -45,8 +44,6 @@
   import FirmTrustReadFailure from "./firm-trust-read-failure.svelte";
   import FirmTrustSectionCushion from "./firm-trust-section-cushion.svelte";
   import FirmTrustSectionPosition from "./firm-trust-section-position.svelte";
-  import FirmTrustSectionReconciliations from "./firm-trust-section-reconciliations.svelte";
-  import FirmTrustSectionStatements from "./firm-trust-section-statements.svelte";
   import UnclaimedFundsSection from "./unclaimed-funds-section.svelte";
   import type { FirmTrust } from "./firm-trust.svelte.ts";
   import {
@@ -87,7 +84,7 @@
     money: (amountMinor: number) => string;
     currency: string;
     /**
-     * Why this reader may not record, import, reconcile or work a diligence file, or undefined
+     * Why this reader may not fund the cushion or work a diligence file, or undefined
      * while they may. One capability governs all of them, so it is one sentence read off the
      * session once by the screen: a section working out its own would be a second answer to the
      * same question, and the two would drift.
@@ -145,7 +142,7 @@
     <DetailsPanel.Header>
       <DetailsPanel.Title>The Firm's Trust</DetailsPanel.Title>
       <DetailsPanel.Subtitle>
-        Select an account to see its queue, its statements and its reconciliations.
+        Select an account to see its queue, its position and its cushion.
       </DetailsPanel.Subtitle>
     </DetailsPanel.Header>
   {:else}
@@ -220,9 +217,17 @@
         <FirmTrustSectionPosition {account} {trust} {officeName} {money} />
       </DetailsPanel.Section>
 
-      <!-- RECONCILIATIONS — most recently opened first, each linking to its own workbench. -->
-      <DetailsPanel.Section label="Reconciliations">
-        <FirmTrustSectionReconciliations {account} {trust} {members} {money} />
+      <!-- RECONCILIATION — the account's own screen for ticking off its bank statements. -->
+      <DetailsPanel.Section label="Reconciliation">
+        <div class="flex flex-wrap gap-8">
+          <Button
+            variant="secondary"
+            size="sm"
+            href={`/reconciliation?account=${encodeURIComponent(account.id)}`}
+          >
+            Open Reconciliation
+          </Button>
+        </div>
       </DetailsPanel.Section>
 
       <!-- CHECKS — the account's own screen for printing the checks its payments wait on. -->
@@ -236,12 +241,6 @@
             Open Checks
           </Button>
         </div>
-      </DetailsPanel.Section>
-
-      <!-- STATEMENTS — most recent period first, as the institution reported it, with the acts
-           that record one and the act that reconciles it. -->
-      <DetailsPanel.Section label="Statements">
-        <FirmTrustSectionStatements {account} {trust} {members} {money} {manageRefusal} />
       </DetailsPanel.Section>
 
       <!-- FIRM FUNDS — the firm's own money in a client trust account, which is there to bear the

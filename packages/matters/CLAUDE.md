@@ -50,7 +50,7 @@ list/consultations queries. Validates in memory and composes statements into @ma
 - `src/queries.ts` — `listMatters` (excludes intakes and consultations by default) + `listConsultations` (with the stale flag)
 - `src/matter-register.ts` — `readMatterRegister`: every opened matter (open, hold, closed) with
   its captions, for the Matters List report. Live, capped with a probe row
-- `src/matter-narrowing.ts` — **what "my matters" and "one client's matters" mean**, stated once as
+- `src/matter-narrowing.ts` — **what "my matters", "one client's matters" and "these matters" mean**, stated once as
   a condition on a matter's id that the matters listing and the search across matters both compose.
   A narrowing is a reader's choice and never a permission: a caller composes it WITH the
   visible-matter predicate, not in place of it
