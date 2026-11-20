@@ -45,14 +45,14 @@ cleared balance, and is shaded while it is not zero.
 
 - Tick each line that appears on the statement. Untick it to take it back.
 - Narrow the list by type (checks, deposits, wires and so on) or to **Uncleared**, **Needs
-  Review** or **New** lines. **Tick All Shown** and **Untick All Shown** are in the menu beside the
+  Review** or **Added Later** lines. **Tick All Shown** and **Untick All Shown** are in the menu beside the
   filters.
 - Change the end date or end balance at the top at any time.
 - Double-click a line, or press Enter on it, to see its details, with links to the matter's trust
   ledger and to the account's checks.
 
 The account is never locked. If someone records a payment dated inside the period after you have
-started, it appears in the list marked **New** so you can see what arrived late.
+started, it appears in the list marked **Added Later** so you can see what arrived late.
 
 ## Notes and Needs Review
 

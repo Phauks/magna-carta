@@ -87,9 +87,10 @@ describe("dev seed route", () => {
     );
     expect(listResponse.status).toBe(200);
     const list = (await listResponse.json()) as { data: FileSummary[] };
-    // Five clean files show by default (the quarantined one is excluded): the four seeded
-    // documents and the committed zip that browsing inside an archive needs.
-    expect(list.data).toHaveLength(5);
+    // Eight clean files show by default (the quarantined one is excluded): the four seeded
+    // documents, the committed zip that browsing inside an archive needs, and the three sample
+    // PDFs an exhibit list and a Bates range count pages in (src/files/dev-sample-files.ts).
+    expect(list.data).toHaveLength(8);
     for (const file of list.data) {
       expect(file.currentVersionId).not.toBeNull();
       expect(file.status).toBe("clean");
@@ -106,7 +107,7 @@ describe("dev seed route", () => {
     );
     expect(withQuarantined.status).toBe(200);
     const widened = (await withQuarantined.json()) as { data: FileSummary[] };
-    expect(widened.data).toHaveLength(6);
+    expect(widened.data).toHaveLength(9);
     const quarantined = widened.data.find((file) => file.status === "quarantined");
     expect(quarantined).toBeDefined();
     expect(quarantined?.currentVersionId).toBeNull();
