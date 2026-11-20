@@ -1,6 +1,6 @@
 # File Workbench — CLAUDE.md
 
-**Purpose.** The surface a file that belongs to no matter is brought to, and every file capability is run from. A sidebar destination in the Firm group at `/file-workbench`, not a screen inside the Tools area: the ten file utilities in the tool catalog are this screen's own capability tabs, so the host does not belong filed among the things it hosts. One drop, and Type, Hash, Malware Scan, Metadata, Email, Convert, Repair, Text Recognition, Unlock and AI Text all address the same bytes. The boundary is the file's lifetime: nothing here is filed, versioned, or remembered.
+**Purpose.** The surface a file that belongs to no matter is brought to, and every file capability is run from. A sidebar destination in the Firm group at `/file-workbench`, not a screen inside the Tools area: the ten file utilities in the tool catalog are this screen's own capability tabs, so the host does not belong filed among the things it hosts. One drop, and Type, Hash, Malware Scan, Metadata, Email, Convert, PDF, Repair, Text Recognition, Unlock and AI Text all address the same bytes. The boundary is the file's lifetime: nothing here is filed, versioned, or remembered.
 
 **White paper:** _Core domain_ — the Tools area and the file utilities.
 **Decision:** `docs/decisions/0415-a-file-nobody-trusts-is-the-reason-the-workbench-exists.md` (until the register assembles it on `main`).
@@ -20,6 +20,8 @@
 - `identify.ts` · `digest.ts` · `conversion-targets.ts` · `drop-target.svelte.ts` — DOM-free logic, each with its own test.
 - `file-rail.svelte` — the file list, as `DataTable.Grid`. `workbench.svelte` — the masthead, the grid, the panes and the tab strip. The route is thin: it supplies the source and the permissions and nothing else.
 - `workbench-preferences.svelte.ts` — whether the file is drawn, and on which side. Persisted, and held across capability tabs.
+- `capabilities/pdf.ts` + `panels/pdf-panel.svelte` + `pdf-reading.ts` — the PDF tab: a PDF's pages, form, password and Bates labels (read in the PDF Editor's worker, `summarize` in `$lib/pdf-editor/pdf-operations.worker.ts`), and the editor's tools with Open. `pdf-reading.ts` holds the words and which tools are shut, DOM-free and tested.
+- `bench-pdf-editor.svelte` — the PDF Editor on a bench file. The route draws it over the bench through shallow routing (`pushState`, `page.state.benchEditor`), with the bench hidden but mounted underneath. The seam is `$lib/pdf-editor/editor-subject.ts`: a bench subject reads the bench's own bytes and puts what a tool makes back on the bench through `onAddFiles`.
 
 ## Local conventions
 
@@ -60,4 +62,5 @@
 - **The grid lives in `workbench.svelte`, not in the rail.** The screen reads and drives its selection (which file the readings are about), and the list has to begin at the top of its pane — both need the grid one level up. There is no columns control on the screen to place: the column controls are the header's own right-click menu.
 - **Do not use the grid's `onRowContextMenu` to open a menu.** It calls `preventDefault`, which stops the very menu it is meant to summon. The rail re-targets from its own `oncontextmenu` on a presentational wrapper, which is the matter ledgers' pattern too. A `ContextMenu.Content` behind an `{#if}` on the target never renders either: the menu opens before the condition can become true.
 - **Discarding is a row's verb only.** No standing Discard button: one up there acts on whatever happens to be selected, and that is the button that throws away the wrong thing.
+- **The PDF Editor opens over the bench, never on a route of its own.** The bench's files live in the route component and nowhere else, so navigating to another route would clear the file being edited. A reload drops `page.state`, which is right: there is no file left to reopen. Bates and Signature need a matter; `toolAvailability` in `editor-subject.ts` is the one place that says so.
 - **Nothing is uploaded yet.** The masthead says so, and it is true — the readings that are real happen in the browser. When the firm-scoped scratch object lands, that line changes to the retention promise, and `ephemeral-source.svelte.ts` is the only module that has to.
