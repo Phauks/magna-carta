@@ -53,12 +53,15 @@
     source,
     permissions,
     capabilityId = $bindable(),
+    onOpenPdfEditor,
   }: {
     source: EphemeralFileSource;
     /** What the member holds. A capability they lack is hidden in place; nothing reorders. */
     permissions: ReadonlySet<Permission>;
     /** The capability on show. The address can name one, so a tool can open the bench on it. */
     capabilityId: string;
+    /** Open a file in the PDF Editor on one of its tools. The route draws the editor over the bench. */
+    onOpenPdfEditor?: (file: WorkbenchFile, tool: string) => void;
   } = $props();
 
   const preferences = new WorkbenchPreferences();
@@ -183,6 +186,7 @@
             files={capabilityFiles}
             onOpenCapability={openCapability}
             onAddFiles={(added) => void source.add(added)}
+            {onOpenPdfEditor}
           />
         {/if}
       </div>
