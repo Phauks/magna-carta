@@ -74,6 +74,19 @@ export type BillingValidationCode =
   // are about whether the row describes something that could have happened.
   | "invoice-delivery-invalid";
 
+/** The refusals that mean the thing named does not exist: a route answers each with a 404. */
+export const BILLING_NOT_FOUND_CODES: ReadonlySet<BillingValidationCode> =
+  new Set<BillingValidationCode>([
+    "unknown-invoice",
+    "unknown-invoice-line",
+    "unknown-invoice-claim",
+    "unknown-matter-recovery",
+    "unknown-client-credit",
+    "unknown-invoice-application",
+    "unknown-deposit",
+    "unknown-deposit-file",
+  ]);
+
 export class BillingValidationError extends Error {
   constructor(
     readonly code: BillingValidationCode,

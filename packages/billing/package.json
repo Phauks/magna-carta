@@ -27,6 +27,7 @@
     "./delivery": "./src/delivery.ts",
     "./deposit": "./src/deposit.ts",
     "./deposit-reads": "./src/deposit-reads.ts",
+    "./contract": "./src/contract.ts",
     "./payment-methods": "./src/payment-methods.ts",
     "./close-precondition": "./src/close-precondition.ts",
     "./retainer": "./src/retainer.ts",

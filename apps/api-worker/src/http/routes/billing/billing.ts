@@ -5,7 +5,10 @@ import {
   isAccountRole,
   readAccountRoleMap,
 } from "@magna-carta/billing/account-roles";
-import { BillingValidationError } from "@magna-carta/billing/billing-validation";
+import {
+  BILLING_NOT_FOUND_CODES,
+  BillingValidationError,
+} from "@magna-carta/billing/billing-validation";
 import {
   addClaimsToDraft,
   createInvoiceDraft,
@@ -131,7 +134,7 @@ const CONFIGURE = "billing:configure" as const;
 // A real calendar date, not a shape. The bare regex accepts 2026-02-30 and next week alike; both
 // reach the ledger's own check at the finalize posting, and the aging read turns an unparseable
 // as-of date into NaN, which fails every bucket comparison and reports the whole receivable as 90+.
-export const civilDate = z
+const civilDate = z
   .string()
   .regex(CIVIL_DATE_PATTERN)
   .refine(isValidCalendarDate, { message: "not a calendar date" });
@@ -1741,16 +1744,7 @@ export function billingErrorResponse(
   c: Context,
   error: BillingValidationError,
 ): ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> {
-  if (
-    error.code === "unknown-invoice" ||
-    error.code === "unknown-invoice-line" ||
-    error.code === "unknown-invoice-claim" ||
-    error.code === "unknown-matter-recovery" ||
-    error.code === "unknown-client-credit" ||
-    error.code === "unknown-invoice-application" ||
-    error.code === "unknown-deposit" ||
-    error.code === "unknown-deposit-file"
-  ) {
+  if (BILLING_NOT_FOUND_CODES.has(error.code)) {
     return problemJson(c, {
       type: "not-found",
       title: "Not found",

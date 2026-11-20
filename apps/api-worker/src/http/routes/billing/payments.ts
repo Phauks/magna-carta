@@ -1,10 +1,17 @@
 import { z } from "@hono/zod-openapi";
 import {
+  Acknowledged,
+  DepositDetail,
+  DepositFileRequest,
+  DepositNoteRequest,
+  OpenBills,
+  RecordDepositAck,
+  RecordDepositRequest,
+} from "@magna-carta/billing/contract";
+import {
   composeDepositFile,
   composeDepositFileRemoval,
   composeDepositNote,
-  MAXIMUM_FEES_PER_DEPOSIT,
-  MAXIMUM_LINES_PER_DEPOSIT,
   recordPaymentDeposit,
 } from "@magna-carta/billing/deposit";
 import {
@@ -13,10 +20,8 @@ import {
   readPaymentDepositFile,
   receiptBelongsToDeposit,
 } from "@magna-carta/billing/deposit-reads";
-import { PAYMENT_METHODS } from "@magna-carta/billing/payment-methods";
 import { readFirmScanPolicy } from "@magna-carta/file-manager/scan-policy-settings";
 import { computeVerdict, ScanFaultError } from "@magna-carta/file-manager/verdict";
-import { identifierField } from "@magna-carta/identifiers/field";
 import type {
   LedgerAccountId,
   PaymentDepositFileId,
@@ -35,7 +40,6 @@ import { decodeBase64, sha256Hex } from "../shared/image-bytes.ts";
 import {
   APPLY,
   type BillingApp,
-  civilDate,
   clockOptions,
   mutationResponses,
   readErrorResponses,
@@ -57,136 +61,6 @@ const depositParam = z.object({ depositId: identifierPathParam("paymentDeposit",
 const fileParam = depositParam.extend({
   fileId: identifierPathParam("paymentDepositFile", "fileId"),
 });
-
-const text = (max: number) => z.string().max(max);
-
-const DepositLine = z.object({
-  invoiceId: identifierField("invoice"),
-  matterId: identifierField("matter"),
-  amountMinor: z.number().int().positive(),
-  method: z.enum(PAYMENT_METHODS),
-  reference: text(200).nullable().optional(),
-  receivedFrom: text(200),
-  receivedOn: civilDate,
-  memo: text(200).nullable().optional(),
-  details: z
-    .record(z.string(), z.union([z.string(), z.record(z.string(), z.number().int()), z.null()]))
-    .optional(),
-  note: text(4000).nullable().optional(),
-});
-
-const RecordDepositRequest = z
-  .object({
-    depositToAccountId: identifierField("ledgerAccount"),
-    depositedOn: civilDate,
-    slipNumber: text(200).nullable().optional(),
-    lines: z.array(DepositLine).min(1).max(MAXIMUM_LINES_PER_DEPOSIT),
-    fees: z
-      .array(z.object({ description: text(200), amountMinor: z.number().int().positive() }))
-      .max(MAXIMUM_FEES_PER_DEPOSIT)
-      .optional(),
-    note: text(4000).nullable().optional(),
-  })
-  .openapi("BillingRecordDepositRequest");
-
-const RecordDepositAck = z
-  .object({ depositId: z.string(), receiptIds: z.array(z.string()) })
-  .openapi("BillingRecordDepositAck");
-
-const DepositDetail = z
-  .object({
-    id: z.string(),
-    depositToAccountId: z.string(),
-    depositToName: z.string(),
-    depositedOn: z.string(),
-    slipNumber: z.string().nullable(),
-    currency: z.string(),
-    paymentsMinor: z.number().int(),
-    feesMinor: z.number().int(),
-    depositMinor: z.number().int(),
-    recordedBy: z.string().nullable(),
-    recordedAt: z.string(),
-    lines: z.array(
-      z.object({
-        receiptId: z.string(),
-        lineNumber: z.number().int(),
-        invoiceId: z.string(),
-        invoiceNumber: z.string().nullable(),
-        matterId: z.string(),
-        matterNumber: z.string().nullable(),
-        matterTitle: z.string(),
-        method: z.enum(PAYMENT_METHODS),
-        reference: z.string().nullable(),
-        receivedFrom: z.string(),
-        receivedOn: z.string(),
-        amountMinor: z.number().int(),
-        memo: z.string().nullable(),
-        details: z.record(z.string(), z.union([z.string(), z.record(z.string(), z.number())])),
-        reversed: z.boolean(),
-      }),
-    ),
-    fees: z.array(
-      z.object({
-        lineNumber: z.number().int(),
-        description: z.string(),
-        amountMinor: z.number().int(),
-      }),
-    ),
-    notes: z.array(
-      z.object({
-        id: z.string(),
-        receiptId: z.string().nullable(),
-        body: z.string(),
-        writtenBy: z.string().nullable(),
-        writtenAt: z.string(),
-      }),
-    ),
-    files: z.array(
-      z.object({
-        id: z.string(),
-        receiptId: z.string().nullable(),
-        kind: z.enum(["scan", "file"]),
-        name: z.string(),
-        contentType: z.string(),
-        sizeBytes: z.number().int(),
-        recordedAt: z.string(),
-      }),
-    ),
-  })
-  .openapi("BillingDepositDetail");
-
-const OpenBills = z
-  .object({
-    bills: z.array(
-      z.object({
-        invoiceId: z.string(),
-        invoiceNumber: z.string().nullable(),
-        issueDate: z.string().nullable(),
-        matterId: z.string(),
-        matterNumber: z.string().nullable(),
-        matterTitle: z.string(),
-        clientName: z.string().nullable(),
-        currency: z.string(),
-        owedMinor: z.number().int(),
-      }),
-    ),
-  })
-  .openapi("BillingOpenBills");
-
-const DepositNoteRequest = z
-  .object({ receiptId: identifierField("paymentReceipt").nullable().optional(), body: text(4000) })
-  .openapi("BillingDepositNoteRequest");
-
-const DepositFileRequest = z
-  .object({
-    receiptId: identifierField("paymentReceipt").nullable().optional(),
-    kind: z.enum(["scan", "file"]),
-    name: text(200).min(1),
-    dataBase64: z.string(),
-  })
-  .openapi("BillingDepositFileRequest");
-
-const Acknowledged = z.object({ id: z.string() }).openapi("BillingDepositAcknowledged");
 
 const recordDepositRoute = defineOpenAPIRoute(writeMeta("billing.recordDeposit", APPLY), {
   method: "post",

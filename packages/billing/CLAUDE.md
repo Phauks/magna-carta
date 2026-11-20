@@ -69,6 +69,8 @@ ADR-0072, ADR-0079.) **Invariants:**
 - `src/payment-methods.ts` — the method catalog and `checkPaymentDetails`, the field-by-field
   authority over each method's details and the cash count. The web copy in
   `apps/web/src/lib/payments/payment-methods.ts` must match it key for key
+- `src/contract.ts` — the deposit routes' request and response shapes, as plain zod named with
+  `.meta({ id })`; the route module in `apps/api-worker` declares its routes over these
 - `src/delivery.ts` — `recordInvoiceDelivery`: one append-only attempt at getting a bill to its
   client, and the `billing.invoice.delivered` topic. The delivery-state reads live in
   `src/statements.ts` (`readInvoiceDeliveries`, `readInvoiceDeliveryState`, and the batched
