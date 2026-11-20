@@ -1919,6 +1919,9 @@ export const NO_PII_TABLES: readonly string[] = [
   // A Bates range: a matter, a prefix, two numbers, file handles and firm-member provenance. A prefix
   // can be a party's name ("SMITH"), the same free-text residue class as a set's name above.
   "bates_range",
+  // A Bates log: a matter, a name, a prefix, a padding and firm-member provenance. The name and
+  // prefix can name a party ("Smith Production"), the same free-text residue class as above.
+  "bates_log",
   // A note's link to one of the matter's files: two handles, an instant, and firm-member provenance
   // (linked_by). Whose document it is resolves through the file and the matter, never through a
   // column here — the same shape matter_asset_document sits in directly above.

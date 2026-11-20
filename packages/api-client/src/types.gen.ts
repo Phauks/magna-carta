@@ -6184,18 +6184,38 @@ export type ContinueExhibitSetRequest = {
     name: string;
 };
 
-export type BatesPrefixList = {
-    data: Array<BatesPrefixSummary>;
+export type BatesLogList = {
+    data: Array<BatesLogSummary>;
     capped: boolean;
 };
 
-export type BatesPrefixSummary = {
+export type BatesLogSummary = {
+    id: string;
+    name: string;
     prefix: string;
     digits: number;
     nextNumber: number;
     rangeCount: number;
     pagesStamped: number;
-    lastStampedAt: string;
+    lastStampedAt: string | null;
+    createdAt: string;
+};
+
+export type BatesLogRecord = {
+    id: string;
+    name: string;
+    prefix: string;
+    digits: number;
+};
+
+export type CreateBatesLogRequest = {
+    name: string;
+    prefix: string;
+    digits: number;
+};
+
+export type RenameBatesLogRequest = {
+    name: string;
 };
 
 export type BatesRangeList = {
@@ -6205,6 +6225,8 @@ export type BatesRangeList = {
 
 export type BatesRange = {
     id: string;
+    logId: string | null;
+    logName: string | null;
     prefix: string;
     digits: number;
     firstNumber: number;
@@ -6223,6 +6245,7 @@ export type BatesRange = {
 
 export type TakenBatesRange = {
     id: string;
+    logId: string;
     prefix: string;
     digits: number;
     firstNumber: number;
@@ -6230,8 +6253,7 @@ export type TakenBatesRange = {
 };
 
 export type TakeBatesRangeRequest = {
-    prefix: string;
-    digits: number;
+    logId: string;
     pageCount: number;
     firstNumber?: number;
     purpose: 'pdfEditor' | 'exhibitPackage';
@@ -31795,16 +31817,16 @@ export type ExhibitsContinueExhibitSetResponses = {
 
 export type ExhibitsContinueExhibitSetResponse = ExhibitsContinueExhibitSetResponses[keyof ExhibitsContinueExhibitSetResponses];
 
-export type BatesListBatesPrefixesData = {
+export type BatesListBatesLogsData = {
     body?: never;
     path: {
         matterId: string;
     };
     query?: never;
-    url: '/api/v1/matters/{matterId}/bates-prefixes';
+    url: '/api/v1/matters/{matterId}/bates-logs';
 };
 
-export type BatesListBatesPrefixesErrors = {
+export type BatesListBatesLogsErrors = {
     /**
      * No valid session
      */
@@ -31814,7 +31836,7 @@ export type BatesListBatesPrefixesErrors = {
      */
     403: Problem;
     /**
-     * The matter, file, exhibit set or range is unknown on this matter
+     * The matter, Bates log, file, exhibit set or range is unknown on this matter
      */
     404: Problem;
     /**
@@ -31823,16 +31845,125 @@ export type BatesListBatesPrefixesErrors = {
     429: Problem;
 };
 
-export type BatesListBatesPrefixesError = BatesListBatesPrefixesErrors[keyof BatesListBatesPrefixesErrors];
+export type BatesListBatesLogsError = BatesListBatesLogsErrors[keyof BatesListBatesLogsErrors];
 
-export type BatesListBatesPrefixesResponses = {
+export type BatesListBatesLogsResponses = {
     /**
-     * The matter's Bates prefixes
+     * The matter's Bates logs
      */
-    200: BatesPrefixList;
+    200: BatesLogList;
 };
 
-export type BatesListBatesPrefixesResponse = BatesListBatesPrefixesResponses[keyof BatesListBatesPrefixesResponses];
+export type BatesListBatesLogsResponse = BatesListBatesLogsResponses[keyof BatesListBatesLogsResponses];
+
+export type BatesCreateBatesLogData = {
+    body: CreateBatesLogRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/bates-logs';
+};
+
+export type BatesCreateBatesLogErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The matter, Bates log, file, exhibit set or range is unknown on this matter
+     */
+    404: Problem;
+    /**
+     * Some number in the range is already stamped in that log, another log has that name, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type BatesCreateBatesLogError = BatesCreateBatesLogErrors[keyof BatesCreateBatesLogErrors];
+
+export type BatesCreateBatesLogResponses = {
+    /**
+     * The log started
+     */
+    201: BatesLogRecord;
+};
+
+export type BatesCreateBatesLogResponse = BatesCreateBatesLogResponses[keyof BatesCreateBatesLogResponses];
+
+export type BatesRenameBatesLogData = {
+    body: RenameBatesLogRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+        logId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/bates-logs/{logId}';
+};
+
+export type BatesRenameBatesLogErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The matter, Bates log, file, exhibit set or range is unknown on this matter
+     */
+    404: Problem;
+    /**
+     * Some number in the range is already stamped in that log, another log has that name, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type BatesRenameBatesLogError = BatesRenameBatesLogErrors[keyof BatesRenameBatesLogErrors];
+
+export type BatesRenameBatesLogResponses = {
+    /**
+     * The log renamed
+     */
+    200: BatesLogRecord;
+};
+
+export type BatesRenameBatesLogResponse = BatesRenameBatesLogResponses[keyof BatesRenameBatesLogResponses];
 
 export type BatesListBatesRangesData = {
     body?: never;
@@ -31841,7 +31972,7 @@ export type BatesListBatesRangesData = {
     };
     query?: {
         cursor?: string;
-        prefix?: string;
+        logId?: string;
     };
     url: '/api/v1/matters/{matterId}/bates-ranges';
 };
@@ -31856,7 +31987,7 @@ export type BatesListBatesRangesErrors = {
      */
     403: Problem;
     /**
-     * The matter, file, exhibit set or range is unknown on this matter
+     * The matter, Bates log, file, exhibit set or range is unknown on this matter
      */
     404: Problem;
     /**
@@ -31902,11 +32033,11 @@ export type BatesTakeBatesRangeErrors = {
      */
     403: Problem;
     /**
-     * The matter, file, exhibit set or range is unknown on this matter
+     * The matter, Bates log, file, exhibit set or range is unknown on this matter
      */
     404: Problem;
     /**
-     * Some number in the range is already stamped under that prefix, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress
+     * Some number in the range is already stamped in that log, another log has that name, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress
      */
     409: Problem;
     /**
@@ -31957,11 +32088,11 @@ export type BatesRecordBatesStampedFileErrors = {
      */
     403: Problem;
     /**
-     * The matter, file, exhibit set or range is unknown on this matter
+     * The matter, Bates log, file, exhibit set or range is unknown on this matter
      */
     404: Problem;
     /**
-     * Some number in the range is already stamped under that prefix, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress
+     * Some number in the range is already stamped in that log, another log has that name, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress
      */
     409: Problem;
     /**

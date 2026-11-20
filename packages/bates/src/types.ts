@@ -9,11 +9,12 @@ export const BATES_PURPOSES = ["pdfEditor", "exhibitPackage"] as const;
 export type BatesPurpose = (typeof BATES_PURPOSES)[number];
 
 export const MAX_PREFIX_LENGTH = 40;
+export const MAX_LOG_NAME_LENGTH = 120;
 export const MIN_DIGITS = 1;
 export const MAX_DIGITS = 12;
 export const DEFAULT_DIGITS = 6;
 
-/** The first number under a prefix nothing has stamped yet. */
+/** The first number in a log nothing has stamped from yet. */
 export const DEFAULT_FIRST_NUMBER = 1;
 
 /** The most pages one range covers. A trial package of several thousand pages fits. */
