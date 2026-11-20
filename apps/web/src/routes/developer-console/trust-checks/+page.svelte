@@ -37,9 +37,9 @@
   );
 
   function show(next: { screen?: string }): void {
-    const url = new URL(page.url);
+    const url = new URL(page.url.href);
     if (next.screen !== undefined) url.searchParams.set("screen", next.screen);
-    void goto(url, { replaceState: true, noScroll: true });
+    void goto(url, { replace: true, reset: false });
   }
 </script>
 

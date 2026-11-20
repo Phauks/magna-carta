@@ -214,10 +214,10 @@
       ? { from: today, to: today, label: formatDate(today) }
       : reportPeriodPreset("month", today),
   );
-  const scope = $derived(readReportScope(page.url.searchParams, defaultPeriod));
+  const scope = $derived(readReportScope(new URLSearchParams(page.url.search), defaultPeriod));
 
   function goToScope(next: ReportScope): void {
-    replaceState(writeReportScope(page.url, next), page.state);
+    replaceState(writeReportScope(new URL(page.url.href), next), page.state);
   }
 
   // ---- the office: a filter, never a gate --------------------------------------------------------
