@@ -17,10 +17,11 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import MatterPicker from "$lib/time/matter-picker.svelte";
+  import type { SheetMatter } from "$lib/time/time-sheet-model.ts";
   import { createMatterEvent } from "./calendar-api.ts";
-  import type { calendarContext } from "./calendar-context.svelte.ts";
+  import type { EventType } from "./calendar-api.ts";
   import { UNTITLED_OWN_EVENT_LABEL } from "./calendar-entries.ts";
-  import { calendarManageRefusal } from "./calendar-permission.ts";
+  import { calendarManageRefusal, type CalendarSessionState } from "./calendar-permission.ts";
   import EventTypeSelect from "./event-type-select.svelte";
   import type { OwnAccountEvent } from "./own-account-events.ts";
   import {
@@ -41,7 +42,18 @@
     open?: boolean;
     /** The reader's own event the window is on. Null draws nothing; the host opens it on one. */
     event: OwnAccountEvent | null;
-    context: typeof calendarContext;
+    /**
+     * What the window needs of the calendar's read-once context: the session's standing, the type
+     * catalog, the firm's matters and the reader. The context itself fits; so does a fixture.
+     */
+    context: CalendarSessionState & {
+      readonly eventTypes: readonly EventType[];
+      readonly matters: readonly SheetMatter[];
+      readonly mattersCapped: boolean;
+      readonly mattersReading: boolean;
+      readonly readerTimeZone: string;
+      readonly memberId: string | null;
+    };
     /** The event is on a matter now, so the grid reads again. */
     onAdded: () => void;
   } = $props();
@@ -135,7 +147,7 @@
           <DefinitionList.Row term="From">{ownEventSource(event)}</DefinitionList.Row>
         </DefinitionList.Root>
 
-        <div class="grid gap-16 sm:grid-cols-2">
+        <div class="flex flex-col gap-16">
           <div class="flex flex-col gap-8">
             <Label necessity="required" for="{idPrefix}-matter">Matter</Label>
             <MatterPicker
