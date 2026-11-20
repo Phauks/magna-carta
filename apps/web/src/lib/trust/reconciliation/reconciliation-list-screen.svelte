@@ -30,7 +30,7 @@
   import type { ReconciliationService } from "./reconciliation-service.ts";
   import { LIST_COLUMNS, listColumns } from "./reconciliation-columns.ts";
   import { statusLabel, statusOf, statusTone } from "./reconciliation-model.ts";
-  import { readLive } from "./live-read.ts";
+  import { readLive } from "$lib/screen/live-read.ts";
   import ReconciliationNewDialog from "./reconciliation-new-dialog.svelte";
 
   type ListFilter = "all" | "in-progress" | "finished" | "review";

@@ -20,6 +20,7 @@ export const EXTERNAL_CALENDAR_EVENT_TABLE = "external_calendar_event";
 export interface ShownCalendarRow {
   readonly calendar_remote_id: string;
   readonly calendar_name: string;
+  readonly share_busy: number;
 }
 
 export function selectShownCalendarsStatement(
@@ -28,7 +29,7 @@ export function selectShownCalendarsStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT calendar_remote_id, calendar_name FROM ${CALENDAR_SYNC_SHOWN_CALENDAR_TABLE} WHERE connection_id = ?1 ORDER BY calendar_name, calendar_remote_id`,
+      `SELECT calendar_remote_id, calendar_name, share_busy FROM ${CALENDAR_SYNC_SHOWN_CALENDAR_TABLE} WHERE connection_id = ?1 ORDER BY calendar_name, calendar_remote_id`,
     )
     .bind(connectionId);
 }
@@ -46,14 +47,14 @@ export function deleteShownCalendarsStatement(
 export function insertShownCalendarStatement(
   database: SqlDatabase,
   connectionId: IntegrationConnectionId,
-  calendar: { readonly remoteId: string; readonly name: string },
+  calendar: { readonly remoteId: string; readonly name: string; readonly shareBusy: boolean },
   now: string,
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${CALENDAR_SYNC_SHOWN_CALENDAR_TABLE} (connection_id, calendar_remote_id, calendar_name, created_at) VALUES (?1, ?2, ?3, ?4)`,
+      `INSERT INTO ${CALENDAR_SYNC_SHOWN_CALENDAR_TABLE} (connection_id, calendar_remote_id, calendar_name, created_at, share_busy) VALUES (?1, ?2, ?3, ?4, ?5)`,
     )
-    .bind(connectionId, calendar.remoteId, calendar.name, now);
+    .bind(connectionId, calendar.remoteId, calendar.name, now, calendar.shareBusy ? 1 : 0);
 }
 
 // One event as a pass read it. A whole-day event is civil days with an inclusive last day. A timed
