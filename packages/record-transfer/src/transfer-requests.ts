@@ -38,6 +38,9 @@ export const TRANSFER_RUN_STARTED_EVENT = "recordTransfer.run_started";
 export const TRANSFER_SOURCE_FILE_REGISTERED_EVENT = "recordTransfer.source_file_registered";
 export const TRANSFER_PASS_REQUESTED_EVENT = "recordTransfer.pass_requested";
 
+export const TRANSFER_SOURCE_FILE_UPLOAD_STARTED_EVENT =
+  "recordTransfer.source_file_upload_started";
+export const TRANSFER_SOURCE_FILE_PART_RECEIVED_EVENT = "recordTransfer.source_file_part_received";
 export const TRANSFER_FILE_MAPPING_SAVED_EVENT = "recordTransfer.file_mapping_saved";
 export const TRANSFER_RUN_ACCEPTED_EVENT = "recordTransfer.run_accepted";
 export const TRANSFER_RUN_ABANDONED_EVENT = "recordTransfer.run_abandoned";
@@ -129,6 +132,33 @@ export function requestTransferPassEffect(
       }),
     ],
     outboxMessages: [{ topic: TRANSFER_PASS_REQUESTED_TOPIC, payload: { ...payload } }],
+  };
+}
+
+// A file given in pieces has no row until its last piece is in and the pieces are joined. These two
+// audit rows are the only record of the steps before that: who began the upload, and each piece
+// that arrived. They name the file's identifier and a piece's number, nothing of its content.
+export function transferFileUploadStepEffect(
+  database: SqlDatabase,
+  step: {
+    readonly fileId: TransferSourceFileId;
+    readonly transferRunId: TransferRunId;
+    readonly partNumber?: number;
+  },
+  actor: Actor,
+): EffectWrite {
+  return {
+    statements: [
+      step.partNumber === undefined
+        ? audit(database, actor, TRANSFER_SOURCE_FILE_UPLOAD_STARTED_EVENT, step.fileId, {
+            transferRunId: step.transferRunId,
+          })
+        : audit(database, actor, TRANSFER_SOURCE_FILE_PART_RECEIVED_EVENT, step.fileId, {
+            transferRunId: step.transferRunId,
+            partNumber: String(step.partNumber),
+          }),
+    ],
+    outboxMessages: [],
   };
 }
 

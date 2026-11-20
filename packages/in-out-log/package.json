@@ -1,0 +1,34 @@
+{
+  "name": "@magna-carta/in-out-log",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./types": "./src/types.ts",
+    "./validation": "./src/validation.ts",
+    "./numbering": "./src/numbering.ts",
+    "./entry-statements": "./src/entry-statements.ts",
+    "./entry-service": "./src/entry-service.ts",
+    "./contract": "./src/contract.ts",
+    "./presentation": "./src/presentation.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/calendar": "workspace:*",
+    "@magna-carta/civil-time": "workspace:*",
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/sequence-numbering": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "drizzle-orm": "catalog:",
+    "vitest": "catalog:"
+  }
+}

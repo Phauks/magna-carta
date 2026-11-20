@@ -3,11 +3,11 @@
    * The PDF Editor's Bates tab: set up the numbering, see it on the first and last page, and stamp
    * a numbered copy filed beside the original.
    *
-   * The numbers come from the matter's Bates register. The tab opens on the prefix last stamped on
-   * the matter with its next number filled in, and changing the prefix moves the first number to
-   * that prefix's next one. Before stamping, the tab takes the range from the register, so a number
-   * already stamped on this matter under the prefix is refused rather than printed twice, and once
-   * the copy is saved it records which file carries the range.
+   * The numbers come from one of the matter's Bates logs. The tab opens on the log used last with
+   * its next number filled in, and picking another log moves the prefix, the padding and the first
+   * number to that log's. A new log is started when the stamp is made. Before stamping, the tab
+   * takes the range from the log, so a number already stamped in that log is refused rather than
+   * printed twice, and once the copy is saved it records which file carries the range.
    *
    * The preview draws the label over the page in the browser; it is a guide to where the label
    * goes and how large it reads, not the engine's own output. The engine draws the real label in a
@@ -27,11 +27,14 @@
   import { PdfDocumentSource, pageDisplaySize, renderDpiFor, type PdfPageSize } from "$lib/documents/pdf-pages.ts";
   import type { MatterFile } from "$lib/file-manager/matter-file-api.ts";
   import {
-    listBatesPrefixes,
+    listBatesLogs,
     recordBatesStampedFile,
+    resolveBatesLog,
     takeBatesRange,
-    type BatesPrefixSummary,
+    type BatesLogChoice,
+    type BatesLogSummary,
   } from "$lib/bates/bates-api.ts";
+  import BatesLogPicker, { newLogProblems, openingChoice } from "$lib/bates/bates-log-picker.svelte";
   import {
     BATES_LIMITS,
     BATES_POSITIONS,
@@ -46,6 +49,7 @@
     type BatesTypeface,
   } from "./bates.ts";
   import { fileMadeDocument, openEditorDocument, type Filed } from "./editor-document.ts";
+  import { matterSubject } from "./editor-subject.ts";
   import { describeOperationFailure, runPdfOperation } from "./pdf-operations.ts";
 
   let { file }: { file: MatterFile } = $props();
@@ -73,9 +77,15 @@
   let result = $state<Result>({ kind: "idle" });
   let firstCanvas = $state<HTMLCanvasElement | null>(null);
   let lastCanvas = $state<HTMLCanvasElement | null>(null);
-  /** The matter's prefixes and the next number under each. Empty until read, and on a new matter. */
-  let register = $state<readonly BatesPrefixSummary[]>([]);
-  /** Set once the reader types a first number, so changing the prefix no longer replaces it. */
+  /** What a first log on a matter is called until the reader names it. */
+  const FIRST_LOG_NAME = "Bates Numbers";
+
+  /** The matter's Bates logs and the next number in each. Empty until read, and on a new matter. */
+  let logs = $state<readonly BatesLogSummary[]>([]);
+  let choice = $state<BatesLogChoice>(openingChoice([], null, FIRST_LOG_NAME));
+  /** Set once the reader picks a log, so the list arriving late does not move them off it. */
+  let picked = $state(false);
+  /** Set once the reader types a first number, so picking another log no longer replaces it. */
   let startTyped = $state(false);
 
   let source: PdfDocumentSource | null = null;
@@ -83,28 +93,38 @@
   let gone = false;
 
   const problems = $derived(batesProblems(settings));
-  const ready = $derived(Object.keys(problems).length === 0);
+  const ready = $derived(
+    Object.keys(problems).length === 0 && Object.keys(newLogProblems(choice, logs)).length === 0,
+  );
   const range = $derived(batesRange(settings, sizes.length));
-  const registerNext = $derived(nextOnRegister(settings.prefix));
+  /** One past the highest number stamped in the chosen log, or 1 for a new log. */
+  const logNext = $derived(choice.kind === "log" ? choice.log.nextNumber : 1);
+  const logName = $derived(choice.kind === "log" ? choice.log.name : choice.name.trim());
 
-  /** One past the highest number stamped under the prefix on this matter, or 1 for a new prefix. */
-  function nextOnRegister(prefix: string): number {
-    return register.find((entry) => entry.prefix === prefix)?.nextNumber ?? 1;
+  /** The prefix, padding and (unless typed) first number follow the chosen log. */
+  function follow(next: BatesLogChoice): void {
+    const log = next.kind === "log" ? next.log : next;
+    settings = {
+      ...settings,
+      prefix: log.prefix,
+      digits: log.digits,
+      ...(startTyped ? {} : { startNumber: next.kind === "log" ? next.log.nextNumber : 1 }),
+    };
+    if (result.kind !== "stamping") result = { kind: "idle" };
   }
 
-  async function readRegister(): Promise<void> {
-    const outcome = await listBatesPrefixes(fetch, file.matterId);
+  function choose(next: BatesLogChoice): void {
+    picked = true;
+    follow(next);
+  }
+
+  async function readLogs(): Promise<void> {
+    const outcome = await listBatesLogs(fetch, file.matterId);
     if (gone || outcome.kind !== "ok") return;
-    register = outcome.value;
-    const latest = outcome.value[0];
-    if (latest !== undefined && !startTyped && settings.prefix === DEFAULT_BATES.prefix) {
-      settings = {
-        ...settings,
-        prefix: latest.prefix,
-        digits: latest.digits,
-        startNumber: latest.nextNumber,
-      };
-    }
+    logs = outcome.value;
+    if (picked) return;
+    choice = openingChoice(outcome.value, null, FIRST_LOG_NAME);
+    follow(choice);
   }
   const lastIndex = $derived(Math.max(0, sizes.length - 1));
   const typefaceClass: Record<BatesTypeface, string> = {
@@ -131,7 +151,7 @@
 
   async function open(): Promise<void> {
     const opened = await openEditorDocument(
-      file,
+      matterSubject(file),
       "This document has a password. Unlock it in the File Workbench, save the unlocked copy, and number that.",
     );
     if (gone) {
@@ -150,7 +170,7 @@
 
   onMount(() => {
     void open();
-    void readRegister();
+    void readLogs();
     return () => {
       gone = true;
       source?.close();
@@ -169,12 +189,7 @@
 
   function update(change: Partial<BatesSettings>): void {
     if (change.startNumber !== undefined) startTyped = true;
-    const followsRegister = change.prefix !== undefined && !startTyped;
-    settings = {
-      ...settings,
-      ...change,
-      ...(followsRegister ? { startNumber: nextOnRegister(change.prefix ?? "") } : {}),
-    };
+    settings = { ...settings, ...change };
     if (result.kind !== "stamping") result = { kind: "idle" };
   }
 
@@ -199,13 +214,31 @@
   async function stamp(): Promise<void> {
     if (original === null || !ready || result.kind === "stamping") return;
     result = { kind: "stamping" };
-    // A typed start is asked for as typed; otherwise the register hands out its next number, which
-    // is the one shown unless another stamp took it a moment ago.
+    const log = await resolveBatesLog(fetch, file.matterId, choice);
+    if (gone) return;
+    if (log.kind !== "ok") {
+      result = {
+        kind: "refused",
+        failure: stated(log.failure, "The Bates log couldn't be started.", "Couldn't connect, so nothing was numbered."),
+      };
+      return;
+    }
+    const started = choice.kind === "new";
+    let current: BatesLogSummary =
+      choice.kind === "log"
+        ? choice.log
+        : { ...log.value, nextNumber: 1, rangeCount: 0, pagesStamped: 0, lastStampedAt: null, createdAt: new Date().toISOString() };
+    if (started) {
+      // Started now, so a second try uses it rather than asking to start it again.
+      logs = [current, ...logs];
+      choice = { kind: "log", log: current };
+    }
+    // A typed start is asked for as typed; otherwise the log hands out its next number, which is
+    // the one shown unless another stamp took it a moment ago.
     const taken = await takeBatesRange(fetch, file.matterId, {
-      prefix: settings.prefix,
-      digits: settings.digits,
+      logId: current.id,
       pageCount: Math.max(sizes.length, 1),
-      ...(settings.startNumber === registerNext ? {} : { firstNumber: settings.startNumber }),
+      ...(settings.startNumber === current.nextNumber ? {} : { firstNumber: settings.startNumber }),
       purpose: "pdfEditor",
       sourceFileId: file.id,
     });
@@ -249,7 +282,7 @@
       return;
     }
     const filed = await fileMadeDocument(
-      file,
+      matterSubject(file),
       made,
       batesCopyName(file.name, stampedRange.first, stampedRange.last),
     );
@@ -257,19 +290,16 @@
       await recordBatesStampedFile(fetch, file.matterId, taken.value.id, filed.fileId);
     }
     if (gone) return;
-    const next = taken.value.lastNumber + 1;
-    const before = register.find((entry) => entry.prefix === settings.prefix);
-    register = [
-      {
-        prefix: settings.prefix,
-        digits: settings.digits,
-        nextNumber: next,
-        rangeCount: (before?.rangeCount ?? 0) + 1,
-        pagesStamped: (before?.pagesStamped ?? 0) + taken.value.lastNumber - taken.value.firstNumber + 1,
-        lastStampedAt: new Date().toISOString(),
-      },
-      ...register.filter((entry) => entry !== before),
-    ];
+    const next = Math.max(current.nextNumber, taken.value.lastNumber + 1);
+    current = {
+      ...current,
+      nextNumber: next,
+      rangeCount: current.rangeCount + 1,
+      pagesStamped: current.pagesStamped + taken.value.lastNumber - taken.value.firstNumber + 1,
+      lastStampedAt: new Date().toISOString(),
+    };
+    logs = [current, ...logs.filter((entry) => entry.id !== current.id)];
+    choice = { kind: "log", log: current };
     settings = { ...settings, startNumber: next };
     startTyped = false;
     result = { kind: "done", filed, next };
@@ -308,23 +338,12 @@
 {:else}
   <div class="flex min-h-0 flex-1">
     <aside aria-label="Bates numbering" class="mc-scrollbar flex min-h-0 w-full shrink-0 md:w-sm flex-col gap-16 overflow-auto border-e border-border-default bg-surface-default p-16">
-      <FieldRow columns={2}>
-        <LabelledField necessity="optional" label="Prefix" error={problems.prefix}>
-          {#snippet children({ props })}
-            <Input {...props} value={settings.prefix} placeholder="SMITH-" oninput={(event) => update({ prefix: event.currentTarget.value })} />
-          {/snippet}
-        </LabelledField>
-        <LabelledField necessity="optional" label="Suffix" error={problems.suffix}>
-          {#snippet children({ props })}
-            <Input {...props} value={settings.suffix} oninput={(event) => update({ suffix: event.currentTarget.value })} />
-          {/snippet}
-        </LabelledField>
-      </FieldRow>
+      <BatesLogPicker {logs} bind:choice disabled={result.kind === "stamping"} onchange={choose} />
       <FieldRow columns={2}>
         <LabelledField
           necessity="required"
           label="First Number"
-          hint={settings.startNumber === registerNext ? "Next on this matter" : `Next on this matter is ${String(registerNext)}`}
+          hint={settings.startNumber === logNext ? "Next in this log" : `Next in this log is ${String(logNext)}`}
           error={problems.startNumber}
         >
           {#snippet children({ props })}
@@ -338,17 +357,9 @@
             />
           {/snippet}
         </LabelledField>
-        <LabelledField necessity="required" label="Digits" hint="Padded with zeros" error={problems.digits}>
+        <LabelledField necessity="optional" label="Suffix" error={problems.suffix}>
           {#snippet children({ props })}
-            <Input
-              {...props}
-              type="number"
-              min={String(BATES_LIMITS.digits.min)}
-              max={String(BATES_LIMITS.digits.max)}
-              class="tabular-nums"
-              value={String(settings.digits)}
-              oninput={(event) => update({ digits: whole(event.currentTarget.value, settings.digits) })}
-            />
+            <Input {...props} value={settings.suffix} oninput={(event) => update({ suffix: event.currentTarget.value })} />
           {/snippet}
         </LabelledField>
       </FieldRow>
@@ -417,7 +428,7 @@
           <Alert.Root variant="success">
             <Alert.Title>Saved {result.filed.name}</Alert.Title>
             <Alert.Description>
-              The original is unchanged. The next stamp under this prefix starts at
+              The original is unchanged. The next stamp in {logName} starts at
               <span class="tabular-nums">{batesLabel(settings, result.next)}</span>.
             </Alert.Description>
             <Button variant="secondary" size="sm" class="self-start" href={viewerHref(result.filed.fileId)}>Open the Numbered Copy</Button>
@@ -445,7 +456,7 @@
           <Hash class="size-16" aria-hidden="true" />
           {result.kind === "stamping" ? "Numbering" : "Number the Pages"}
         </Button>
-        <p class="text-center text-xs text-text-muted">Saves a numbered copy beside the original, which stays as it is. The numbers are logged on this matter and never used again.</p>
+        <p class="text-center text-xs text-text-muted">Saves a numbered copy beside the original, which stays as it is. The numbers are kept in the Bates log and never used again.</p>
       </div>
     </aside>
 

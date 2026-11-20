@@ -91,6 +91,11 @@ export const FIXTURE_GROUPS: readonly DevPageGroup[] = [
         note: "The Checks screen and the check stock editor over fixtures, in each state",
       },
       {
+        label: "Meeting encryption",
+        href: "/developer-console/meeting-encryption",
+        note: "The room's encryption mark, pause banner and Security tab, and Start's switch, in each state",
+      },
+      {
         label: "Trust reconciliation",
         href: "/developer-console/trust-reconciliation",
         note: "The Reconciliation list and one reconciliation over fixtures, ticking and all",

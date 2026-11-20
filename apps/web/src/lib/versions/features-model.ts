@@ -277,14 +277,13 @@ export const FEATURE_WORDS: Record<string, FeatureWords> = {
     deployQueueHeading: null,
   },
   signUpBotCheck: {
-    name: "Sign-up bot check",
+    name: "Bot check",
     group: "platform",
     steps: [
-      "Create the Turnstile widget first.",
-      "Then, on the magna-carta Worker, set the secret TURNSTILE_SECRET_KEY.",
+      "In the Cloudflare dashboard, open Turnstile and add a Managed widget for magnacarta.esq.",
+      "In the Secrets Store, create TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY from its two keys.",
     ],
-    deployQueueHeading:
-      "Turnstile activation — the order matters, and the widget comes before the secret",
+    deployQueueHeading: "Turnstile activation",
   },
   communitySignIn: {
     name: "Community board sign-in",
@@ -304,8 +303,8 @@ export const FEATURE_WORDS: Record<string, FeatureWords> = {
     name: "Usage analytics",
     group: "platform",
     steps: [
-      "Bind the Analytics Engine dataset TELEMETRY.",
-      "Set the secret USAGE_ANALYTICS_PEPPER on the magna-carta Worker.",
+      "The Analytics Engine dataset TELEMETRY is bound on every deploy.",
+      "Create USAGE_ANALYTICS_PEPPER in the Cloudflare Secrets Store: a long random value. Changing it later loses no data but splits usage trends at the change.",
     ],
     deployQueueHeading: null,
   },

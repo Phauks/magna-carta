@@ -13,6 +13,7 @@
    * lockout replaces it entirely, exactly as on the sign-in screens ($lib/auth/attempt-ladder.ts).
    */
   import AuthFrame from "$lib/auth/auth-frame.svelte";
+  import HumanCheck from "$lib/auth/human-check.svelte";
   import { redeemInvitation } from "$lib/auth/joining-api.ts";
   import CheckEmailScreen from "$lib/auth/screens/check-email-screen.svelte";
   import RedeemInvitationScreen from "$lib/auth/screens/redeem-invitation-screen.svelte";
@@ -29,6 +30,7 @@
   let lastName = $state("");
   let dateOfBirth = $state("");
   let pending = $state(false);
+  let humanCheckWidget = $state<HumanCheck | null>(null);
   let rejection = $state<string | null>(null);
   let supportErrorId = $state<string | null>(null);
   let attemptsRemaining = $state<number | null>(null);
@@ -48,11 +50,16 @@
     pending = true;
     rejection = null;
     supportErrorId = null;
-    const outcome = await redeemInvitation(fetch, {
-      code: code.trim(),
-      lastName: lastName.trim(),
-      dateOfBirth,
-    });
+    const solution = (await humanCheckWidget?.solution()) ?? null;
+    const outcome = await redeemInvitation(
+      fetch,
+      {
+        code: code.trim(),
+        lastName: lastName.trim(),
+        dateOfBirth,
+      },
+      solution,
+    );
     pending = false;
 
     if (outcome.kind !== "ok") {
@@ -97,7 +104,11 @@
       onSubmit={redeem}
       backLabel="Sign In"
       back={() => goto("/login")}
-    />
+    >
+      {#snippet humanCheck()}
+        <HumanCheck bind:this={humanCheckWidget} action="redeem-invitation" />
+      {/snippet}
+    </RedeemInvitationScreen>
   {:else}
     <CheckEmailScreen
       address={redeemedAddress}

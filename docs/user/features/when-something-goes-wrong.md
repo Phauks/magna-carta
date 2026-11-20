@@ -72,10 +72,28 @@ did not.
 You do not need something to be broken in front of you. **Report a Problem** is in your profile menu
 and in the command palette on every screen, and it is also offered on every failure.
 
-Say what happened in your own words. The report carries your description, the Error ID if there was
-one, the page, the version and the recent-actions list — and nothing else. It goes to your firm's own
-reporting pipeline, not to an outside service. You get a reference back; quoting it gets support
-straight to your report.
+A report takes two steps:
+
+1. **Describe.** Say what happened in your own words, then press **Next**.
+2. **Screenshot.** You see a picture of the screen you were on, taken when you opened the report
+   (the report window itself is not in it). Drag over anything private, such as a client's name, to
+   cover it; **Undo** takes the last cover off. Covered parts are blacked out on your computer before
+   anything is sent, so they never leave it. Untick **Send this screenshot** to send the report
+   without a picture, or press **Back** to change your words.
+
+The report carries your description, the screenshot if you send it, the Error ID if there was one,
+the page, the version and the recent-actions list, and nothing else. Your firm's admins read it.
+Unless your firm has turned it off, Magna Carta reads it too, so the problem can be fixed; the report
+window says which. You get a reference back; quoting it gets support straight to your report.
+
+## Hearing back
+
+You get a notification when your report arrives, and another each time its status changes:
+**Received**, **Looking Into It**, **Fixed** or **Closed**. Whoever answered may leave a note; it is
+not in the notification or the email, so open the report to read it.
+
+All your reports are under **Settings › My Settings › My Reports**: your words, your screenshot, the
+status and any note.
 
 ## What the controls mean
 
@@ -106,7 +124,8 @@ panel, with a link to the service status page.
 
 ## What we never do
 
-- Send anything to a third-party error service. Reports go to your firm's pipeline and stop there.
+- Send anything to a third-party error service. Reports go to your firm's admins and, unless your
+  firm has turned it off, to Magna Carta. Nobody else.
 - Put your document names, client names, matter content or field values in a report.
 - Send a report you did not ask us to send. A crash offers to file one; it never files itself. (The
   technical record behind an Error ID is kept automatically, but it holds only the code-level facts

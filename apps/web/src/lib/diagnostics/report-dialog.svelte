@@ -13,41 +13,38 @@
    * a broken panel in one of those two areas, which during a real incident is the difference between
    * one usable signal per affected member and none.
    *
+   * TWO STEPS: the words, then the screenshot. The picture is taken as the dialog opens, without
+   * the dialog in it, and shown on its own step so the sender can cover anything private before
+   * it is sent (report-screenshot.svelte.ts).
+   *
    * A sent report is a DONE panel: it stays open to show the reference the report was recorded
    * under, with nothing left to ask, and leaves through Close.
    */
   import * as Alert from "@magna-carta/design-system/alert";
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
-  import Checkbox from "@magna-carta/design-system/checkbox";
-  import Label from "@magna-carta/design-system/label";
   import LabelledField from "@magna-carta/design-system/labelled-field";
   import Textarea from "@magna-carta/design-system/textarea";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
-  import { SoonAffordance } from "@magna-carta/design-system/maturity";
   import { isReportableErrorId, reportProblem } from "./report.ts";
   import { breadcrumbs } from "./breadcrumbs.ts";
+  import ReportReaders from "./report-readers.svelte";
+  import ReportScreenshotStep from "./report-screenshot-step.svelte";
+  import { ReportScreenshot } from "./report-screenshot.svelte.ts";
 
   let {
     open = $bindable(false),
     errorId = null,
     route,
-    screenshotReason,
   }: {
     open?: boolean;
     /** The correlation handle the failure was given, where the server issued one. */
     errorId?: string | null;
     /** Where the failure happened, as the app addresses it. */
     route: string;
-    /**
-     * Why screenshot capture is not available yet, in one honest line. Omitted where the caller has
-     * no such reason to state, in which case the affordance is not shown at all rather than shown
-     * with nothing behind it.
-     */
-    screenshotReason?: string;
   } = $props();
 
-  const fieldPrefix = $props.id();
+  const screenshot = new ReportScreenshot();
 
   let description = $state("");
   let failure = $state<string | null>(null);
@@ -57,6 +54,7 @@
     description = "";
     failure = null;
     sentIdentifier = null;
+    screenshot.start();
   }
 
   /*
@@ -81,6 +79,11 @@
   async function send(): Promise<ActionOutcome> {
     if (refusal !== undefined) return "refused";
     failure = null;
+    // The first step's commit moves on to the picture; only the second sends.
+    if (screenshot.step === "describe") {
+      screenshot.step = "screenshot";
+      return "refused";
+    }
     const words =
       errorId === null || reportableErrorIds.length > 0
         ? description.trim()
@@ -92,6 +95,7 @@
     });
     if (outcome.kind === "ok") {
       sentIdentifier = outcome.value.id;
+      await screenshot.attachTo(outcome.value.id);
       return "done";
     }
     failure =
@@ -106,7 +110,7 @@
   bind:open
   kind="form"
   heading="Report a Problem"
-  commitLabel="Send Report"
+  commitLabel={screenshot.step === "describe" ? "Next" : "Send Report"}
   commitBusyLabel="Sending"
   commitRefusal={refusal}
   unsavedChanges={description.trim() !== ""}
@@ -119,8 +123,13 @@
         <Alert.Title>Report Sent</Alert.Title>
         <Alert.Description>
           It was recorded as {sentIdentifier}. Quoting that reference gets support to it directly.
+          {#if screenshot.attachFailed}
+            The screenshot couldn't be attached, so the report was sent without it.
+          {/if}
         </Alert.Description>
       </Alert.Root>
+    {:else if screenshot.step === "screenshot"}
+      <ReportScreenshotStep {screenshot} {busy} />
     {:else}
       <LabelledField necessity="required" label="What Happened" hint="Say what you were doing when it failed.">
         {#snippet children({ props })}
@@ -134,20 +143,7 @@
         {/snippet}
       </LabelledField>
       <p class="text-xs text-text-muted">{travelling}</p>
-
-      {#if screenshotReason !== undefined}
-        <SoonAffordance reason={screenshotReason} reasonPlacement="line">
-          {#snippet control(soon)}
-            <span class="flex items-center gap-8">
-              <Checkbox id="{fieldPrefix}-shot" {...soon} />
-              <Label for="{fieldPrefix}-shot">Include a screenshot of this screen</Label>
-            </span>
-          {/snippet}
-        </SoonAffordance>
-      {/if}
-      <p class="text-xs text-text-muted">
-        No document, file name, client name or matter content leaves the firm.
-      </p>
+      <ReportReaders />
     {/if}
   {/snippet}
 

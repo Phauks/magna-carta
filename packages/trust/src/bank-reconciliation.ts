@@ -624,6 +624,15 @@ function itemType(row: ItemRow): BankReconciliationItemType {
   }
 }
 
+/** Whether the reconciliation exists in this firm's book, without reading anything else about it. */
+export async function trustBankReconciliationExists(
+  database: SqlDatabase,
+  reconciliationId: TrustBankReconciliationId,
+): Promise<boolean> {
+  const { results } = await selectBankReconciliationStatement(database, reconciliationId).all();
+  return results[0] !== undefined;
+}
+
 async function readHeaderRow(
   database: SqlDatabase,
   reconciliationId: TrustBankReconciliationId,

@@ -2,7 +2,14 @@ import { domainAuditStatement } from "@magna-carta/data-access/audit-statements"
 import { guarded, type EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { BatesRangeId, ExhibitSetId, FileId, MatterId } from "@magna-carta/identifiers/types";
+import type {
+  BatesLogId,
+  BatesRangeId,
+  ExhibitSetId,
+  FileId,
+  MatterId,
+} from "@magna-carta/identifiers/types";
+import { requireLog } from "./log-service.ts";
 import { batesRangeLabel } from "./label.ts";
 import {
   readNextNumber,
@@ -15,16 +22,14 @@ import {
 import { DEFAULT_FIRST_NUMBER, type BatesServiceOptions } from "./types.ts";
 import {
   BatesValidationError,
-  assertDigits,
   assertFirstNumber,
   assertPageCount,
-  assertPrefix,
   assertPurpose,
   lastNumberOf,
 } from "./validation.ts";
 
-// Taking a range of Bates numbers from a matter's register, and recording the stamped copy once it
-// is saved. The register is the `bates_range` rows themselves; see range-statements.ts for why the
+// Taking a range of Bates numbers from one of a matter's logs, and recording the stamped copy once
+// it is saved. A log's count is its `bates_range` rows themselves; see range-statements.ts for why the
 // overlap guard, and not a counter, is what keeps two stamps from sharing a number.
 
 /** The guard a lost race, or a hand-typed start inside a stamped range, is refused under. */
@@ -34,10 +39,9 @@ export const STAMPED_FILE_GUARD = "bates-range-stamped-file";
 
 export interface TakeBatesRangeInput {
   readonly matterId: MatterId;
-  readonly prefix: unknown;
-  readonly digits: unknown;
+  readonly logId: BatesLogId;
   readonly pageCount: unknown;
-  /** Absent takes the next number under the prefix. */
+  /** Absent takes the next number in the log. */
   readonly firstNumber?: unknown;
   readonly purpose: unknown;
   readonly sourceFileId?: FileId | null;
@@ -46,6 +50,7 @@ export interface TakeBatesRangeInput {
 
 export interface TakenBatesRange {
   readonly rangeId: BatesRangeId;
+  readonly logId: BatesLogId;
   readonly prefix: string;
   readonly digits: number;
   readonly firstNumber: number;
@@ -85,8 +90,8 @@ export async function takeBatesRange(
   input: TakeBatesRangeInput,
   options: BatesServiceOptions,
 ): Promise<{ range: TakenBatesRange; effect: EffectWrite }> {
-  const prefix = assertPrefix(input.prefix);
-  const digits = assertDigits(input.digits);
+  const log = await requireLog(database, input.matterId, input.logId);
+  const { prefix, digits } = log;
   const pageCount = assertPageCount(input.pageCount);
   const purpose = assertPurpose(input.purpose);
   const sourceFileId = input.sourceFileId ?? null;
@@ -96,36 +101,31 @@ export async function takeBatesRange(
 
   const firstNumber =
     input.firstNumber === undefined || input.firstNumber === null
-      ? ((await readNextNumber(database, input.matterId, prefix)) ?? DEFAULT_FIRST_NUMBER)
+      ? ((await readNextNumber(database, log.id)) ?? DEFAULT_FIRST_NUMBER)
       : assertFirstNumber(input.firstNumber);
   const lastNumber = lastNumberOf(firstNumber, pageCount);
 
   // Advisory: names the clash for a hand-typed start. The guard on the insert is what holds.
-  const clash = await readOverlappingRange(
-    database,
-    input.matterId,
-    prefix,
-    firstNumber,
-    lastNumber,
-  );
+  const clash = await readOverlappingRange(database, log.id, firstNumber, lastNumber);
   if (clash !== undefined) {
-    const next = (await readNextNumber(database, input.matterId, prefix)) ?? DEFAULT_FIRST_NUMBER;
+    const next = (await readNextNumber(database, log.id)) ?? DEFAULT_FIRST_NUMBER;
     throw new BatesValidationError(
       "bates-range-taken",
       `${batesRangeLabel(prefix, clash.first_number, clash.last_number, clash.digits)} is already ` +
-        `stamped. The next free number under this prefix is ${String(next)}.`,
+        `stamped in ${log.name}. The next free number there is ${String(next)}.`,
     );
   }
 
   const rangeId = newIdentifier("batesRange", options.randomSource);
   return {
-    range: { rangeId, prefix, digits, firstNumber, lastNumber },
+    range: { rangeId, logId: log.id, prefix, digits, firstNumber, lastNumber },
     effect: {
       statements: [
         guarded(
           takeRangeStatement(database, {
             id: rangeId,
             matterId: input.matterId,
+            logId: log.id,
             prefix,
             digits,
             firstNumber,
@@ -144,7 +144,7 @@ export async function takeBatesRange(
           actorUserId: options.actorUserId,
           clock: options.clock,
           randomSource: options.randomSource,
-          metadata: { matterId: input.matterId, purpose, pageCount },
+          metadata: { matterId: input.matterId, logId: log.id, purpose, pageCount },
         }),
       ],
       outboxMessages: [],

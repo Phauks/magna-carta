@@ -127,6 +127,7 @@
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import BookOpen from "@lucide/svelte/icons/book-open";
   import * as Tabs from "@magna-carta/design-system/tabs";
+  import SharedProblemReports from "$lib/diagnostics/shared-problem-reports.svelte";
   import FieldLabel from "@magna-carta/design-system/field-label";
   import { untrack } from "svelte";
   import {
@@ -641,6 +642,12 @@
   const overviewTiles = $derived.by(() => {
     const services = value?.services ?? [];
     const answering = services.filter((service) => service.state === "reported").length;
+    // A Worker with no binding on the API Worker has nothing to report and is not a fault: it is a
+    // Worker not yet on the account (its row reads "Not bound"). Counting it against the fleet made
+    // the tile warn about work nobody has done yet, so the figure is over the bound Workers and the
+    // unbound ones are named beside it, the way the Features tile names what is not set up.
+    const unbound = services.filter((service) => service.state === "unbound").length;
+    const bound = services.length - unbound;
     const tiles: { tab: string; label: string; figure: string; detail: string; tone: TileTone }[] = [
       {
         tab: "features",
@@ -672,9 +679,9 @@
       {
         tab: "features",
         label: FLEET_SECTION_LABEL,
-        figure: value === null ? "—" : `${String(answering)} of ${String(services.length)}`,
-        detail: "reporting a version",
-        tone: value !== null && answering < services.length ? "warning" : "neutral",
+        figure: value === null ? "—" : `${String(answering)} of ${String(bound)}`,
+        detail: unbound > 0 ? `reporting a version, ${String(unbound)} not bound` : "reporting a version",
+        tone: value !== null && answering < bound ? "warning" : "neutral",
       },
     ];
     if (isOperator) {
@@ -1691,6 +1698,7 @@
           <Tabs.Trigger value="firm">This Firm</Tabs.Trigger>
           {#if isOperator}
             <Tabs.Trigger value="errors">{RECENT_ERRORS_SECTION_LABEL}</Tabs.Trigger>
+            <Tabs.Trigger value="reports">Problem Reports</Tabs.Trigger>
           {/if}
           <Tabs.Trigger value="flags">{FEATURE_FLAGS_SECTION_LABEL}</Tabs.Trigger>
         </Tabs.List>
@@ -1774,6 +1782,10 @@
         {#if isOperator}
           <Tabs.Content value="errors" class="flex flex-col gap-8 pt-16">
             {@render recentErrorsBlock()}
+          </Tabs.Content>
+          <!-- The reports firms share with Magna Carta: only an operator reads them. -->
+          <Tabs.Content value="reports" class="flex flex-col gap-8 pt-16">
+            <SharedProblemReports />
           </Tabs.Content>
         {/if}
 

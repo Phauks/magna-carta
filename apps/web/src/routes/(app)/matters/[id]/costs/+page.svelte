@@ -21,7 +21,6 @@
   import CostLedger from "$lib/costs/cost-ledger.svelte";
   import FailureScreen from "$lib/diagnostics/failure-screen.svelte";
   import ReportDialog from "$lib/diagnostics/report-dialog.svelte";
-  import { gapReason } from "$lib/costs/cost-gaps.ts";
   import { listMatterCostLedger, type CostLedgerEntry } from "$lib/costs/cost-operations.ts";
   import Button from "@magna-carta/design-system/button";
   import { PagedList } from "$lib/matters/paged-list.svelte.ts";
@@ -117,7 +116,6 @@
     bind:open={reportOpen}
     errorId={list.failureErrorId}
     route={loadFailure.request}
-    screenshotReason={gapReason("screenshot")}
   />
 {:else if isSample}
   <section class="flex flex-col gap-16">

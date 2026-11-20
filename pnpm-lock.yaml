@@ -171,6 +171,9 @@ catalogs:
     hono:
       specifier: 4.13.16
       version: 4.13.16
+    modern-screenshot:
+      specifier: 4.7.0
+      version: 4.7.0
     nanoid:
       specifier: 5.1.16
       version: 5.1.16
@@ -428,6 +431,9 @@ importers:
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../../packages/identifiers
+      '@magna-carta/in-out-log':
+        specifier: workspace:*
+        version: link:../../packages/in-out-log
       '@magna-carta/inference':
         specifier: workspace:*
         version: link:../../packages/inference
@@ -1126,6 +1132,9 @@ importers:
       libphonenumber-js:
         specifier: ^1.13.15
         version: 1.13.15
+      modern-screenshot:
+        specifier: 'catalog:'
+        version: 4.7.0
       write-excel-file:
         specifier: 4.1.1
         version: 4.1.1
@@ -2483,6 +2492,43 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.5.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1))(happy-dom@21.0.4)
+
+  packages/in-out-log:
+    dependencies:
+      '@magna-carta/calendar':
+        specifier: workspace:*
+        version: link:../calendar
+      '@magna-carta/civil-time':
+        specifier: workspace:*
+        version: link:../civil-time
+      '@magna-carta/data-access':
+        specifier: workspace:*
+        version: link:../data-access
+      '@magna-carta/database':
+        specifier: workspace:*
+        version: link:../database
+      '@magna-carta/identifiers':
+        specifier: workspace:*
+        version: link:../identifiers
+      '@magna-carta/sequence-numbering':
+        specifier: workspace:*
+        version: link:../sequence-numbering
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+    devDependencies:
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.4(@cloudflare/workers-types@5.20261106.1)(kysely@0.29.8)
       vitest:
         specifier: 'catalog:'
         version: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.5.0(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(typescript@6.0.3)(yaml@2.9.1))(happy-dom@21.0.4)
@@ -7227,6 +7273,9 @@ packages:
   minimatch@3.1.5:
     resolution: {integrity: sha512-VgjWUsnnT6n+NUk6eZq77zeFdpW2LWDzP6zFGrCbHXiYNul5Dzqk2HHQ5uFH2DNW5Xbp8+jVzaeNt94ssEEl4w==}
 
+  modern-screenshot@4.7.0:
+    resolution: {integrity: sha512-9YxN+ddPSMMlhylOv25VHzXrl9u67QRxoh7+SEewGtgUw7t6hHTrjptSDJUSne9oG4Xk/h2cwG15nIt4Hc9ujg==}
+
   mri@1.2.0:
     resolution: {integrity: sha512-tzzskb3bG8LvYGFF/mDTpq3jpI6Q9wc3LEmBaghu+DdCssd1FakN7Bc0hVNmEyGq1bq3RgfkCb3cmQLpNPOroA==}
     engines: {node: '>=4'}
@@ -11378,6 +11427,8 @@ snapshots:
   minimatch@3.1.5:
     dependencies:
       brace-expansion: 1.1.21
+
+  modern-screenshot@4.7.0: {}
 
   mri@1.2.0: {}
 

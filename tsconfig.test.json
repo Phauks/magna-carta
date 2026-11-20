@@ -188,6 +188,9 @@
       "path": "packages/identifiers/tsconfig.test.json"
     },
     {
+      "path": "packages/in-out-log/tsconfig.test.json"
+    },
+    {
       "path": "packages/inference/tsconfig.test.json"
     },
     {

@@ -25,6 +25,7 @@
    */
   import { goto } from "$app/navigation";
   import AuthFrame from "$lib/auth/auth-frame.svelte";
+  import HumanCheck from "$lib/auth/human-check.svelte";
   import { startRegistration } from "$lib/auth/joining-api.ts";
   import CheckEmailScreen from "$lib/auth/screens/check-email-screen.svelte";
   import FoundFirmScreen from "$lib/auth/screens/found-firm-screen.svelte";
@@ -45,6 +46,7 @@
   let agreedToTerms = $state(false);
   let agreedToPrivacy = $state(false);
   let pending = $state(false);
+  let humanCheckWidget = $state<HumanCheck | null>(null);
   let rejection = $state<string | null>(null);
   let supportErrorId = $state<string | null>(null);
   let sentAt = $state(new Date());
@@ -70,16 +72,21 @@
     pending = true;
     rejection = null;
     supportErrorId = null;
-    const outcome = await startRegistration(fetch, {
-      role: "foundFirm",
-      // One display name is what the registration row holds; the two fields exist because that is
-      // how a person reads their own name back, not because the server stores them apart.
-      name: `${firstName.trim()} ${lastName.trim()}`,
-      email: email.trim(),
-      // NOT trimmed — whitespace is part of a password (see the account door's note).
-      password,
-      firmName: firmName.trim(),
-    });
+    const solution = (await humanCheckWidget?.solution()) ?? null;
+    const outcome = await startRegistration(
+      fetch,
+      {
+        role: "foundFirm",
+        // One display name is what the registration row holds; the two fields exist because that is
+        // how a person reads their own name back, not because the server stores them apart.
+        name: `${firstName.trim()} ${lastName.trim()}`,
+        email: email.trim(),
+        // NOT trimmed — whitespace is part of a password (see the account door's note).
+        password,
+        firmName: firmName.trim(),
+      },
+      solution,
+    );
     pending = false;
     if (outcome.kind !== "ok") {
       rejection = joiningErrorMessage(outcome, REGISTRATION_REFUSED);
@@ -122,7 +129,11 @@
         rejection = null;
         supportErrorId = null;
       }}
-    />
+    >
+      {#snippet humanCheck()}
+        <HumanCheck bind:this={humanCheckWidget} action="found-firm" />
+      {/snippet}
+    </RegisterDetailsScreen>
   {:else}
     <CheckEmailScreen
       address={email.trim()}

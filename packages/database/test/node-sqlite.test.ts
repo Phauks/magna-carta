@@ -311,6 +311,10 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "firm:readMembers",
         "firm:reportIncident",
         "firm:scanFile",
+        // The In/Out Log: every seat answers "is anything waiting for me", and every seat but
+        // Read-only works the front desk.
+        "inOutLog:manage",
+        "inOutLog:read",
         "intake:read",
         "intake:record",
         // The assistant reaches the seats that do legal work. Seeding the key turns nothing on:
@@ -418,6 +422,10 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "firm:readMembers",
         "firm:reportIncident",
         "firm:scanFile",
+        // The In/Out Log: every seat answers "is anything waiting for me", and every seat but
+        // Read-only works the front desk.
+        "inOutLog:manage",
+        "inOutLog:read",
         "intake:read",
         "intake:record",
         // The numbering register's read reaches every seat, on notifications:read's reasoning.
@@ -480,6 +488,8 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "firm:readMembers",
         "firm:reportIncident",
         "firm:scanFile",
+        // Read-only sees the In/Out Log and records nothing on it.
+        "inOutLog:read",
         // The numbering register's read reaches every seat, on notifications:read's reasoning.
         "matters:viewNumbering",
         // Read-only carries it, where trust:read deliberately stops one seat short. The two are not

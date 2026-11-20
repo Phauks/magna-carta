@@ -161,9 +161,8 @@ export type Bindings = {
   // index.html, which the probe reads as "unreported". Optional: absent in every test environment.
   WEB_SERVICE?: Fetcher;
   // The community board's worker (magna-carta-community), for the aggregate version read alone; the
-  // board's data is the control plane's, never read through this binding. Optional, and NOT declared
-  // in wrangler.jsonc yet: a service binding to a worker the account does not have fails the deploy,
-  // so it is added once magna-carta-community has deployed. Until then its row reads "unbound".
+  // board's data is the control plane's, never read through this binding. Optional: absent in a
+  // deployment whose account has no magna-carta-community, where its row reads "unbound".
   COMMUNITY_SERVICE?: Fetcher;
   // The managed natural-language search MANAGEMENT binding: creates and destroys one instance per
   // firm from queue-dispatched work, and never from a request handler. Optional, and absent in every
@@ -337,15 +336,17 @@ export type Bindings = {
   // returns a task to poll) or "sync". Optional; defaults to "async-task". A public config value, not
   // a secret — bound via wrangler vars.
   PANGRAM_MODE?: "async-task" | "sync";
-  // The Cloudflare Turnstile secret key the anonymous endpoints verify a challenge solution
-  // against, server-side. Optional, and ABSENT IS THE SHIPPED STATE: no widget has been created, so
-  // every environment resolves the not-configured verifier
-  // (human-verification/human-verification-wiring.ts) and the protected endpoints behave exactly as
-  // they did before the gate existed — while counting every unprotected pass. Production sets it
-  // with `wrangler secret put TURNSTILE_SECRET_KEY`, and doing so is what switches enforcement on.
-  // Deliberately NOT in wrangler.jsonc's secrets.required: listing it would make every deploy fail
-  // until a credential nobody has provisioned exists. Never logged, never echoed to a caller.
+  // The Cloudflare Turnstile widget's two keys. The secret key is what the server checks a
+  // challenge solution against; the site key is public and is handed to the browser
+  // (GET /api/v1/human-verification) so the sign-in, registration and invitation screens can render
+  // the widget. Both are optional, and the check switches on only when BOTH are set
+  // (human-verification/human-verification-wiring.ts): a secret with no site key would demand a
+  // solution no screen can mint. Kept in the Secrets Store and bound as SECRETS_STORE_TURNSTILE_*
+  // once the owner has created them, with a per-Worker secret of the same name as the fallback.
+  // Deliberately NOT in wrangler.jsonc's secrets.required: listing them would make every deploy fail
+  // until the widget exists. The secret key is never logged and never echoed to a caller.
   TURNSTILE_SECRET_KEY?: string;
+  TURNSTILE_SITE_KEY?: string;
   // The Microsoft application members sign in to their own Microsoft 365 account through, for
   // calendar sync. The client id is public configuration and the secret is a secret
   // (`wrangler secret put MICROSOFT_CLIENT_SECRET`). Optional, and the feature is dormant without
