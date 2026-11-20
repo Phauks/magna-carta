@@ -9,8 +9,8 @@
    * across the top, then a tab per question — Features, Deployment, Workers, This Firm, and, for a
    * platform operator, Recent Errors — plus the Feature Flags this firm's channel resolves.
    *
-   * IT IS ORGANISED BY FEATURE FIRST. A member uses Outlook sync or address suggestions, never
-   * `magna-carta-address`, so the first tab says which features work. A platform operator also sees
+   * IT IS ORGANISED BY FEATURE FIRST. A member uses Outlook sync or file search, never
+   * `magna-carta-search`, so the first tab says which features work. A platform operator also sees
    * what each feature that is off still needs and the steps that turn it on, because they are the
    * only person who can act on that; the API sends that detail to nobody else.
    *
