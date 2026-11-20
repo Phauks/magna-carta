@@ -248,6 +248,14 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "hard-delete",
     note: "deleted with its parent integration_connection; holds the copy as sent to the member and as their calendar has it",
   },
+  // One day of a repeating event a member deleted from their own calendar. It names a person only
+  // through its connection, and holds that day of the event as it was sent to them.
+  {
+    table: "connection_sync_day_issue",
+    subjectKey: "connection_id",
+    action: "hard-delete",
+    note: "deleted with its parent integration_connection; holds one day of an event as sent to the member",
+  },
   // Which of their own calendars a member chose to be shown. It names a person only through its
   // connection, and holds the calendar's name as their provider gives it.
   {
@@ -897,6 +905,18 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     subjectKey: "payee",
     action: "report-manual",
     note: "the payee printed on a trust check, copied from the disbursement it paid, held as free text with no structured subject",
+  },
+  {
+    table: "trust_bank_reconciliation_note",
+    subjectKey: "body",
+    action: "report-manual",
+    note: "a note a firm member wrote about a line of a trust bank reconciliation, free text that may name a client or payee",
+  },
+  {
+    table: "trust_bank_reconciliation_file",
+    subjectKey: "object_key",
+    action: "report-manual",
+    note: "a bank statement or deposit slip kept with a trust reconciliation; it names clients and payees and is a trust record kept for the retention period",
   },
   {
     table: "trust_disbursement_request",
@@ -1789,6 +1809,14 @@ export const NO_PII_TABLES: readonly string[] = [
   // a client, a matter or a payee.
   "trust_check_event",
   "trust_check_stock",
+  // Bank reconciliation. A period, its numbered changes, its restore points, the items its finish
+  // cleared and its IOLTA interest lines are figures and handles about the firm's own bookkeeping;
+  // the only people they name are the firm members who made them.
+  "trust_bank_reconciliation",
+  "trust_bank_reconciliation_change",
+  "trust_bank_reconciliation_restore_point",
+  "trust_bank_reconciliation_cleared",
+  "trust_bank_reconciliation_interest",
   // Billing. The two tables with a subject reference (invoice, invoice_line) are registered in
   // PII_TABLES above; these five carry none of their own.
   // A claim says which work-in-progress row an invoice took. It is two handles, an amount, and two
@@ -1888,6 +1916,9 @@ export const NO_PII_TABLES: readonly string[] = [
   "exhibit_set",
   "exhibit_set_member",
   "exhibit_reference",
+  // A Bates range: a matter, a prefix, two numbers, file handles and firm-member provenance. A prefix
+  // can be a party's name ("SMITH"), the same free-text residue class as a set's name above.
+  "bates_range",
   // A note's link to one of the matter's files: two handles, an instant, and firm-member provenance
   // (linked_by). Whose document it is resolves through the file and the matter, never through a
   // column here — the same shape matter_asset_document sits in directly above.

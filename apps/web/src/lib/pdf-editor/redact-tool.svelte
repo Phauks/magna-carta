@@ -356,7 +356,7 @@
     </div>
 
     <!-- The marks, their reasons, and the one act that applies them. -->
-    <aside aria-label="Redactions" class="flex min-h-0 w-352 shrink-0 flex-col border-s border-border-default bg-surface-default">
+    <aside aria-label="Redactions" class="flex min-h-0 w-sm shrink-0 flex-col border-s border-border-default bg-surface-default">
       <div class="flex flex-none items-center gap-8 px-16 pt-16 pb-8">
         <h2 class="text-sm font-semibold">Redactions</h2>
         <span class="rounded-full bg-surface-selected px-8 text-xs font-semibold tabular-nums">{marks.length}</span>

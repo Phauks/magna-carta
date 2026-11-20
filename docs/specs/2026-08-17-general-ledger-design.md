@@ -495,16 +495,13 @@ section 13 and flagged (**G9**).
 
 ### 6.5 Paying a bill, and where the money may come from
 
-`Dr Accounts Payable / Cr Operating Bank`, plus the `vendor_bill_payment` row. The credit account is
-**resolved through the `operating_bank` role**, not supplied by the caller. That is the structural
-answer to "may A/P pay from anything but an operating account": the composer has no parameter for it.
-A trust account is refused twice over — it is not what the role resolves to, and the trust refusal of
-section 2.2 binds this composer too.
-
-Flagged (**G7**) because a firm with two operating banks has a legitimate need the single role cannot
-express, and the fix is either a second role or a caller-supplied account restricted to accounts
-classified in an operating-cash section. The recommendation is the second role
-(`operating_bank_secondary`) if and when a firm asks, and never a free caller-supplied account.
+`Dr Accounts Payable / Cr <the operating bank account the person picks>`, plus the
+`vendor_bill_payment` row. **Owner ruling 2026-11-20 (G7): a firm may have several operating bank
+accounts and a bill may be paid from any of them; this is needed in the first pass.** The payment
+therefore names its paying account, and the composer refuses any account that is not classified as
+operating cash. A trust account is refused twice over: it is not operating cash, and the trust
+refusal of section 2.2 binds this composer too. The single `operating_bank` role remains the
+default the screen offers first.
 
 **Executing** the payment at a bank — a payment run, an ACH file, a positive-pay file — is out of
 scope. That is money moving in another system, which is the cross-system compensable flow the Phase 6
@@ -515,9 +512,10 @@ rails own. This slice records that the firm paid.
 A vendor bill the firm has entered is a confirmed obligation. Whether the cost is **billable to the
 client** is a separate judgement nobody has made yet. So a bill-originated `cost_entry` enters at
 `draft` — 3·3's own vocabulary for a cost nobody has reviewed — and the firm's ordinary cost review
-promotes it. Flagged (**G8**), because a firm whose bookkeeper enters bills and whose lawyers never
-review costs would find every advanced cost sitting unbilled forever, and the alternative
-(`submitted`) is defensible.
+promotes it. **Superseded by owner ruling 2026-11-20 (G8):** a bill-originated cost is a real cost
+on the matter, not a draft. It enters at the status the next draft invoice picks up, so it appears on
+the matter's next draft invoice; that invoice is reviewed and finalized, and only a finalized invoice
+is sent for payment. The review happens on the draft invoice, not on the cost.
 
 `cost_entry.source` stays `manual` and is **not** widened: the honest provenance of a bill-originated
 cost is that a `vendor_bill_line` names it, which is a link and therefore derivable, exactly as
@@ -949,9 +947,9 @@ Numbered so they can be answered down. **The ones above the divider decide what 
 | **G4**  | **Who may close a period, and does closing take a second person?** Trust's authorization policy is the precedent for a two-person requirement on an act somebody will be asked about.                                                         | Close on its own capability, seeded to Owner and Admin; **one person for close, and see G5 for reopen.** A two-person close is a policy the firm should be able to turn on later, not a default.                                                |
 | **G5**  | **What may an operator do to a closed period?** Reopen with a reason and an audit row? Post into it under a permission without reopening? Never?                                                                                              | **Reopen only, on its own capability, with a required reason and an append-only event.** No "post into a closed period" permission — that is a lock nobody can rely on.                                                                         |
 | **G6**  | **Does the hard lock ever get a route?** The guard is honoured from day one and no route sets it.                                                                                                                                             | **Not until a jurisdiction requires it.** Keep the column and the comparison; ship no route.                                                                                                                                                    |
-| **G7**  | **May accounts payable pay from anything but an operating account?** The composer resolves `operating_bank` and has no parameter for an alternative. A firm with two operating banks has a legitimate need it cannot express.                 | **No caller-supplied account, ever.** If a firm asks, add a second role rather than a free parameter.                                                                                                                                           |
-| **G8**  | **At what status does a bill-originated cost enter the cost store?** `draft` respects the billability review; a firm whose lawyers never review costs would leave advanced costs unbilled forever.                                            | **`draft`.** The alternative (`submitted`) is defensible and is a one-line change if the review never happens in practice.                                                                                                                      |
-| **G9**  | **Vendor credits now or later?** They are the mirror of billing's credit note and need the same care about attribution.                                                                                                                       | **Later**, its own design. A bill entered in error is reversed with a reason in the first pass.                                                                                                                                                 |
+| **G7**  | **May accounts payable pay from anything but an operating account?** The composer resolves `operating_bank` and has no parameter for an alternative. A firm with two operating banks has a legitimate need it cannot express.                 | **Ruled 2026-11-20: any operating account.** A firm may have several; the payment names one, restricted to operating cash, never trust. Needed in the first pass.                                                                               |
+| **G8**  | **At what status does a bill-originated cost enter the cost store?** `draft` respects the billability review; a firm whose lawyers never review costs would leave advanced costs unbilled forever.                                            | **Ruled 2026-11-20: a real cost, billable at once.** It appears on the next draft invoice; the draft is reviewed and finalized before it is sent.                                                                                               |
+| **G9**  | **Vendor credits now or later?** They are the mirror of billing's credit note and need the same care about attribution.                                                                                                                       | **Ruled 2026-11-20: later**, its own design. A bill entered in error is reversed with a reason in the first pass.                                                                                                                               |
 | **G15** | **Do these books ship ahead of payments' manual receipt, knowing the operating bank line will be sparse until it lands?**                                                                                                                     | **Yes.** The chart is what billing already needs to stop refusing unmapped roles, and every sub-slice is useful without cash arriving. But the user documentation must say what the books cannot yet show.                                      |
 |         | **— these decide how it is built, not whether —**                                                                                                                                                                                             |                                                                                                                                                                                                                                                 |
 | **G10** | **Extract the account-role map out of `@magna-carta/billing` into a shared leaf.** Touches shipped billing code. Without it, either billing depends on the general ledger or the general ledger depends on billing, and both edges are wrong. | **Yes**, with a no-behaviour-change gate. Precedent: `@magna-carta/billing-core`.                                                                                                                                                               |

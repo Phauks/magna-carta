@@ -63,6 +63,13 @@ describe("houseDocument", () => {
     expect(contentSize("a4", false).height - contentSize("a4").height).toBe(60);
   });
 
+  it("sets a watermark across every page only when one is asked for", () => {
+    expect(houseDocument({ name: "Report", watermark: "DRAFT", blocks: [] }).watermark).toBe(
+      "DRAFT",
+    );
+    expect(houseDocument({ name: "Report", blocks: [] })).not.toHaveProperty("watermark");
+  });
+
   it("turns the paper on its side for a wide table, which holds fewer rows", () => {
     const document = houseDocument({ name: "Aging", landscape: true, blocks: [] });
     expect(document.page).toMatchObject({ paper: "letter", landscape: true });

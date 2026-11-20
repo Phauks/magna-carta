@@ -7,9 +7,10 @@ import { registerSafeBrowseSessionProbeRoute } from "./safe-browse-session-probe
 import { registerSafeBrowseRoute, registerSafeBrowseStreamRoute } from "./safe-browse.ts";
 import { registerToolsConnectionRoute } from "./tools-connection.ts";
 import { registerToolsTurnCredentialsRoute } from "./tools-turn-credentials.ts";
+import { registerTranslationRoutes } from "./translation.ts";
 import { registerWhoisRoute, type WhoisRouteDeps } from "./whois.ts";
 
-// The Tools area: matter-grade work done without a matter — the connection and speed-test credentials, WHOIS, the safe browser.
+// The Tools area: matter-grade work done without a matter — the connection and speed-test credentials, WHOIS, the safe browser, translation.
 //
 // One sub-app per domain, built by the one constructor and mounted at the root by the manifest
 // (src/http/routes/manifest.ts). Every route below registers exactly as it did on the root app — through
@@ -70,5 +71,7 @@ export function mountTools(app: AppRouter, chokepoint: Chokepoint, deps: DomainD
   registerSafeBrowseSessionProbeRoute(domain, chokepoint);
   registerSafeBrowseLocationProbeRoute(domain, chokepoint);
   registerSafeBrowseLiveRoutes(domain, chokepoint);
+  // Translate: pasted text to the firm's translation engine, behind the firm's own switch.
+  registerTranslationRoutes(domain, chokepoint, deps.translation ?? {});
   app.route("/", domain);
 }

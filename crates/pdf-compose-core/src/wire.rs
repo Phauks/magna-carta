@@ -33,6 +33,7 @@ struct WireDocument {
     #[serde(default)]
     compact: bool,
     letterhead: Option<WireLetterhead>,
+    watermark: Option<String>,
     header: Option<WireRunningLine>,
     footer: Option<WireRunningLine>,
     #[serde(default)]
@@ -470,6 +471,7 @@ pub fn document_from_json(json: &str, images: &[&[u8]]) -> Result<ComposedDocume
             .map(|[red, green, blue]| Rgb { red, green, blue }),
         compact: wire.compact,
         letterhead,
+        watermark: wire.watermark,
         header: wire.header.map(running_line),
         footer: wire.footer.map(running_line),
         blocks,

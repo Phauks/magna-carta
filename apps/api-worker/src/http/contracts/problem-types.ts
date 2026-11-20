@@ -244,6 +244,9 @@ export const PROBLEM_TYPES = {
   "exhibit-file-unavailable": "exhibit-file-unavailable",
   // A folder follow asked of a set built by hand, which follows no folder (HTTP 409).
   "exhibit-set-not-following": "exhibit-set-not-following",
+  // Bates numbers. Some number in the asked-for range is already stamped under that prefix on the
+  // matter (HTTP 409); the detail names the clash and the next free number.
+  "bates-range-taken": "bates-range-taken",
   // A bulk entry carrying more rows than one commit takes (HTTP 422). A REFUSAL and never a
   // truncation: a caller that sent sixty rows and silently had fifty written cannot tell that from
   // fifty rows it never sent.
@@ -402,6 +405,13 @@ export const PROBLEM_TYPES = {
   // Two print batches read the same next check number and the retry lost too (HTTP 409). Retryable:
   // the caller prints again and gets the following numbers.
   "trust-check-number-taken": "trust-check-number-taken",
+  // Something the bank reconciliation rules refuse (HTTP 422): an end date before the start, a line
+  // that is not part of the period, nothing left to undo. DISTINCT from `validation`: the request is
+  // well-formed, the change it asks for is not one the rules permit.
+  "trust-bank-reconciliation-refused": "trust-bank-reconciliation-refused",
+  // A bank reconciliation that cannot change now (HTTP 409): it is finished, another is already in
+  // progress on the account, or someone changed it between the read and a finish.
+  "trust-bank-reconciliation-conflict": "trust-bank-reconciliation-conflict",
   // Something the reconciliation has already accounted for (HTTP 409): a statement line or a ledger
   // entry that is already matched in this reconciliation, a match that was already withdrawn, or a
   // bank statement that has already been superseded by a correction. One line clears one entry, so

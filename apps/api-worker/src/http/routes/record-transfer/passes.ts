@@ -1,3 +1,4 @@
+import { z } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { isResolvableTimeZone } from "@magna-carta/civil-time/time-zone";
@@ -12,7 +13,12 @@ import {
   type TransferPassReportResponseBody,
   type TransferPassStatedResponseBody,
 } from "@magna-carta/record-transfer/contract";
+import {
+  DelimitedTextError,
+  readDelimitedText,
+} from "@magna-carta/record-transfer/delimited-text-reader";
 import type { MatterMappingRules } from "@magna-carta/record-transfer/matter-mapping";
+import { rejectedRowsAsDelimitedText } from "@magna-carta/record-transfer/rejected-rows";
 import {
   statedTransferPassJson,
   statedTransferPassOf,
@@ -32,6 +38,7 @@ import {
 } from "@magna-carta/record-transfer/transfer-source-file-statements";
 import { transferPassBody } from "@magna-carta/record-transfer/transfer-views";
 import { resolveFirmBucket } from "../../../files/firm-bucket.ts";
+import { sourceFileText } from "../../../record-transfer/source-file-text.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
@@ -146,6 +153,25 @@ const statedRoute = defineOpenAPIRoute(readMeta("recordTransfer.getPassRules"), 
     401: errors[401],
     403: errors[403],
     404: errors[404],
+    429: errors[429],
+  },
+});
+
+const rejectedRowsRoute = defineOpenAPIRoute(readMeta("recordTransfer.downloadRejectedRows"), {
+  method: "get",
+  path: "/api/v1/record-transfer/runs/{runId}/passes/{passId}/rejected-rows",
+  description:
+    "The rows a finished pass rejected, as a file in the source file's own shape with one column in front giving the reason for each. The rows are read from the stored source file when asked. These are values from the file; they are answered to the member and stored nowhere.",
+  request: { params: passParam },
+  responses: {
+    200: {
+      description: "Delimited text: the reason column, then the file's own columns",
+      content: { "text/csv": { schema: z.string() } },
+    },
+    401: errors[401],
+    403: errors[403],
+    404: errors[404],
+    409: errors[409],
     429: errors[429],
   },
 });
@@ -278,6 +304,69 @@ export function registerTransferPassRoutes(app: AppRouter, chokepoint: Chokepoin
       if (object === null) return c.json(NOTHING_YET, 200);
       // Written by the pass itself in the declared shape, so it is answered as stored.
       return c.json(await object.json<TransferPassReportResponseBody>(), 200);
+    },
+  );
+
+  app.openapi(
+    { ...rejectedRowsRoute, middleware: chokepointMiddleware(chokepoint, rejectedRowsRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { runId, passId } = c.req.valid("param");
+      const pass = await readPass(firm.firmDatabase, runId, passId);
+      if (pass === null) return notFound(c, "pass");
+      const noReport = () =>
+        problemJson(c, {
+          type: "conflict",
+          title: "The pass has no report",
+          status: 409,
+          detail: "Rejected rows are offered once a pass has finished.",
+        });
+      if (pass.finished_at === null) return noReport();
+      const { bucket } = resolveFirmBucket(c.env, firm.bucketName);
+      const stored = await bucket.get(pass.report_object_key);
+      const report =
+        stored === null ? null : (await stored.json<TransferPassReportResponseBody>()).report;
+      if (report === null) return noReport();
+      const file = await selectTransferSourceFileStatement(
+        firm.firmDatabase,
+        pass.transfer_source_file_id,
+      ).first<TransferSourceFileRow>();
+      const text =
+        file === null || file.removed_at !== null
+          ? null
+          : await sourceFileText(bucket, file.object_key);
+      if (text === null) return notFound(c, "file");
+      const delimiter = statedTransferPassOf(pass.rules_json)?.delimiter ?? ",";
+      const lines = rejectedRowsAsDelimitedText(
+        readDelimitedText(text, { delimiter }),
+        report.rejected,
+        delimiter,
+      );
+      // Sent a line at a time, so the size of the file is not held in memory. The file read as rows
+      // when the pass ran; a fault here means its bytes changed, and the download ends short.
+      const encoder = new TextEncoder();
+      const body = new ReadableStream<Uint8Array>({
+        async pull(controller) {
+          try {
+            const next = await lines.next();
+            if (next.done) controller.close();
+            else controller.enqueue(encoder.encode(next.value));
+          } catch (caught) {
+            if (caught instanceof DelimitedTextError) controller.close();
+            else controller.error(caught);
+          }
+        },
+        async cancel() {
+          await lines.return(undefined);
+        },
+      });
+      // The name is the pass's identifier: the source file's own name is a person's word and may
+      // hold a client's name.
+      return c.body(body, 200, {
+        "content-type": "text/csv; charset=utf-8",
+        "content-disposition": `attachment; filename="rejected-rows-${pass.id}.csv"`,
+        "cache-control": "no-store",
+      });
     },
   );
 }

@@ -258,6 +258,15 @@ export const FEATURE_WORDS: Record<string, FeatureWords> = {
     steps: ["On the magna-carta Worker, set the secret PANGRAM_API_KEY, once a firm has asked."],
     deployQueueHeading: null,
   },
+  translation: {
+    name: "Translation",
+    group: "ai",
+    steps: [
+      "Enable the Cloud Translation API in Google Cloud and make a key restricted to it,",
+      "then create GOOGLE_TRANSLATE_API_KEY in the Cloudflare Secrets Store.",
+    ],
+    deployQueueHeading: null,
+  },
   modelAvailabilityCheck: {
     name: "AI model availability check",
     group: "ai",

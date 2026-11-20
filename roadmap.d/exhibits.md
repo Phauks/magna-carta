@@ -73,23 +73,25 @@
 
 - id: exhibits.list
   name: Exhibit list
-  scope: The live table of a set on the matter, and the filed exhibit-list document assembled from a starter template over a new exhibits collection in the merge dictionary.
-  status: planned
+  scope: The live table of a set on the matter, and the exhibit list as a PDF saved to the matter's files.
+  status: partial
+  surface: screen
   slices: 2-7-exhibits
   spec: docs/specs/2026-08-11-exhibits-and-exhibit-lists-design.md
-  evidence: The design specifies both renderings and the collection-only dictionary source that closes the expression language's first open question; the plan builds the source and the assembled list. Neither the table nor the source exists, and packages/document-assembly carries no exhibits collection.
-  notes: The starter template prints the Offered, Objection and Admitted columns blank, because that is what a court hands the clerk; recording what happened in them is a separate capability.
+  evidence: exhibitListDocument in packages/exhibits/src/list-document.ts lays the list out on the shared house-document framework (caption, case number, label, title, Bates range and pages, withdrawn rows greyed); apps/web/src/lib/exhibits/exhibit-package.ts composes it in a Web Worker and saves it from the Exhibit List button on the Exhibits screen.
+  notes: Built on the house-document framework rather than as a template assembled over an exhibits collection in the merge dictionary, so a firm cannot yet restyle the list as its own template; that is what remains. The Offered, Objection and Admitted columns are not printed.
 
 - id: exhibits.package
   name: Compiled exhibit package
-  scope: One PDF per set — the list, then a regenerated separator page and the exhibit itself for each member, bookmarked — built as an asynchronous job and landing as an ordinary matter file.
-  status: planned
+  scope: One PDF per set — the list, then a regenerated cover sheet and the exhibit itself for each member — Bates-stamped from the matter's register and landing as an ordinary matter file.
+  status: partial
+  surface: screen
   slices: 2-7-exhibits
   adrs: ADR-0142
   spec: docs/specs/2026-08-11-exhibits-and-exhibit-lists-design.md
-  evidence: Specified on the shipped asynchronous job shape and paginating through the shipped Bates engine in crates/pdf-core; no coordinator, no queue consumer and no separator template exists.
-  awaiting-owner: Whether a compiled package paginates itself by default, and in which corner. The Nevada rule read for this design requires exhibits over ten pages to be numbered in the lower right — which is exactly where a page produced in discovery already carries its Bates stamp — and no reliable detector for an existing stamp exists, so a false negative overprints a number that was already served and a false positive drops pagination a rule requires. Defaulting on makes the common filing correct and risks overprinting; defaulting off makes every package a member has to remember to configure. Exhibits design flag E5.
-  notes: A separator page is never stored as a matter document — it exists only inside a package and is regenerated from the label every build, because a stored separator page is a stale label waiting to be filed.
+  evidence: apps/web/src/lib/exhibits/exhibit-package.ts reads each member, measures it, takes one range from the Bates register (purpose exhibitPackage), and has exhibit-package.worker.ts compose the list and cover sheets, merge, and stamp through the PDF engine; package-dialog.svelte on the Exhibits screen. Members that are not PDFs are left out and named.
+  awaiting-owner: Exhibits design flag E5, answered provisionally. The package stamps by default in the lower right, carrying on from the matter's register; a member turns it off in the dialog. Overprinting a page that already carries a discovery stamp is still possible, because no detector for an existing stamp exists.
+  notes: Built in the browser, not as a server job, so a very large set is bounded by the PDF viewer's size limit; a server job is the remaining step. No bookmarks yet. A cover sheet is never stored as a matter document; it exists only inside a package and is regenerated from the label every build.
 
 - id: exhibits.admission-tracking
   name: Trial admission tracking

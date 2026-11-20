@@ -65,6 +65,9 @@
       "path": "packages/ai-detection/tsconfig.build.json"
     },
     {
+      "path": "packages/bates/tsconfig.build.json"
+    },
+    {
       "path": "packages/billing-core/tsconfig.build.json"
     },
     {
@@ -294,6 +297,9 @@
     },
     {
       "path": "packages/tools/tsconfig.build.json"
+    },
+    {
+      "path": "packages/translation/tsconfig.build.json"
     },
     {
       "path": "packages/trust-jurisdictions/tsconfig.build.json"

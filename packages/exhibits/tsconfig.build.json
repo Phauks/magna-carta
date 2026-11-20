@@ -24,6 +24,9 @@
       "path": "../database/tsconfig.build.json"
     },
     {
+      "path": "../house-document/tsconfig.build.json"
+    },
+    {
       "path": "../identifiers/tsconfig.build.json"
     }
   ],

@@ -60,3 +60,10 @@ export function formatRate(value: Rate): string {
 export function spreadsheetNumber(value: Money): number {
   return Number(toDecimal(value));
 }
+
+// File boundary: the amount as a plain decimal string ("1234.50"), with no currency symbol and no
+// grouping, for a file another system reads field by field (a bank's positive pay upload). Exact at
+// every size the package supports, which spreadsheetNumber is not.
+export function decimalText(value: Money): string {
+  return toDecimal(value);
+}
