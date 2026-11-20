@@ -166,6 +166,7 @@ describe("GET /api/v1/me", () => {
         "files:delete",
         "files:manageDocumentTypes",
         "files:organize",
+        "files:share",
         "files:upload",
         // Writing one's own name reaches every seat, Read-only included: it is the platform's one
         // self-scoped mutation, and every statement behind it is scoped to the session's own user id.

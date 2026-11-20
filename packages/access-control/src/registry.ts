@@ -121,6 +121,7 @@ export const PERMISSIONS = [
   "files:upload", // initiate uploads and commit versions
   "files:organize", // create/rename/move folders and files
   "files:delete", // soft-delete files
+  "files:share", // share files and folders with people outside the firm, change and stop a share
   "files:manageDocumentTypes", // create/deactivate document types
   // Tools — the cross-cutting Tools area: general-purpose utilities surfaced in the sidebar and
   // contextually. One key per tool; gates visibility on both surfaces. Role-seeding lands with the

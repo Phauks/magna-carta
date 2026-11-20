@@ -528,6 +528,9 @@ export const ENTITY_PREFIXES = {
   // document is keyed by this id. Not a notification and never one — a generated file is platform
   // mechanics rather than a fact about the firm's work.
   downloadItem: "downloadItem",
+  // One file, one folder or a matter's top level shared with one Directory person outside the firm,
+  // with what that person may do. Revoked, never deleted, so who could see what stays answerable.
+  share: "share",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

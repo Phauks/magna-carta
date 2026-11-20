@@ -278,6 +278,9 @@
       "path": "packages/seven-zip/tsconfig.test.json"
     },
     {
+      "path": "packages/sharing/tsconfig.test.json"
+    },
+    {
       "path": "packages/shipping/tsconfig.test.json"
     },
     {

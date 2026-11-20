@@ -3609,6 +3609,64 @@ export type FileHistoryItem = {
     toText: string | null;
 };
 
+export type ShareListResponse = {
+    data: Array<ShareSummary>;
+};
+
+export type ShareSummary = {
+    id: string;
+    matterId: string;
+    scope: 'matter' | 'folder' | 'file';
+    folderId: string | null;
+    fileId: string | null;
+    fileVersionId: string | null;
+    recipientEntityId: string;
+    recipientName: string | null;
+    role: 'viewer' | 'commenter' | 'editor';
+    allowDownload: boolean;
+    signIn: 'link' | 'emailCode' | 'twoStep';
+    endsOn: string | null;
+    sharedByUserId: string;
+    createdAt: string;
+    updatedAt: string;
+    dormant: 'ended' | 'needsNewSharer' | null;
+};
+
+export type SharedFilesResponse = {
+    shareIds: Array<string>;
+};
+
+export type ShareFilesRequest = {
+    items: Array<{
+        scope: 'matter';
+    } | {
+        scope: 'folder';
+        folderId: string;
+    } | {
+        scope: 'file';
+        fileId: string;
+        fileVersionId?: string | null;
+    }>;
+    people: Array<{
+        entityId: string;
+        role: 'viewer' | 'commenter' | 'editor';
+    }>;
+    allowDownload?: boolean;
+    signIn?: 'link' | 'emailCode' | 'twoStep';
+    endsOn?: string | null;
+};
+
+export type ShareAcknowledged = {
+    ok: true;
+};
+
+export type ChangeShareRequest = {
+    role?: 'viewer' | 'commenter' | 'editor';
+    allowDownload?: boolean;
+    signIn?: 'link' | 'emailCode' | 'twoStep';
+    endsOn?: string | null;
+};
+
 export type PlayableCopyStatus = {
     versionId: string;
     state: 'none' | 'pending' | 'ready' | 'unavailable';
@@ -22688,6 +22746,207 @@ export type FilesHistoryResponses = {
 };
 
 export type FilesHistoryResponse = FilesHistoryResponses[keyof FilesHistoryResponses];
+
+export type SharesListData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/shares';
+};
+
+export type SharesListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter or share is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type SharesListError = SharesListErrors[keyof SharesListErrors];
+
+export type SharesListResponses = {
+    /**
+     * The matter's shares
+     */
+    200: ShareListResponse;
+};
+
+export type SharesListResponse = SharesListResponses[keyof SharesListResponses];
+
+export type SharesShareData = {
+    body: ShareFilesRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/shares';
+};
+
+export type SharesShareErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter or share is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request names something that cannot be shared
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type SharesShareError = SharesShareErrors[keyof SharesShareErrors];
+
+export type SharesShareResponses = {
+    /**
+     * Shared
+     */
+    201: SharedFilesResponse;
+};
+
+export type SharesShareResponse = SharesShareResponses[keyof SharesShareResponses];
+
+export type SharesStopData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        shareId: string;
+    };
+    query?: never;
+    url: '/api/v1/shares/{shareId}';
+};
+
+export type SharesStopErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter or share is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request names something that cannot be shared
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type SharesStopError = SharesStopErrors[keyof SharesStopErrors];
+
+export type SharesStopResponses = {
+    /**
+     * Stopped
+     */
+    200: ShareAcknowledged;
+};
+
+export type SharesStopResponse = SharesStopResponses[keyof SharesStopResponses];
+
+export type SharesChangeData = {
+    body: ChangeShareRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        shareId: string;
+    };
+    query?: never;
+    url: '/api/v1/shares/{shareId}';
+};
+
+export type SharesChangeErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter or share is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request names something that cannot be shared
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type SharesChangeError = SharesChangeErrors[keyof SharesChangeErrors];
+
+export type SharesChangeResponses = {
+    /**
+     * Changed
+     */
+    200: ShareAcknowledged;
+};
+
+export type SharesChangeResponse = SharesChangeResponses[keyof SharesChangeResponses];
 
 export type FilesPlayableCopyData = {
     body?: never;

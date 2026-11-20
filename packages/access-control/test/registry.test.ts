@@ -98,6 +98,7 @@ describe("permission registry", () => {
       "files:upload",
       "files:organize",
       "files:delete",
+      "files:share",
       "files:manageDocumentTypes",
     ]);
   });
