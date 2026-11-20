@@ -8,6 +8,15 @@ import { z } from "zod";
 export const CALENDAR_PROVIDERS = ["microsoft", "google"] as const;
 export type CalendarProvider = (typeof CALENDAR_PROVIDERS)[number];
 
+// One of the session member's own events, read from their Outlook or Google calendar, that a new
+// matter event is made from.
+export const FromAccountEvent = z
+  .object({
+    provider: z.enum(CALENDAR_PROVIDERS).describe("Which of the member's accounts holds it."),
+    id: z.string().min(1).max(1024).describe("The provider's own identifier for the event."),
+  })
+  .meta({ id: "FromAccountEvent" });
+
 export const ConnectedAccountProvider = z
   .object({
     provider: z.enum(CALENDAR_PROVIDERS),
