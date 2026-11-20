@@ -285,7 +285,7 @@ export class CalendarController {
     this.today = todayCivil();
     if (host.scope().kind === "mine") this.scopeChoice = "mine";
     if (host.address()) {
-      const parameters = page.url.searchParams;
+      const parameters = new URLSearchParams(page.url.search);
       host.setView(viewFromAddress(parameters.get(VIEW_KEY), host.view()));
       host.setAnchor(anchorFromAddress(parameters.get(DATE_KEY), host.anchor()));
       const refinements = refinementsFromAddress(parameters);
@@ -620,7 +620,7 @@ export class CalendarController {
    * as it was. A no-op when the address already says this, so an effect that calls it converges.
    */
   mirrorAddress(): void {
-    const url = mirroredAddress(page.url, {
+    const url = mirroredAddress(new URL(page.url.href), {
       view: this.view,
       anchor: this.anchor,
       firmSide: this.firmSide,
