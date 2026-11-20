@@ -18,12 +18,19 @@
    * capability the address names. The screen — masthead included — is the Workbench component,
    * because every control in that masthead acts on the surface rather than on the route.
    *
+   * The PDF Editor opens over the bench from the PDF tab, in this route, through shallow routing
+   * (`pushState`): the bench's files live in this page, so a separate route would clear the very
+   * file being edited. The bench stays mounted under the editor, and the browser's Back closes it.
+   *
    * The Tools layout draws this beside the tools column, and this page owns the column's
    * scrolling (its +page.ts says so): the column is a bare full-height stack, so the page takes
    * the height and carries the canvas inset itself, and the workbench's rail and panes scroll
    * inside their own frames as they always have.
    */
+  import { pushState } from "$app/navigation";
   import { page } from "$app/state";
+  import BenchPdfEditor from "$lib/tools/file-workbench/bench-pdf-editor.svelte";
+  import type { WorkbenchFile } from "$lib/tools/file-workbench/workbench-file.ts";
   import Workbench from "$lib/tools/file-workbench/workbench.svelte";
   import { EphemeralFileSource } from "$lib/tools/file-workbench/ephemeral-source.svelte.ts";
   import { capabilityById } from "$lib/tools/file-workbench/capabilities.ts";
@@ -38,10 +45,32 @@
   let capabilityId = $state(
     capabilityById(page.url.searchParams.get("capability"))?.id ?? OVERVIEW_CAPABILITY,
   );
+
+  const editing = $derived(page.state.benchEditor ?? null);
+  const editingFile = $derived(
+    editing === null ? null : (source.files.find((file) => file.id === editing.fileId) ?? null),
+  );
+
+  function openPdfEditor(file: WorkbenchFile, tool: string): void {
+    pushState("", { benchEditor: { fileId: file.id, tool } });
+  }
 </script>
 
-<svelte:head><title>File Workbench · Magna Carta</title></svelte:head>
+<svelte:head>
+  {#if editing === null}<title>File Workbench · Magna Carta</title>{/if}
+</svelte:head>
 
-<div class="flex h-full min-h-0 flex-col">
-  <Workbench {source} {permissions} bind:capabilityId />
+<!-- Hidden rather than unmounted while the editor is open, so the bench comes back as it was left:
+     the same file chosen, on the same tab. -->
+<div class="flex h-full min-h-0 flex-col" class:hidden={editing !== null}>
+  <Workbench {source} {permissions} bind:capabilityId onOpenPdfEditor={openPdfEditor} />
 </div>
+{#if editing !== null}
+  {#key editing.fileId}
+    <BenchPdfEditor
+      file={editingFile}
+      tool={editing.tool}
+      onAddFiles={(added) => void source.add(added)}
+    />
+  {/key}
+{/if}

@@ -23,4 +23,13 @@ declare namespace App {
      */
     cause?: string;
   }
+
+  /**
+   * Shallow-routed state (`pushState` from `$app/navigation`). `benchEditor` is the PDF Editor
+   * drawn over the File Workbench: which bench file, and which tool. It lives in history rather than
+   * the address because the file lives only in that page; a reload has no file to reopen.
+   */
+  interface PageState {
+    benchEditor?: { readonly fileId: string; readonly tool: string };
+  }
 }

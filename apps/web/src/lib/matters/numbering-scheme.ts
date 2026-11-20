@@ -31,7 +31,8 @@ export type NumberingPurpose =
   | "custody_packet"
   | "invoice"
   | "time_entry"
-  | "communication";
+  | "communication"
+  | "in_out_entry";
 
 /** One purpose as the listing describes it. */
 export interface NumberingPurposeRecord {

@@ -13,6 +13,8 @@
 import {
   DecompressionBombError,
   detectDocument,
+  extractPdfText,
+  loadDocument,
   fillForm,
   flattenForm,
   inspectSecurity,
@@ -24,6 +26,7 @@ import {
   watermarkDocument,
 } from "@magna-carta/pdf";
 import { countReadings } from "./secure.ts";
+import { findBatesLabels, summarizeForm, withheldPermissions } from "./pdf-summary.ts";
 import { arrangeDocument } from "./arrange-document.ts";
 import type { PdfOperationReply, PdfOperationRequest } from "./pdf-operations.ts";
 
@@ -126,6 +129,55 @@ async function run(request: PdfOperationRequest): Promise<PdfOperationReply> {
         const scrubbed = request.operation.scrubFirst ? (await sanitizeDocument(bytes)).pdf : bytes;
         const result = await secureDocument(scrubbed, { ...request.operation.options });
         return { kind: "done", id: request.id, documents: [result.pdf], pagesChanged: 0 };
+      }
+      case "summarize": {
+        const security = await inspectSecurity(bytes);
+        const limits = withheldPermissions(security);
+        if (security.hasUserPassword) {
+          return {
+            kind: "done",
+            id: request.id,
+            documents: [],
+            pagesChanged: 0,
+            summary: {
+              needsPassword: true,
+              encrypted: true,
+              limits,
+              pages: [],
+              form: null,
+              bates: null,
+            },
+          };
+        }
+        const document = await loadDocument(bytes);
+        const pages = Array.from({ length: document.pageCount }, (_, index) =>
+          document.pageSize(index),
+        );
+        document.free();
+        // Each of these is a reading on its own: a form the engine cannot read, or a text layer it
+        // cannot walk, leaves that one row unknown rather than the whole summary.
+        const [fields, text] = await Promise.all([
+          readForm(bytes).catch(() => []),
+          extractPdfText(bytes).catch(() => null),
+        ]);
+        const bates =
+          text === null
+            ? null
+            : findBatesLabels(text.pages.map((page) => page.lines.map((line) => line.text)));
+        return {
+          kind: "done",
+          id: request.id,
+          documents: [],
+          pagesChanged: 0,
+          summary: {
+            needsPassword: false,
+            encrypted: security.encrypted,
+            limits,
+            pages,
+            form: summarizeForm(fields),
+            bates,
+          },
+        };
       }
       case "readForm": {
         const fields = await readForm(bytes);

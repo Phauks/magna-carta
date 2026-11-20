@@ -262,6 +262,10 @@ const KIND_PRESENTATION: Readonly<Record<string, KindPresentation>> = Object.fre
       return count === 1 ? "1 error reference" : `${String(count)} error references`;
     },
   },
+  // The sender's side of a problem report: that it arrived, and each answer. The status and the
+  // note are read on the report itself.
+  "system.incident.received": { title: "Problem report received" },
+  "system.incident.answered": { title: "Problem report answered" },
   "calendar.event.scheduled": { title: "Event scheduled" },
   "calendar.event.rescheduled": { title: "Event moved" },
   "calendar.event.cancelled": { title: "Event cancelled" },
