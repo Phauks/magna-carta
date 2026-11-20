@@ -9,7 +9,7 @@
  * disagree about whether a solution is needed.
  */
 
-import { requestJson } from "$lib/api/request.ts";
+import { humanVerificationSettings } from "@magna-carta/api-client";
 
 /** The header the platform's own joining endpoints read a solution from. */
 export const HUMAN_VERIFICATION_TOKEN_HEADER = "x-human-verification-token";
@@ -45,14 +45,12 @@ let siteKeyRequest: Promise<string | null> | null = null;
  * that got no answer is not remembered, so the next screen asks again.
  */
 export function loadSiteKey(fetchImplementation: typeof fetch): Promise<string | null> {
-  siteKeyRequest ??= requestJson<{ siteKey: string | null }>(
-    fetchImplementation,
-    "/api/v1/human-verification",
-  ).then((outcome) => {
-    if (outcome.kind === "ok") return outcome.value.siteKey;
-    siteKeyRequest = null;
-    return null;
-  });
+  siteKeyRequest ??= humanVerificationSettings({ fetch: fetchImplementation, throwOnError: true })
+    .then(({ data }) => data.siteKey)
+    .catch(() => {
+      siteKeyRequest = null;
+      return null;
+    });
   return siteKeyRequest;
 }
 
