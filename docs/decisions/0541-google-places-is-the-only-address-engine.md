@@ -1,17 +1,18 @@
 ---
+number: 541
 slug: google-places-is-the-only-address-engine
 status: Accepted
-area: Directory
 date: 2026-11-20
+area: Directory
 summary: "Address autocomplete runs on Google Places alone, chosen by the owner on 2026-11-20 after a week's trial. The platform's own US index (the magna-carta-address Worker, its Containers, crates/address-core and the magna-carta-addresses bucket) and the Smarty adapter are removed, superseding the decisions that chose them; neither had been switched on. The owner chose this with the trade-offs laid out: Google's terms let a customer keep only a place ID while a chosen address is saved into the record, every typed address goes to Google, and the bill grows with volume, against one engine to run, every country covered and the addresses people expect to see."
 ---
 
 **Address autocomplete runs on Google Places alone.**
 
 **Context.** Two earlier decisions chose the engines: Smarty first, on storage terms
-([`0496`](0496-address-autocomplete-runs-on-the-provider-that-lets-the-firm-keep-the-address.md)),
+([`0496`](pending/0496-address-autocomplete-runs-on-the-provider-that-lets-the-firm-keep-the-address.md)),
 then the platform's own US index built monthly from OpenAddresses
-([`0497`](0497-the-united-states-is-answered-from-the-platforms-own-address-index.md)). Neither was
+([`0497`](pending/0497-the-united-states-is-answered-from-the-platforms-own-address-index.md)). Neither was
 ever switched on: Smarty had no account, and the own index waited on an R2 bucket and a Workers
 Builds connection. On 2026-11-13 the owner asked to try Google first and decide afterwards whether the
 own index was needed; the Google adapter went live from the Secrets Store. On 2026-11-20, shown the

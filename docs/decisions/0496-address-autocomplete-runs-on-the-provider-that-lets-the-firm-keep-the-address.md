@@ -1,7 +1,7 @@
 ---
 number: 496
 slug: address-autocomplete-runs-on-the-provider-that-lets-the-firm-keep-the-address
-status: "Superseded (2026-11-20, by ADR-google-places-is-the-only-address-engine)"
+status: "Superseded (2026-11-20, by ADR-0541)"
 date: 2026-09-24
 area: Directory
 summary: "With the owner's ruling that an address may leave the tenancy, the lookup engine was chosen, and the deciding fact was storage terms rather than coverage or price: the address a person picks is written into a permanent record, one of the two largest autocomplete services lets a customer keep only its own place identifier and the other treats every result as temporary, while Smarty lets the firm keep the data — including after cancelling. The engine is dormant until its key pair is provisioned, so no deploy waits on an account and nothing is spent until the owner opens one. The Worker serves it through two read-shaped POSTs rather than GETs, because invocation logging records every full URL and the query is a client's address typed a few characters at a time. It is gated on directory:edit, which covers both forms that ask with no migration. In the form, what is typed is the street line and nothing takes it back; a chosen address replaces the parts it carries and leaves the rest; a building with many units is opened, never chosen; and after one failure the box stops asking until somebody presses Try Again."
