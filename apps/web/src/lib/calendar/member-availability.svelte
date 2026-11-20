@@ -15,8 +15,10 @@
    */
   import { readFirmCalendar } from "./calendar-api.ts";
   import { AvailabilityReads } from "./availability-reads.svelte.ts";
+  import { readMemberBusyTime } from "./member-busy-time.ts";
   import {
     availabilityEntryFromTimelineRow,
+    entryFromBusyTime,
     type CalendarEntry,
     type EntryContext,
   } from "./calendar-entries.ts";
@@ -67,19 +69,32 @@
     userId: string,
     date: string,
   ): Promise<readonly CalendarEntry[] | null> {
-    const outcome = await readFirmCalendar(fetch, {
-      from: date,
-      to: date,
-      side: "all",
-      memberId: userId,
-    });
+    const [outcome, busyTime] = await Promise.all([
+      readFirmCalendar(fetch, {
+        from: date,
+        to: date,
+        side: "all",
+        memberId: userId,
+      }),
+      readMemberBusyTime(userId, { from: date, to: date }, fetch),
+    ]);
     // Null rather than an empty day: a read that did not come back must not claim the colleague is
     // free, and it is the answer that gets asked again.
     if (outcome.kind !== "ok") return null;
-    return outcome.value.data.flatMap((row) => {
+    const entries = outcome.value.data.flatMap((row) => {
       const entry = availabilityEntryFromTimelineRow(row, context);
       return entry === null ? [] : [entry];
     });
+    // What their own Outlook or Google calendar has them busy with, where they chose to share it.
+    // Its read failing leaves the line saying what the firm's calendar knows, as it did before.
+    const busy = busyTime.kind === "ok" ? busyTime.value.busy : [];
+    return [
+      ...entries,
+      ...busy.flatMap((stretch) => {
+        const entry = entryFromBusyTime(stretch, userId, context);
+        return entry === null ? [] : [entry];
+      }),
+    ];
   }
 
   const availability = $derived.by((): readonly MemberAvailability[] => {

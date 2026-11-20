@@ -102,7 +102,8 @@ import theFrontDeskKeepsAnInOutLogSql from "@magna-carta/database/drizzle/per-fi
 import recordPresenceSql from "@magna-carta/database/drizzle/per-firm/20261120T201547_record-presence.sql";
 import batesLogsSql from "@magna-carta/database/drizzle/per-firm/20261120T203600_bates-logs.sql";
 import signersCanGetACodeByTextSql from "@magna-carta/database/drizzle/per-firm/20261120T205502_signers-can-get-a-code-by-text.sql";
-import referralSourcesSql from "@magna-carta/database/drizzle/per-firm/20261120T205605_referral-sources.sql";
+import aMemberSharesACalendarAsBusySql from "@magna-carta/database/drizzle/per-firm/20261120T211109_a-member-shares-a-calendar-as-busy.sql";
+import referralSourcesSql from "@magna-carta/database/drizzle/per-firm/20261120T212809_referral-sources.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -209,7 +210,8 @@ export function perFirmMigrations(): Migration[] {
     "20261120T201547_record-presence": recordPresenceSql,
     "20261120T203600_bates-logs": batesLogsSql,
     "20261120T205502_signers-can-get-a-code-by-text": signersCanGetACodeByTextSql,
-    "20261120T205605_referral-sources": referralSourcesSql,
+    "20261120T211109_a-member-shares-a-calendar-as-busy": aMemberSharesACalendarAsBusySql,
+    "20261120T212809_referral-sources": referralSourcesSql,
   });
 }
 

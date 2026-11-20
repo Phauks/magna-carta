@@ -35502,11 +35502,16 @@
           "calendarName": {
             "type": "string",
             "description": "The calendar's name when it was chosen, shown when the provider is unreachable."
+          },
+          "sharedAsBusy": {
+            "type": "boolean",
+            "description": "Whether colleagues are told the hours this calendar's events take, as busy time with no title, place or calendar name."
           }
         },
         "required": [
           "calendarRemoteId",
-          "calendarName"
+          "calendarName",
+          "sharedAsBusy"
         ]
       },
       "CalendarSyncRulesReplace": {
@@ -35618,6 +35623,16 @@
             },
             "maxItems": 50,
             "description": "The member's whole choice of calendars to be shown. A calendar absent from it is no longer read, and what was read from it is removed."
+          },
+          "busyCalendarRemoteIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "maxItems": 50,
+            "description": "Which of the chosen calendars tell colleagues the member is busy: the whole choice, so one absent from it stops being shared and an absent list shares none. Each must also be in calendarRemoteIds."
           }
         },
         "required": [
@@ -35661,6 +35676,10 @@
             "type": "string",
             "description": "The calendar's name when it was chosen, shown when the provider is unreachable."
           },
+          "sharedAsBusy": {
+            "type": "boolean",
+            "description": "Whether colleagues are told the hours this calendar's events take, as busy time with no title, place or calendar name."
+          },
           "provider": {
             "type": "string",
             "enum": [
@@ -35673,6 +35692,7 @@
         "required": [
           "calendarRemoteId",
           "calendarName",
+          "sharedAsBusy",
           "provider"
         ]
       },
@@ -35747,6 +35767,69 @@
           "calendarName",
           "title",
           "location",
+          "wholeDay",
+          "startsOn",
+          "endsOn",
+          "startsAt",
+          "endsAt"
+        ]
+      },
+      "CalendarMemberBusyTimeList": {
+        "type": "object",
+        "properties": {
+          "busy": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarMemberBusyTime"
+            },
+            "description": "When the member is busy, from the calendars of their own accounts they chose to share as busy. Hours only. Empty when they shared none, and always empty for the session member's own, who reads their own events instead."
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "True when the window held more than one answer carries."
+          }
+        },
+        "required": [
+          "busy",
+          "truncated"
+        ]
+      },
+      "CalendarMemberBusyTime": {
+        "type": "object",
+        "properties": {
+          "wholeDay": {
+            "type": "boolean"
+          },
+          "startsOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A whole-day stretch's first day, as YYYY-MM-DD. Null for a timed one."
+          },
+          "endsOn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A whole-day stretch's last day, inclusive. Null for a timed one."
+          },
+          "startsAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A timed stretch's start, as an instant. Null for a whole-day one."
+          },
+          "endsAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A timed stretch's end, as an instant."
+          }
+        },
+        "required": [
           "wholeDay",
           "startsOn",
           "endsOn",
@@ -115566,7 +115649,7 @@
     },
     "/api/v1/me/calendar-sync/shown-calendars": {
       "put": {
-        "description": "Replaces the session member's choice of which of their own account's calendars are shown to them in the firm's calendar. Events from a calendar no longer chosen are removed at once. Nothing is shown to anybody else, and nothing is changed at the provider.",
+        "description": "Replaces the session member's choice of which of their own account's calendars are shown to them in the firm's calendar, and which of those tell colleagues they are busy. Events from a calendar no longer chosen are removed at once. Colleagues are told hours only, and only from a calendar named in busyCalendarRemoteIds. Nothing is changed at the provider.",
         "operationId": "calendarSync.replaceMyShownCalendars",
         "tags": [
           "calendarSync"
@@ -115743,6 +115826,122 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CalendarSyncAccountEventList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the permission named",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The window is not two days in order, or is longer than a year",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/calendar/members/{memberUserId}/busy-time": {
+      "get": {
+        "description": "When one member is busy inside a window, from the calendars of their own Outlook or Google account they chose to share as busy. Hours only: no title, place or calendar name. Empty when they shared none, and always empty for the session member's own.",
+        "operationId": "calendar.memberBusyTime",
+        "tags": [
+          "calendar"
+        ],
+        "x-mc-operationId": "calendar.memberBusyTime",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "calendar:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "calendar"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": true,
+            "name": "memberUserId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "The window's first day, as YYYY-MM-DD."
+            },
+            "required": true,
+            "description": "The window's first day, as YYYY-MM-DD.",
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "The window's last day, as YYYY-MM-DD."
+            },
+            "required": true,
+            "description": "The window's last day, as YYYY-MM-DD.",
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The member's busy time in the window",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarMemberBusyTimeList"
                 }
               }
             }

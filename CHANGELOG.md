@@ -8505,6 +8505,7 @@ and `GET`/`PATCH /api/v1/firm/translation-settings` behind `firm:manageAiSetting
 lists Translation under AI. Each run writes a `translation.translated` row to the firm's log without
 the text. The Translate screen follows once its layout is picked.
 - **Trust reconciliation screen.** Reconciliation, under Money in the sidebar, lists each trust account's reconciliations and opens one to tick off the bank statement: start date and balance carried over (or typed for the first), any end date, the end balance from the statement, deposited, withdrawn, cleared balance and the difference worked as you tick. Lines filter by type and by Uncleared, Needs Review or New; each has its own notes with Needs Review and Mark Resolved. IOLTA interest sits in its own box. Every tick saves at once and shows on other people's screens, with Undo, Redo, History (undo any change), Save and Restore Points. Several statement files can be attached. The report prints at any time, marked DRAFT on every page until the reconciliation is finished. The PDF composer gained a page watermark for it. Backed by `packages/trust/src/bank-reconciliation.ts` and the `20261119T202327_trust-bank-reconciliation` per-firm migration (additive).
+- **A member may share a calendar of their own Outlook or Google account as busy time.** `calendar_sync_shown_calendar` gains `share_busy` (migration `20261120T200255_a-member-shares-a-calendar-as-busy`), set through `busyCalendarRemoteIds` on the shown-calendars replace. `GET /api/v1/calendar/members/{memberUserId}/busy-time` answers one member's busy hours to anybody holding `calendar:read`; its statement selects hours only. A colleague's calendar paints each stretch as Busy and the event form's availability line counts it.
 
 ### Fixed
 
@@ -13810,6 +13811,7 @@ the account's Secrets Store as `SECRETS_STORE_USAGE_ANALYTICS_PEPPER`, with the 
 the fallback, so creating it in the store is the one step that switches usage events on in the
 Workers Analytics Engine dataset. The System Status steps and `docs/conventions/operations.md` (Usage
 analytics) say how.
+- **An open calendar reads its window again every 30 seconds while in view, and at once when the reader returns to the tab.** The shared timer moved from the trust reconciliation screens to `apps/web/src/lib/screen/live-read.ts`, and `CalendarView` uses it with a longer interval.
 
 ### Security
 
