@@ -50,7 +50,7 @@
   const addressSearch = $derived(page.url.search);
   const filters = $derived.by((): SearchFilters => {
     void addressSearch;
-    return filtersFromAddress(page.url.searchParams);
+    return filtersFromAddress(new URLSearchParams(page.url.search));
   });
 
   let field = $state("");
@@ -76,12 +76,12 @@
   // for the reader's work, not for one question.
   function submit(next: string): void {
     if (next.trim() === addressQuery.trim()) return;
-    void goto(searchAddress(next, filters), { replaceState: true, keepFocus: true });
+    void goto(searchAddress(next, filters), { replace: true, reset: false });
   }
 
   // A change of filter is a step the back button returns from.
   function applyFilters(next: SearchFilters): void {
-    void goto(searchAddress(addressQuery, next), { keepFocus: true, noScroll: true });
+    void goto(searchAddress(addressQuery, next), { reset: false });
   }
 
   const places = $derived(panelPlaces(search.answer, filters));

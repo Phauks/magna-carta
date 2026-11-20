@@ -39,7 +39,7 @@
    * where they are. It is a DEFAULT, not a lock: the editor's own View menu still switches modes,
    * and a switch made there is remembered by that browser and wins over this line thereafter.
    */
-  import { dev } from "$app/environment";
+  import { dev } from "$app/env";
   import { goto } from "$app/navigation";
   import { onMount, untrack } from "svelte";
   import Badge from "@magna-carta/design-system/badge";

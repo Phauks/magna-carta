@@ -98,7 +98,7 @@
   let windowOfficeId = $state<string | null>(null);
 
   function writeAddress(officeId: string | null): void {
-    const url = new URL(page.url);
+    const url = new URL(page.url.href);
     if (officeId === null) url.searchParams.delete("office");
     else url.searchParams.set("office", officeId);
     // Not a navigation: opening a row is the same screen looking at one of its rows.
