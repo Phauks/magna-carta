@@ -144,12 +144,14 @@ export const SearchAcrossMattersGroup = z
     hasMore: z.boolean(),
     // Why this place contributed nothing, or null when it answered. `one-matter-only` is a place
     // that is searched inside a matter and not across them. `too-many-matters` is a place that is
-    // asked one matter at a time and so only where the search reaches few of them. The rest mean
+    // asked one matter at a time and so only where the search reaches few of them. `no-author` is a
+    // place that records nobody as its rows' author, under a search held to one person. The rest mean
     // what they mean in a matter's own search.
     skipped: z
       .enum([
         "one-matter-only",
         "too-many-matters",
+        "no-author",
         "permission",
         "query-too-short",
         "engine-unavailable",

@@ -178,7 +178,7 @@
    */
   $effect(() => {
     if (!seededFromAddress) return;
-    const next = addressAfterFilters(page.url, {
+    const next = addressAfterFilters(new URL(page.url.href), {
       from: dateBounds.from,
       to: dateBounds.to,
       status: statusChoices,

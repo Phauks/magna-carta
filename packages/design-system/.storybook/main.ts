@@ -17,9 +17,8 @@ import tailwindcss from "@tailwindcss/vite";
 // alias them to local stubs (.storybook/sveltekit-stubs/) — enough for the form stories, which
 // validate client-side. Any future superforms-backed story reuses these.
 const sveltekitStubs: Record<string, string> = {
-  "$app/environment": fileURLToPath(new URL("./sveltekit-stubs/environment.ts", import.meta.url)),
   "$app/navigation": fileURLToPath(new URL("./sveltekit-stubs/navigation.ts", import.meta.url)),
-  "$app/stores": fileURLToPath(new URL("./sveltekit-stubs/stores.ts", import.meta.url)),
+  "$app/state": fileURLToPath(new URL("./sveltekit-stubs/state.ts", import.meta.url)),
   "$app/forms": fileURLToPath(new URL("./sveltekit-stubs/forms.ts", import.meta.url)),
 };
 

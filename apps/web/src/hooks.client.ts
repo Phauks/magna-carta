@@ -13,14 +13,17 @@
  * user-initiated as docs/conventions/error-logging.md specifies — the standing consent tier is a
  * setting a firm turns on, not a behaviour that arrives with a boundary.
  */
-import type { HandleClientError } from "@sveltejs/kit";
+import type { HandleClientError } from "@sveltejs/kit/hooks";
 import { record } from "$lib/diagnostics/breadcrumbs.ts";
 import { CRASH_MESSAGE, crashSignature, noteCrash } from "$lib/diagnostics/crash.ts";
 import { recordCrash } from "$lib/diagnostics/crash-record.ts";
 
-export const handleError: HandleClientError = ({ error, event, status, message }) => {
-  // A 404 is routing, not a crash: it has no handle to mint and nothing to report.
-  if (status === 404) return { message };
+export const handleError: HandleClientError = ({ kind, error, event }) => {
+  // A 404 is routing, not a crash: it has no handle to mint and nothing to report. An error the app
+  // raised on purpose (`error(...)`) already carries what it means to say, so it keeps its own body.
+  // Returning nothing keeps SvelteKit's defaults for both.
+  if (kind === "app") return;
+  if (kind === "framework" && error.status === 404) return;
 
   const errorId = noteCrash(error, event.url.pathname);
   recordCrash(errorId, error, event.route.id ?? event.url.pathname);
