@@ -14,7 +14,7 @@ active-work:
 next: Answered — every date is entered through the DatePicker (owner, 2026-09-08); what is open now is on the continued slice
 link-spec:
 link-plan:
-adrs: ADR-a-date-has-two-authorities-and-a-gate-that-keeps-it-so
+adrs: ADR-0449
 blocked-by:
 ---
 
