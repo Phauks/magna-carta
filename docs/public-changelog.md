@@ -34,6 +34,7 @@ Categories: **Added · Changed · Deprecated · Removed · Fixed · Security.**
 - When you send a document for signature, you can now have a signer confirm it is them with a code sent by text message, as well as by email. Your firm decides which ways to offer.
 - **Reconcile a trust account.** A new Reconciliation screen lets you tick off each bank statement against the trust account, see the difference as you go, keep notes on any line, undo any change, and print a draft or final report.
 - You can now let colleagues see when your own Outlook or Google calendar has you busy. Turn on Show Colleagues as Busy beside a calendar in Settings, Calendar Sync. They see the word Busy and the times, never the title or place.
+- You can now put one of your own Outlook or Google events on a matter. Press it on the Calendar, choose the matter and the type, and press Add to Matter. Your own event is kept and stays in step with the one on the matter.
 
 ### Changed
 
