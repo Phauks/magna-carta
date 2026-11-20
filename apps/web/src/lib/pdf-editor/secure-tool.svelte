@@ -22,7 +22,7 @@
   import * as RadioGroup from "@magna-carta/design-system/radio-group";
   import { viewerHref } from "$lib/documents/editable-documents.ts";
   import { PdfDocumentSource, pageDisplaySize, renderDpiFor, type PdfPageSize } from "$lib/documents/pdf-pages.ts";
-  import type { MatterFile } from "$lib/file-manager/matter-file-api.ts";
+  import type { EditorSubject } from "./editor-subject.ts";
   import { fileMadeDocument, openEditorDocument, type Filed } from "./editor-document.ts";
   import { describeOperationFailure, runPdfOperation } from "./pdf-operations.ts";
   import {
@@ -36,7 +36,7 @@
     type SecureSettings,
   } from "./secure.ts";
 
-  let { file }: { file: MatterFile } = $props();
+  let { subject }: { subject: EditorSubject } = $props();
 
   const PREVIEW_ZOOM = 0.8;
 
@@ -122,7 +122,7 @@
 
   async function open(): Promise<void> {
     const opened = await openEditorDocument(
-      file,
+      subject,
       "This document already has a password. Unlock it in the File Workbench first to change its protection.",
     );
     if (gone) {
@@ -184,7 +184,7 @@
       };
       return;
     }
-    const filed = await fileMadeDocument(file, document, protectedCopyName(file.name));
+    const filed = await fileMadeDocument(subject, document, protectedCopyName(subject.name));
     if (gone) return;
     // The passwords leave this screen with the result; nothing keeps them.
     settings = { ...settings, openPassword: "", permissionsPassword: "" };
@@ -324,6 +324,17 @@
               </Alert.Description>
             {/if}
             <Button variant="secondary" size="sm" class="self-start" href={viewerHref(result.filed.fileId)}>Open the Protected Copy</Button>
+          </Alert.Root>
+        {:else if result.kind === "done" && result.filed.kind === "benched"}
+          <Alert.Root variant="success">
+            <Alert.Title>Added to the Bench</Alert.Title>
+            <Alert.Description>{result.filed.name} is on the bench beside the original, which is unchanged and isn't protected.</Alert.Description>
+            {#if result.madePassword !== null}
+              <Alert.Description>
+                The password to change its permissions is <span class="font-mono select-all">{result.madePassword}</span>.
+                Keep it somewhere safe. Magna Carta doesn't store it, and it's only shown this once.
+              </Alert.Description>
+            {/if}
           </Alert.Root>
         {:else if result.kind === "done" && result.filed.kind === "notFiled"}
           <Alert.Root variant="warning">

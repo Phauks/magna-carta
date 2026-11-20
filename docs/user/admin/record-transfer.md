@@ -28,6 +28,11 @@ The file is a table saved as text, one row per record, with the column names on 
 Upload people and organizations before matters. A matter names its client and its other parties by
 their key in the people or organizations file, so those records need to be there first.
 
+A file can be up to 4 GB. A large file shows how much has been sent while it uploads, and the panel
+stays open until it finishes. To give up part way, choose **Stop Upload**. A stopped upload adds no
+file to the run, so choose **Upload** again to start over. If an upload fails, the panel says so and
+**Upload** tries again.
+
 ## Saying what each column has in it
 
 Select a file on the left and open the **Columns** tab. Each column of the file is listed with its

@@ -2,7 +2,8 @@
   /*
    * Inserting the pages of another PDF into the one on the Pages tab: which file, and where its
    * pages go. The file is one of the matter's own or one from the reader's computer, and the two
-   * sources share one slot, so choosing between them never moves the fields below.
+   * sources share one slot, so choosing between them never moves the fields below. A document on
+   * the File Workbench has no matter, so there the computer is the only source and no choice is shown.
    *
    * Nothing is saved here. Insert reads the file, checks it opens, and hands its pages to the tab's
    * arrangement, where they can be moved, turned or deleted like any other page before Save.
@@ -16,7 +17,6 @@
   import LabelledField from "@magna-carta/design-system/labelled-field";
   import * as SegmentedControl from "@magna-carta/design-system/segmented-control";
   import MatterDocumentPicker from "$lib/documents/matter-document-picker.svelte";
-  import type { MatterFile } from "$lib/file-manager/matter-file-api.ts";
   import {
     insertableDocument,
     openInsertedFile,
@@ -27,14 +27,17 @@
 
   let {
     open = $bindable(false),
-    file,
+    name,
+    matterId,
     pageCount,
     suggestedPosition,
     onInsert,
   }: {
     open?: boolean;
-    /** The document being edited; its matter is where the other file is chosen from. */
-    file: MatterFile;
+    /** The name of the document being edited. */
+    name: string;
+    /** The matter the other file can be chosen from, or null for a document on no matter. */
+    matterId: string | null;
     /** How many pages the arrangement holds now, so a position can be checked. */
     pageCount: number;
     /** The page the inserted pages go after when the dialog opens: the last chosen page, if any. */
@@ -45,7 +48,8 @@
   type From = "matter" | "computer";
   type Where = "before" | "after" | "end";
 
-  let from = $state<From>("matter");
+  const startFrom = (): From => (matterId === null ? "computer" : "matter");
+  let from = $state<From>(startFrom());
   let matterFileId = $state<string | null>(null);
   let computerFile = $state<File | null>(null);
   let where = $state<Where>("end");
@@ -76,7 +80,7 @@
   );
 
   function reset(): void {
-    from = "matter";
+    from = startFrom();
     matterFileId = null;
     computerFile = null;
     refusal = null;
@@ -105,7 +109,7 @@
 <ActionDialog
   bind:open
   heading="Insert Pages"
-  subtitle={{ facts: [file.name] }}
+  subtitle={{ facts: [name] }}
   commitLabel="Insert"
   commitBusyLabel="Inserting"
   {commitRefusal}
@@ -124,6 +128,7 @@
 
   {#snippet fields({ busy })}
     <div class="flex flex-col gap-16">
+      {#if matterId !== null}
       <div class="flex flex-col gap-8">
         <span class="mc-label" id="insert-pages-from">From</span>
         <SegmentedControl.Root
@@ -139,13 +144,14 @@
           <SegmentedControl.Item value="computer">Your Computer</SegmentedControl.Item>
         </SegmentedControl.Root>
       </div>
+      {/if}
 
       <div class="flex flex-col gap-8">
-        {#if from === "matter"}
+        {#if from === "matter" && matterId !== null}
           <Label necessity="required" for="insert-pages-matter-file">File</Label>
           <MatterDocumentPicker
             bind:value={matterFileId}
-            matterId={file.matterId}
+            {matterId}
             inputId="insert-pages-matter-file"
             fieldName="File"
             disabled={busy}

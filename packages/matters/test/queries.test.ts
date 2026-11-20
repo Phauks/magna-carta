@@ -2,7 +2,11 @@ import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { MatterId, MatterTypeId, UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
-import { clientMattersNarrowing, ownMattersNarrowing } from "../src/matter-narrowing.ts";
+import {
+  chosenMattersNarrowing,
+  clientMattersNarrowing,
+  ownMattersNarrowing,
+} from "../src/matter-narrowing.ts";
 import {
   findMattersByNumbers,
   listConsultations,
@@ -200,6 +204,19 @@ describe("listMatters", () => {
     expect(all.data.map((row) => row.id).sort()).toEqual(["matter_one", "matter_two"]);
     const searched = await listMatters(database, { narrowings, search: "easement" });
     expect(searched.data.map((row) => row.id)).toEqual(["matter_two"]);
+  });
+
+  it("narrows to the matters named one by one, and an empty list to none", async () => {
+    const database = await setup();
+    for (const [index, id] of ["matter_one", "matter_two", "matter_three"].entries()) {
+      await seedMatter(database, { id, status: "open", createdAt: day(index + 1) });
+    }
+    const named = await listMatters(database, {
+      narrowings: [chosenMattersNarrowing(["matter_one", "matter_three", "matter_unknown"])],
+    });
+    expect(named.data.map((row) => row.id).sort()).toEqual(["matter_one", "matter_three"]);
+    const none = await listMatters(database, { narrowings: [chosenMattersNarrowing([])] });
+    expect(none.data).toEqual([]);
   });
 
   it("matches the search term against title and number", async () => {

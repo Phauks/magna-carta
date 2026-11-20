@@ -6,6 +6,7 @@ import {
 } from "@magna-carta/communications/numbering";
 import { CONFLICTS_CHECK_NUMBERING_TABLES } from "@magna-carta/conflicts/check-numbering";
 import { CUSTODY_NUMBERING_TABLES } from "@magna-carta/custodian/numbering/counter-statements";
+import { IN_OUT_ENTRY_NUMBERING_TABLES } from "@magna-carta/in-out-log/numbering";
 import { MATTER_NUMBERING_TABLES } from "@magna-carta/matters/numbering/counter-statements";
 import type { SequenceNumberingTables } from "@magna-carta/sequence-numbering/counter-statements";
 import { NumberingRenderError, type RenderContext } from "@magna-carta/sequence-numbering/render";
@@ -42,6 +43,7 @@ const HELD_PURPOSES = [
   "conflicts_check",
   "custody_packet",
   "communication",
+  "in_out_entry",
 ] as const;
 type HeldPurpose = (typeof HELD_PURPOSES)[number];
 
@@ -52,6 +54,7 @@ const TABLES: Record<HeldPurpose, SequenceNumberingTables> = {
   conflicts_check: CONFLICTS_CHECK_NUMBERING_TABLES,
   custody_packet: CUSTODY_NUMBERING_TABLES,
   communication: COMMUNICATION_NUMBERING_TABLES,
+  in_out_entry: IN_OUT_ENTRY_NUMBERING_TABLES,
 };
 
 const HoldRequest = z

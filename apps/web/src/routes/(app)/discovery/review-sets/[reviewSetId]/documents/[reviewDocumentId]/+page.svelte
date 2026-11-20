@@ -48,7 +48,7 @@
 
   const reviewSet = $derived(data.reviewSet);
   const documentId = $derived(page.params.reviewDocumentId ?? "");
-  const criteria = $derived(criteriaFromSearchParameters(page.url.searchParams));
+  const criteria = $derived(criteriaFromSearchParameters(new URLSearchParams(page.url.search)));
 
   const panels = reviewPanels({
     facts: FactsPanel,

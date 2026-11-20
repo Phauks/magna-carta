@@ -88,7 +88,7 @@
   let findOnClose = false;
 
   const link = $derived(
-    conversationId === null ? null : conversationLink(page.url, conversationId).href,
+    conversationId === null ? null : conversationLink(new URL(page.url.href), conversationId).href,
   );
 
   async function copyLink(): Promise<void> {

@@ -1,13 +1,11 @@
 # The firm's trust accounts
 
-_The accounts, each account's position, the approval queue, bank statements and reconciliations,
-the bank-charge cushion, the unclaimed-funds file and the firm's policy are in daily use._
+_The accounts, each account's position, the approval queue, the bank-charge cushion, the unclaimed-funds file and the firm's policy are in daily use._
 
 ## What it does
 
 **Trust** in the sidebar's Money group is the firm's own view of client money: every trust account
-the firm holds, and for each one the payments waiting on approval, the statements and
-reconciliations on record, the firm's bank-charge cushion, and the firm-wide policy on who may
+the firm holds, and for each one the payments waiting on approval, the firm's bank-charge cushion, and the firm-wide policy on who may
 release client money. A matter's own Trust section shows one matter's ledger; this screen shows the
 accounts those ledgers live in.
 
@@ -51,46 +49,11 @@ of asking: the bank's **book balance**, what the **client ledgers** come to, wha
 carries, and how many payments are waiting. The book balance and the client total are the same
 two figures a reconciliation proves against, computed the same way.
 
-## Bank statements
+## Reconciliation
 
-A statement is one period of the account as the bank reported it: its opening and closing
-balances and every line the bank posted. It is the only thing the platform learns from outside
-itself, which is why a bank fee, a returned deposit or a forged check exists nowhere until a
-statement arrives.
-
-- **Record Statement** enters one by hand: the period, the two balances, a reference, and the
-  lines with their dates, directions, amounts and descriptions. The form totals the lines as you
-  go and warns when they do not reach the closing balance you typed; it records the statement all
-  the same, because the difference is what a reconciliation exists to find.
-- **Import Statement** reads a file your bank exported. Press **Preview** and the screen shows
-  what it found: which column it read each fact from, every row it could read and what it would
-  become, every row it could not and why, and the totals. Nothing is stored by the preview. Press
-  **Import Statement** to record exactly what the preview showed; if the file changed in between,
-  the import is refused rather than stored.
-
-Each statement offers **Reconcile**, which opens a reconciliation on it.
-
-## Reconciling a statement
-
-A reconciliation has its own screen, reached from **Reconcile** on a statement or from any
-reconciliation in the account's list.
-
-- **The proof** stands at the top: the statement's closing balance, adjusted for deposits and
-  payments the firm recorded that have not reached the bank, against the bank's book balance and
-  the client ledgers' total. It says whether the three tie out, and if not, which leg disagrees and
-  by how much.
-- **The two sides** beneath it: the statement's lines nobody has accounted for on one side, and
-  the firm's recorded items no line has cleared on the other. Select one of each and press
-  **Match** to record that they are the same event. Suggested pairings are marked with the reasons
-  they are candidates (the same amount, the same day, the same reference). Nothing is ever matched
-  for you: a wrong automatic match would be a wrong statement about client money, so every match
-  is a person's.
-- **Matches** lists every match recorded, and **Withdraw** takes one back. A withdrawn match stays
-  on the record, marked as withdrawn; the item is outstanding again.
-- **Close Reconciliation** freezes the proof as it stands. A period that did not balance closes as
-  readily as one that did, recording exactly that. A closed reconciliation shows what the firm
-  attested to beside what is true now, because the ledger may have moved since; the two are never
-  presented as the same figure. A correction is a new reconciliation that supersedes the old.
+Reconciling an account against its bank statements is on its own screen: press **Open
+Reconciliation** on the account's record, or open **Reconciliation** in the sidebar. See
+[Reconciling a trust account](reconciling-a-trust-account.md).
 
 ## The bank-charge cushion
 
