@@ -6,7 +6,9 @@
 -- section CHECK names `type`, which an added column may do, so a section is always one of the
 -- account's own type and a re-section can never move an account between statements.
 --
--- firm_account_role gains two roles, accounts_payable and owners_equity. A CHECK cannot widen in
+-- firm_account_role gains four roles: accounts_payable and owners_equity for the operating books,
+-- and undeposited_funds and bank_fees for recorded payments (received before they are deposited,
+-- and the fee a deposit nets off). They share this one rebuild. A CHECK cannot widen in
 -- place, so that table is rebuilt; it is a LEAF (nothing references it), the copy is column for
 -- column with no WHERE, and every existing mapping survives because the change only adds values.
 --
@@ -153,7 +155,7 @@ CREATE TABLE `__new_firm_account_role` (
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL,
 	FOREIGN KEY (`ledger_account_id`) REFERENCES `ledger_account`(`id`) ON UPDATE no action ON DELETE no action,
-	CONSTRAINT "firm_account_role_role_check" CHECK("__new_firm_account_role"."role" IN ('accounts_receivable', 'fee_income', 'client_costs_advanced', 'cost_recovery_income', 'tax_payable', 'fee_adjustments', 'fee_write_off', 'operating_bank', 'client_credit_liability', 'accounts_payable', 'owners_equity'))
+	CONSTRAINT "firm_account_role_role_check" CHECK("__new_firm_account_role"."role" IN ('accounts_receivable', 'fee_income', 'client_costs_advanced', 'cost_recovery_income', 'tax_payable', 'fee_adjustments', 'fee_write_off', 'operating_bank', 'client_credit_liability', 'accounts_payable', 'owners_equity', 'undeposited_funds', 'bank_fees'))
 );
 --> statement-breakpoint
 INSERT INTO `__new_firm_account_role`("role", "ledger_account_id", "created_at", "updated_at") SELECT "role", "ledger_account_id", "created_at", "updated_at" FROM `firm_account_role`;--> statement-breakpoint

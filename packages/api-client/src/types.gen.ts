@@ -1491,11 +1491,11 @@ export type LedgerChartResponse = {
     accounts: Array<LedgerChartAccount>;
     operatingAccounts: Array<OperatingBankAccount>;
     roles: Array<{
-        role: 'accounts_receivable' | 'fee_income' | 'client_costs_advanced' | 'cost_recovery_income' | 'tax_payable' | 'fee_adjustments' | 'fee_write_off' | 'operating_bank' | 'client_credit_liability' | 'accounts_payable' | 'owners_equity';
+        role: 'accounts_receivable' | 'fee_income' | 'client_costs_advanced' | 'cost_recovery_income' | 'tax_payable' | 'fee_adjustments' | 'fee_write_off' | 'operating_bank' | 'client_credit_liability' | 'accounts_payable' | 'owners_equity' | 'undeposited_funds' | 'bank_fees';
         ledgerAccountId: string;
     }>;
     suggestedRoles: Array<{
-        role: 'accounts_receivable' | 'fee_income' | 'client_costs_advanced' | 'cost_recovery_income' | 'tax_payable' | 'fee_adjustments' | 'fee_write_off' | 'operating_bank' | 'client_credit_liability' | 'accounts_payable' | 'owners_equity';
+        role: 'accounts_receivable' | 'fee_income' | 'client_costs_advanced' | 'cost_recovery_income' | 'tax_payable' | 'fee_adjustments' | 'fee_write_off' | 'operating_bank' | 'client_credit_liability' | 'accounts_payable' | 'owners_equity' | 'undeposited_funds' | 'bank_fees';
         ledgerAccountId: string;
     }>;
     hasStandardChart: boolean;
@@ -1515,7 +1515,7 @@ export type LedgerChartAccount = {
     balanceMinor: number;
     trustRegistration: 'bank' | 'liabilityRoot' | 'client' | 'matter' | 'firmFunds' | null;
     operatingBankAccountId: string | null;
-    roles: Array<'accounts_receivable' | 'fee_income' | 'client_costs_advanced' | 'cost_recovery_income' | 'tax_payable' | 'fee_adjustments' | 'fee_write_off' | 'operating_bank' | 'client_credit_liability' | 'accounts_payable' | 'owners_equity'>;
+    roles: Array<'accounts_receivable' | 'fee_income' | 'client_costs_advanced' | 'cost_recovery_income' | 'tax_payable' | 'fee_adjustments' | 'fee_write_off' | 'operating_bank' | 'client_credit_liability' | 'accounts_payable' | 'owners_equity' | 'undeposited_funds' | 'bank_fees'>;
 };
 
 export type OperatingBankAccount = {
@@ -1557,7 +1557,7 @@ export type LedgerCountResponse = {
 
 export type LedgerRoleAssignmentsRequest = {
     assignments: Array<{
-        role: 'accounts_receivable' | 'fee_income' | 'client_costs_advanced' | 'cost_recovery_income' | 'tax_payable' | 'fee_adjustments' | 'fee_write_off' | 'operating_bank' | 'client_credit_liability' | 'accounts_payable' | 'owners_equity';
+        role: 'accounts_receivable' | 'fee_income' | 'client_costs_advanced' | 'cost_recovery_income' | 'tax_payable' | 'fee_adjustments' | 'fee_write_off' | 'operating_bank' | 'client_credit_liability' | 'accounts_payable' | 'owners_equity' | 'undeposited_funds' | 'bank_fees';
         ledgerAccountId: string;
     }>;
 };
@@ -1583,6 +1583,11 @@ export type VendorBillBoard = {
         overdueMinor: number;
         dueThisWeekMinor: number;
         openBillCount: number;
+        paidThisMonthMinor: number;
+        paidThisMonthCount: number;
+        unpaidCount: number;
+        paidCount: number;
+        allCount: number;
     };
     vendors: Array<{
         vendorId: string;
@@ -2955,7 +2960,7 @@ export type BillingAccountRoleMapResponse = {
 };
 
 export type BillingAccountRoleAssignment = {
-    role: 'accounts_receivable' | 'fee_income' | 'client_costs_advanced' | 'cost_recovery_income' | 'tax_payable' | 'fee_adjustments' | 'fee_write_off' | 'operating_bank' | 'client_credit_liability' | 'accounts_payable' | 'owners_equity';
+    role: 'accounts_receivable' | 'fee_income' | 'client_costs_advanced' | 'cost_recovery_income' | 'tax_payable' | 'fee_adjustments' | 'fee_write_off' | 'operating_bank' | 'client_credit_liability' | 'accounts_payable' | 'owners_equity' | 'undeposited_funds' | 'bank_fees';
     ledgerAccountId: string;
 };
 

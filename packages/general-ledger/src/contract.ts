@@ -170,6 +170,11 @@ export const BoardResponse = z
       overdueMinor: z.number().int(),
       dueThisWeekMinor: z.number().int(),
       openBillCount: z.number().int(),
+      paidThisMonthMinor: z.number().int(),
+      paidThisMonthCount: z.number().int(),
+      unpaidCount: z.number().int(),
+      paidCount: z.number().int(),
+      allCount: z.number().int(),
     }),
     vendors: z.array(
       z.object({

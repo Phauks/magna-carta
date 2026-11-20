@@ -1,5 +1,9 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
-import { addCalendarDays } from "@magna-carta/civil-time/civil-date";
+import {
+  addCalendarDays,
+  civilDateParts,
+  startOfCivilMonth,
+} from "@magna-carta/civil-time/civil-date";
 import type {
   LedgerAccountId,
   OperatingBankAccountId,
@@ -45,6 +49,12 @@ export interface VendorBillTotals {
   readonly overdueMinor: number;
   readonly dueThisWeekMinor: number;
   readonly openBillCount: number;
+  readonly paidThisMonthMinor: number;
+  readonly paidThisMonthCount: number;
+  // How many bills each tab holds, whatever tab is showing.
+  readonly unpaidCount: number;
+  readonly paidCount: number;
+  readonly allCount: number;
 }
 
 export interface VendorBillBoard {
@@ -162,6 +172,8 @@ export async function readVendorBillBoard(
   let overdueMinor = 0;
   let dueThisWeekMinor = 0;
   let openBillCount = 0;
+  let unpaidCount = 0;
+  let paidCount = 0;
   const groups = new Map<
     string,
     {
@@ -180,6 +192,8 @@ export async function readVendorBillBoard(
       if (due < input.asOf) overdueMinor += bill.openMinor;
       else if (due <= weekEnd) dueThisWeekMinor += bill.openMinor;
     }
+    if (bill.state === "unpaid" || bill.state === "partPaid") unpaidCount += 1;
+    if (bill.state === "paid") paidCount += 1;
     const shown =
       input.filter === "all" ||
       (input.filter === "unpaid" && (bill.state === "unpaid" || bill.state === "partPaid")) ||
@@ -196,8 +210,27 @@ export async function readVendorBillBoard(
     if (bill.agingBucket) group.aging[bill.agingBucket] += bill.openMinor;
     groups.set(row.vendor_id, group);
   }
+  const { year, month } = civilDateParts(input.asOf);
+  const { results: paidRows } = await database
+    .prepare(
+      `SELECT COALESCE(SUM(p.amount_minor), 0) AS paid_minor, COUNT(DISTINCT p.vendor_bill_id) AS bill_count
+         FROM vendor_bill_payment p
+        WHERE p.paid_on >= ?1 AND p.paid_on <= ?2`,
+    )
+    .bind(startOfCivilMonth(year, month), input.asOf)
+    .all<{ paid_minor: number; bill_count: number }>();
   return {
-    totals: { openMinor, overdueMinor, dueThisWeekMinor, openBillCount },
+    totals: {
+      openMinor,
+      overdueMinor,
+      dueThisWeekMinor,
+      openBillCount,
+      paidThisMonthMinor: paidRows[0]?.paid_minor ?? 0,
+      paidThisMonthCount: paidRows[0]?.bill_count ?? 0,
+      unpaidCount,
+      paidCount,
+      allCount: results.length,
+    },
     vendors: [...groups].map(([vendorId, group]) => ({ vendorId, ...group })),
   };
 }

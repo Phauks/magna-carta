@@ -18,6 +18,8 @@ export const ACCOUNT_ROLES = [
   "client_credit_liability",
   "accounts_payable",
   "owners_equity",
+  "undeposited_funds",
+  "bank_fees",
 ] as const;
 
 export type AccountRole = (typeof ACCOUNT_ROLES)[number];
@@ -38,6 +40,11 @@ export const ACCOUNT_ROLE_TYPES: Readonly<Record<AccountRole, AccountType>> = {
   client_credit_liability: "liability",
   accounts_payable: "liability",
   owners_equity: "equity",
+  // Money received and not yet taken to the bank: posted on the day received, cleared on the day
+  // deposited, the way QuickBooks carries it.
+  undeposited_funds: "asset",
+  // The fee a processor or bank keeps out of a deposit.
+  bank_fees: "expense",
 };
 
 export type AccountRoleMap = ReadonlyMap<AccountRole, LedgerAccountId>;

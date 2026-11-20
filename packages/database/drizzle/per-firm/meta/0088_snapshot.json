@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "42ddae3d-92da-432a-af43-6a4c6c623c06",
+  "id": "31ae917b-ea86-419f-83c0-8ae978ba80f3",
   "prevId": "25e5b5f6-48c2-4ceb-a5c0-6d323cc21524",
   "tables": {
     "account_balance": {
@@ -11522,7 +11522,7 @@
       "checkConstraints": {
         "firm_account_role_role_check": {
           "name": "firm_account_role_role_check",
-          "value": "\"firm_account_role\".\"role\" IN ('accounts_receivable', 'fee_income', 'client_costs_advanced', 'cost_recovery_income', 'tax_payable', 'fee_adjustments', 'fee_write_off', 'operating_bank', 'client_credit_liability', 'accounts_payable', 'owners_equity')"
+          "value": "\"firm_account_role\".\"role\" IN ('accounts_receivable', 'fee_income', 'client_costs_advanced', 'cost_recovery_income', 'tax_payable', 'fee_adjustments', 'fee_write_off', 'operating_bank', 'client_credit_liability', 'accounts_payable', 'owners_equity', 'undeposited_funds', 'bank_fees')"
         }
       }
     },

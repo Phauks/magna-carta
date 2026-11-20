@@ -25,6 +25,13 @@ interface StarterAccount {
 
 export const STARTER_CHART: readonly StarterAccount[] = [
   {
+    code: "1100",
+    name: "Undeposited Funds",
+    type: "asset",
+    section: "currentAssets",
+    suggestedRole: "undeposited_funds",
+  },
+  {
     code: "1200",
     name: "Accounts Receivable",
     type: "asset",
@@ -123,7 +130,13 @@ export const STARTER_CHART: readonly StarterAccount[] = [
   },
   { code: "6700", name: "Travel", type: "expense", section: "operatingExpenses" },
   { code: "6750", name: "Meals", type: "expense", section: "operatingExpenses" },
-  { code: "6800", name: "Bank Charges", type: "expense", section: "operatingExpenses" },
+  {
+    code: "6800",
+    name: "Bank Charges",
+    type: "expense",
+    section: "operatingExpenses",
+    suggestedRole: "bank_fees",
+  },
   { code: "6850", name: "Postage and Delivery", type: "expense", section: "operatingExpenses" },
   {
     code: "6900",

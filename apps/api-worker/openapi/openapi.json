@@ -6202,7 +6202,9 @@
                     "operating_bank",
                     "client_credit_liability",
                     "accounts_payable",
-                    "owners_equity"
+                    "owners_equity",
+                    "undeposited_funds",
+                    "bank_fees"
                   ]
                 },
                 "ledgerAccountId": {
@@ -6233,7 +6235,9 @@
                     "operating_bank",
                     "client_credit_liability",
                     "accounts_payable",
-                    "owners_equity"
+                    "owners_equity",
+                    "undeposited_funds",
+                    "bank_fees"
                   ]
                 },
                 "ledgerAccountId": {
@@ -6348,7 +6352,9 @@
                 "operating_bank",
                 "client_credit_liability",
                 "accounts_payable",
-                "owners_equity"
+                "owners_equity",
+                "undeposited_funds",
+                "bank_fees"
               ]
             }
           }
@@ -6584,7 +6590,9 @@
                     "operating_bank",
                     "client_credit_liability",
                     "accounts_payable",
-                    "owners_equity"
+                    "owners_equity",
+                    "undeposited_funds",
+                    "bank_fees"
                   ]
                 },
                 "ledgerAccountId": {
@@ -6688,13 +6696,33 @@
               },
               "openBillCount": {
                 "type": "integer"
+              },
+              "paidThisMonthMinor": {
+                "type": "integer"
+              },
+              "paidThisMonthCount": {
+                "type": "integer"
+              },
+              "unpaidCount": {
+                "type": "integer"
+              },
+              "paidCount": {
+                "type": "integer"
+              },
+              "allCount": {
+                "type": "integer"
               }
             },
             "required": [
               "openMinor",
               "overdueMinor",
               "dueThisWeekMinor",
-              "openBillCount"
+              "openBillCount",
+              "paidThisMonthMinor",
+              "paidThisMonthCount",
+              "unpaidCount",
+              "paidCount",
+              "allCount"
             ]
           },
           "vendors": {
@@ -13339,7 +13367,9 @@
               "operating_bank",
               "client_credit_liability",
               "accounts_payable",
-              "owners_equity"
+              "owners_equity",
+              "undeposited_funds",
+              "bank_fees"
             ]
           },
           "ledgerAccountId": {

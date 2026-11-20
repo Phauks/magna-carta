@@ -89,6 +89,8 @@ export function roleLabel(role: AccountRole): string {
     client_credit_liability: "Client Credits",
     accounts_payable: "Accounts Payable",
     owners_equity: "Owner's Equity",
+    undeposited_funds: "Undeposited Funds",
+    bank_fees: "Bank Fees",
   };
   return labels[role];
 }

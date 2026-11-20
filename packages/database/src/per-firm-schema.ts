@@ -6782,6 +6782,8 @@ export const firmAccountRole = sqliteTable(
         "client_credit_liability",
         "accounts_payable",
         "owners_equity",
+        "undeposited_funds",
+        "bank_fees",
       ],
     }).primaryKey(),
     ledgerAccountId: text("ledger_account_id")
@@ -6794,7 +6796,7 @@ export const firmAccountRole = sqliteTable(
   (table) => [
     check(
       "firm_account_role_role_check",
-      sql`${table.role} IN ('accounts_receivable', 'fee_income', 'client_costs_advanced', 'cost_recovery_income', 'tax_payable', 'fee_adjustments', 'fee_write_off', 'operating_bank', 'client_credit_liability', 'accounts_payable', 'owners_equity')`,
+      sql`${table.role} IN ('accounts_receivable', 'fee_income', 'client_costs_advanced', 'cost_recovery_income', 'tax_payable', 'fee_adjustments', 'fee_write_off', 'operating_bank', 'client_credit_liability', 'accounts_payable', 'owners_equity', 'undeposited_funds', 'bank_fees')`,
     ),
   ],
 );

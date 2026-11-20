@@ -363,6 +363,11 @@ describe("the Vendor Bills board", () => {
       overdueMinor: 57_500,
       dueThisWeekMinor: 300_000,
       openBillCount: 2,
+      paidThisMonthMinor: 0,
+      paidThisMonthCount: 0,
+      unpaidCount: 2,
+      paidCount: 0,
+      allCount: 2,
     });
     const reporter = board.vendors.find(
       (vendor) => vendor.vendorId === "organization_courtReporter",
