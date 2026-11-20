@@ -18,6 +18,10 @@ export const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Holds a counter value for an open create panel. It acts on no record: the record that takes the number is audited when it is saved, and a hold that is never saved is given back. Auditing every panel opening and its renewals would flood audit_log.",
   "numbering.releaseDraftNumber":
     "Gives a held draft number back when its create panel is cancelled. It acts on no record and the number returns to the pool for the next record; nothing about the firm's records changes.",
+  "trust.touchBankReconciliationPresence":
+    "Says the member has a reconciliation open, every few seconds while it is in view, and reads who else does. It acts on no record: the row it keeps is gone within the hour, holds no money and no figure, and a retry only refreshes the same instant. Auditing every touch would flood audit_log.",
+  "trust.leaveBankReconciliationPresence":
+    "Takes the member's who-else-is-here row off a reconciliation when they leave it. It acts on no record and touches no money; the reconciliation itself is unchanged.",
   "directory.duplicateCandidates":
     "Read-shaped POST: unions the phonetic/trigram/blind-index blocking channels for a consultation entity (match facts ride the body) — no write, no decrypt.",
   "shipping.rateShipment":
