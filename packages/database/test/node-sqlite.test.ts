@@ -365,6 +365,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         // trust:manage, which they deliberately do not have.
         "trust:read",
         "tools:legalCitations",
+        "tools:translation",
         "tools:whois",
         // The four public-record link libraries reach every default role: they open a government
         // or listing website in a new tab, read nothing of the firm's, hold no credential and
@@ -441,6 +442,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "tools:safeBrowse",
         "tools:speedTest",
         "tools:legalCitations",
+        "tools:translation",
         "tools:whois",
         // The four public-record link libraries reach every default role: they open a government
         // or listing website in a new tab, read nothing of the firm's, hold no credential and
@@ -493,6 +495,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "tools:safeBrowse",
         "tools:speedTest",
         "tools:legalCitations",
+        "tools:translation",
         "tools:whois",
         // The four public-record link libraries reach every default role: they open a government
         // or listing website in a new tab, read nothing of the firm's, hold no credential and

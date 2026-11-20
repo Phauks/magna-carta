@@ -902,6 +902,24 @@ The owner asked on 2026-11-13 to try Google's addresses before deciding whether 
 
 **Switching it off.** Delete `GOOGLE_PLACES_API_KEY` from the Secrets Store (and any per-Worker copy); a deleted store secret leaves the binding answering nothing, which reads as unset. The next request goes to the platform's index or Smarty if either is provisioned, and otherwise answers `unavailable`.
 
+## 19b. Translation — Google Cloud Translation
+
+The owner chose Google on 2026-11-19. With `GOOGLE_TRANSLATE_API_KEY` set, a firm that has turned translation on (Settings, AI) sends pasted text to Google's Cloud Translation **Basic (v2)** API; without it the Translate tool answers that translation is not set up. Adapter: `packages/translation/src/google.ts`.
+
+**Switching it on**
+
+1. In the Google Cloud console, open the project that holds the Places key (or any project with a billing account) and enable **Cloud Translation API** under APIs & Services, Library.
+2. **APIs & Services, Credentials, Create credentials, API key.** Name it for translation. Under **API restrictions** choose **Restrict key** and tick only Cloud Translation API. Leave application restrictions at none: the key is used from a Worker and never reaches a browser. Use a separate key from `GOOGLE_PLACES_API_KEY`, so either can be revoked alone.
+3. **Set a quota** under Cloud Translation API, Quotas (characters per day), and a budget alert under Billing. Google has no hard spending cap; the quota is the ceiling.
+4. Create it in the Secrets Store as `GOOGLE_TRANSLATE_API_KEY` (scope _Workers_). `apps/api-worker/wrangler.jsonc` binds that name as `SECRETS_STORE_GOOGLE_TRANSLATE_API_KEY`, so the next deploy picks it up; a per-Worker secret of the same name on `magna-carta-api` is the fallback (see "Secrets Store"). System Status then shows Translation as set up.
+5. A firm administrator turns translation on for the firm (`PATCH /api/v1/firm/translation-settings`; the switch on Settings, AI lands with the Translate screen).
+
+**What it costs.** Google bills every character sent, spaces included; the first 500,000 a month are free (a $10 monthly credit shared with Advanced), then $20 per million. A two-page letter is about 5,000 characters. Prices: [`docs/operating-costs.md`](../operating-costs.md).
+
+**What crosses, and what is kept.** The text goes to Google in a request body and the key in a header; Google states it holds the text in memory only while translating and does not train on it. Basic is served globally, so the text cannot be kept in one region; that needs Advanced (v3), which takes a service account and is a new adapter. Nothing here keeps the text: each run writes a `translation.translated` row to the firm's log with the engine, languages, character count and matter, and nothing the member typed.
+
+**Switching it off.** Turn the firm switch off to stop one firm, or delete `GOOGLE_TRANSLATE_API_KEY` from the Secrets Store (and any per-Worker copy) to stop every firm. The next request answers that translation is not set up.
+
 ## 20. Address autocomplete — the platform's own index (OpenAddresses)
 
 The United States is answered from an index the platform builds itself, with no per-lookup bill (§19 covers Smarty, which answers every other country). Design: [`docs/specs/2026-10-02-address-autocomplete-self-hosted-engine-design.md`](../specs/2026-10-02-address-autocomplete-self-hosted-engine-design.md). Three parts: `apps/address-worker` (the `magna-carta-address` Worker, reached only by service binding), its two Containers built from `containers/address` (`AddressIndexContainer` answers queries on a `basic` instance; `AddressBuildContainer` builds on a `standard-4`), and the `magna-carta-addresses` R2 bucket the index lives in.
