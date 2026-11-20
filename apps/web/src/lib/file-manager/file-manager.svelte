@@ -205,6 +205,23 @@
   } from "@magna-carta/design-system/item-drag";
   import SafetyMark from "./safety-mark.svelte";
   import DocumentTypeMenu from "./document-type-menu.svelte";
+  import Users from "@lucide/svelte/icons/users";
+  import type { PickableEntity } from "@magna-carta/design-system/entity-picker";
+  import { directoryPickerSearch } from "$lib/directory/directory-picker-source.ts";
+  import { readSession } from "$lib/matters/matters-api.ts";
+  import {
+    changeShare,
+    listMatterShares,
+    shareItems,
+    stopShare,
+    type ShareRole,
+    type ShareSummary,
+    type ShareTargetInput,
+  } from "./sharing-api.ts";
+  import { createSharingIndex, sharedWithText, type SharingTarget } from "./sharing-index.ts";
+  import SharingPanel from "./sharing-panel.svelte";
+  import SharingReview from "./sharing-review.svelte";
+  import SharedWithCell from "./shared-with-cell.svelte";
 
   let {
     matterId,
@@ -315,6 +332,115 @@
 
   function reload(): void {
     reloadToken += 1;
+    sharesToken += 1;
+  }
+
+  // --- sharing with people outside the firm --------------------------------------------------------
+  //
+  // One read per matter, held as an index that the row mark, the Shared With column, the rail's
+  // folder mark, the details panel and the Sharing view all read, so none of them can disagree.
+
+  let shares = $state<readonly ShareSummary[]>([]);
+  let sharesToken = $state(0);
+  let sharingBusy = $state(false);
+  /** Whether the details panel's Sharing section opens with the Directory search showing. */
+  let sharingAdding = $state(false);
+  let canShare = $state(true);
+  const sharing = $derived(createSharingIndex(shares));
+  const directorySearch = directoryPickerSearch(fetch, { kinds: ["person"] });
+  const shareRefusal = $derived(
+    canShare ? undefined : "Your role cannot share files outside the firm. An administrator can change that.",
+  );
+
+  $effect(() => {
+    void sharesToken;
+    let cancelled = false;
+    void listMatterShares(fetch, matterId).then((outcome) => {
+      if (cancelled) return;
+      // A share list that cannot be read shows nothing shared rather than guessing; the file list
+      // above it is still the record of what the matter holds.
+      shares = outcome.kind === "ok" ? outcome.value.data : [];
+    });
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  $effect(() => {
+    void readSession(fetch).then((outcome) => {
+      canShare = outcome.kind !== "ok" || outcome.value.permissions.includes("files:share");
+    });
+  });
+
+  function sharingTargetOf(row: FileManagerRow): SharingTarget {
+    return row.kind === "folder"
+      ? { kind: "folder", folderId: row.folder.id }
+      : { kind: "file", fileId: row.file.id, folderId: row.file.folderId };
+  }
+
+  function shareTargetInput(target: SharingTarget): ShareTargetInput {
+    if (target.kind === "matter") return { scope: "matter" };
+    if (target.kind === "folder") return { scope: "folder", folderId: target.folderId };
+    return { scope: "file", fileId: target.fileId };
+  }
+
+  /** Where shares reach a file from: its folder's name, or the matter's top level. */
+  function inheritedFromOf(row: FileManagerRow | null): string | null {
+    if (row === null || row.kind === "folder") return null;
+    if (row.file.folderId === null) return "Home";
+    return index.folderById(row.file.folderId)?.name ?? null;
+  }
+
+  /*
+   * What the details panel's Sharing section adds a person to: the whole selection when the panel
+   * describes a row inside it, so "Share 3 Files" from the menu shares all three at once.
+   */
+  const sharingRows = $derived.by((): FileManagerRow[] => {
+    if (inspectedRow === null) return [];
+    const inside = selectedRows.some((row) => row.key === inspectedRow.key);
+    return inside && selectedRows.length > 1 ? selectedRows : [inspectedRow];
+  });
+
+  async function runShareWrite(write: () => Promise<{ kind: string }>, refusal: string): Promise<void> {
+    sharingBusy = true;
+    actionFailure = null;
+    try {
+      const outcome = await write();
+      if (outcome.kind !== "ok") actionFailure = refusal;
+    } finally {
+      sharingBusy = false;
+      sharesToken += 1;
+    }
+  }
+
+  function shareWith(targets: readonly SharingTarget[], entityId: string, role: ShareRole): void {
+    void runShareWrite(
+      () =>
+        shareItems(
+          fetch,
+          matterId,
+          { items: targets.map(shareTargetInput), people: [{ entityId, role }] },
+          writeKey(),
+        ),
+      "That could not be shared. Nothing changed.",
+    );
+  }
+
+  function changeShareOf(
+    share: ShareSummary,
+    changes: { role?: ShareRole; allowDownload?: boolean; endsOn?: string | null },
+  ): void {
+    void runShareWrite(
+      () => changeShare(fetch, share.id, changes, writeKey()),
+      "That share could not be changed. Nothing changed.",
+    );
+  }
+
+  function stopShareOf(share: ShareSummary): void {
+    void runShareWrite(
+      () => stopShare(fetch, share.id, writeKey()),
+      "Sharing could not be stopped. Nothing changed.",
+    );
   }
 
   // A folder that has gone must not sit in the Back stack waiting to strand somebody in a place
@@ -383,7 +509,9 @@
     }
     // Deleted Files and the changelog have no feed to read, so their tables are honestly empty
     // rather than showing this folder's rows under somebody else's heading.
-    if (manager.view === "deleted" || manager.view === "history") return [];
+    if (manager.view === "deleted" || manager.view === "history" || manager.view === "sharing") {
+      return [];
+    }
     return [
       ...index
         .childrenOf(manager.currentFolderId)
@@ -399,6 +527,7 @@
     hideExtensions: manager.hideExtensions,
     documentTypeName,
     createdBy,
+    sharedWith: (row: FileManagerRow) => sharedWithText(sharing.peopleWhoSee(sharingTargetOf(row))),
   });
 
   const grid = DataTable.createDataTableGrid<FileManagerRow>({
@@ -476,11 +605,13 @@
           // Carrying the ancestors down means a cycle in the data can never recurse until the
           // stack gives out, and a folder appears at most once on any path.
           const children = build(folder.id, new Set([...seen, folder.id]));
-          const node: FolderTreeNode = Object.assign({
-	id: folder.id,
-	label: folder.name,
-	fileCount: index.subtreeFiles(folder.id).length
-}, folderAppearance[folder.id]);
+          const node: FolderTreeNode = {
+            id: folder.id,
+            label: folder.name,
+            fileCount: index.subtreeFiles(folder.id).length,
+            shared: sharing.isShared({ kind: "folder", folderId: folder.id }) || undefined,
+            ...folderAppearance[folder.id],
+          };
           return children.length > 0 ? { ...node, children } : node;
         });
     return build(null, new Set());
@@ -504,6 +635,7 @@
     { id: "deleted", label: "Deleted Files", icon: Trash2 },
     { id: "results", label: "Search Results", icon: Search },
     { id: "history", label: "History", icon: History },
+    { id: "sharing", label: "Sharing", icon: Users },
   ]);
 
   const trail = $derived(
@@ -523,6 +655,7 @@
     deleted: "Deleted Files",
     results: "Search Results",
     history: "History",
+    sharing: "Sharing",
   };
 
   // --- acts ------------------------------------------------------------------------------------
@@ -1426,6 +1559,7 @@
       ).length,
       openIssueCount: menuIssues(false).length,
       ignoredIssueCount: menuIssues(true).length,
+      shareRefusal,
     });
   });
 
@@ -1555,6 +1689,16 @@
         // The same picker, then the same ceremony against the file it was asked on.
         if (only?.kind === "file") saveVersionFor = only.file;
         filePicker?.click();
+        return;
+      case "share":
+        // Sharing happens beside the list, where the folder structure stays in view: the panel's
+        // Sharing section opens on what was right-clicked, with the Directory search showing.
+        if (only !== undefined) {
+          manager.inspectorKey = targets.at(-1)?.key ?? only.key;
+          manager.inspectorTab = "sharing";
+          sharingAdding = true;
+          manager.setPanelOpen(true);
+        }
         return;
       case "browseInside":
         if (only?.kind === "file") {
@@ -2178,6 +2322,12 @@
 
   /** "2 folders, 5 files" — the artifact's phrasing; folders lead because they render first. */
   const footerTally = $derived.by(() => {
+    if (manager.view === "sharing") {
+      const people = sharing.people().length;
+      return people === 0
+        ? "Only the firm can see this matter's files"
+        : `${people === 1 ? "1 person" : `${people} people`} outside the firm`;
+    }
     const folderCount = rows.filter((row) => row.kind === "folder").length;
     const fileCount = rows.length - folderCount;
     if (rows.length === 0) return "Nothing here";
@@ -2525,6 +2675,19 @@
                       </div>
                     {/if}
                   </div>
+                {:else if manager.view === "sharing"}
+                  <SharingReview
+                    files={index}
+                    {sharing}
+                    search={directorySearch}
+                    {shareRefusal}
+                    busy={sharingBusy}
+                    hideExtensions={manager.hideExtensions}
+                    {displayName}
+                    onShare={(target, person, role) => shareWith([target], person.entityId, role)}
+                    onChange={changeShareOf}
+                    onStop={stopShareOf}
+                  />
                 {:else if manager.listMode === "icons" && manager.view === "browse"}
                   <FileIconGrid
                     {grid}
@@ -2636,6 +2799,7 @@
                   "Restoring an older version writes it back as a new version, which this screen " +
                   "does not run yet. Every version is still kept.";
               }}
+              sharing={inspectedRow === null ? undefined : sharingSection}
             />
           {/if}
         </Resizable.Pane>
@@ -2960,6 +3124,24 @@
 
 
 
+{#snippet sharingSection()}
+  {#if inspectedRow !== null}
+    <SharingPanel
+      people={sharing.peopleWhoSee(sharingTargetOf(inspectedRow))}
+      inheritedFrom={inheritedFromOf(inspectedRow)}
+      search={directorySearch}
+      {shareRefusal}
+      busy={sharingBusy}
+      selectionCount={sharingRows.length}
+      bind:adding={sharingAdding}
+      onAdd={(person: PickableEntity) =>
+        shareWith(sharingRows.map(sharingTargetOf), person.identifier, "viewer")}
+      onChange={changeShareOf}
+      onStop={stopShareOf}
+    />
+  {/if}
+{/snippet}
+
 {#snippet cell({ row, column, text }: DataTable.GridCellContext<FileManagerRow>)}
   {#if column.id === "name"}
     <span class="flex min-w-0 items-center gap-8">
@@ -3006,8 +3188,18 @@
         </span>
       {:else}
         <span class="truncate">{text}</span>
+        {#if sharing.isShared(sharingTargetOf(row))}
+          <!-- Seen by someone outside the firm. The same mark the rail puts on a shared folder. -->
+          <Users
+            class="size-16 shrink-0 text-status-info-subtle-foreground"
+            role="img"
+            aria-label="Shared"
+          />
+        {/if}
       {/if}
     </span>
+  {:else if column.id === "sharedWith"}
+    <SharedWithCell people={sharing.peopleWhoSee(sharingTargetOf(row))} {text} />
   {:else if column.id === "safety"}
     {#if row.kind === "folder"}
       <SafetyMark verdict={folderAggregate(index, row.folder.id, safetyKeyOf).safety} />

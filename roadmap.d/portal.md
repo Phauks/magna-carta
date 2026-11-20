@@ -7,9 +7,9 @@
 - id: portal
   name: Client portal
   scope: External-facing surface for clients, co-counsel, experts, and other Directory contacts — document sharing, invoice viewing/payment, secure messaging, e-signature, bug reporting.
-  status: not-started
+  status: partial
   adrs: ADR-0036
-  evidence: Grant-model decision accepted and PortalGrantId reserved in packages/identifiers/src/types.ts; no portal code, schema, or docs/specs design.
+  evidence: Shares (the grant half) are built in packages/sharing with the matter share routes and the File Manager screens; the recipient-facing portal is not.
   audience: public
   public-summary: Share documents, updates and bills with a client through access you can time-limit and withdraw.
   notes: Recipients are always Directory entities (no shadow user list); Directory is shipped.
@@ -17,15 +17,19 @@
 - id: portal.grant-model
   name: Unified PortalGrant model
   scope: One first-class grant record per share (matter/folder/file scope) carrying recipient, capability set, assurance level, expiry, status, and audit fields.
-  status: not-started
+  status: shipped
+  surface: screen
   adrs: ADR-0036
-  evidence: PortalGrantId identifier type is the only artifact; no entity, schema, or enforcement code.
+  spec: docs/specs/2026-11-20-file-and-folder-sharing-design.md
+  evidence: The per-firm share table (packages/database/src/per-firm-schema.ts) and packages/sharing/src/share-service.ts; any Directory person as recipient, role plus download in place of a free capability set.
 
 - id: portal.scopes
   name: Scope semantics
   scope: File scope with optional version pin; folder scope live but child-folders private until shared; matter scope as sugar over shareable folders; shareability visible in the File Manager.
-  status: not-started
-  evidence: No shareability property or scope logic in the file-manager or matters packages.
+  status: shipped
+  surface: screen
+  spec: docs/specs/2026-11-20-file-and-folder-sharing-design.md
+  evidence: packages/sharing/src/share-access.ts and apps/web/src/lib/file-manager/sharing-index.ts encode one rule; matter scope covers the files in no folder (Home) rather than every folder.
 
 - id: portal.capabilities
   name: Per-grant capabilities
@@ -78,15 +82,27 @@
 - id: portal.lifecycle
   name: Grant lifecycle
   scope: Instant revocation, optional expiry with auto-transition, and full metadata-only audit of grant events and access.
-  status: not-started
-  evidence: No grant records exist to lifecycle.
+  status: partial
+  surface: screen
+  evidence: packages/sharing/src/share-statements.ts checks revocation, end date and sharer standing at read time and audits share created, changed and revoked; recording a recipient's access waits on the portal.
 
 - id: portal.enforcement
   name: DAL enforcement and invariants
   scope: Per-firm isolation, ethical-wall/least-privilege bound (grant never exceeds sharer's access), enforced in the firm-scoped data-access layer.
-  status: not-started
+  status: partial
+  surface: internal
   adrs: ADR-0003
-  evidence: The firm-scoped data-access layer exists (packages/data-access); no portal-grant enforcement in it.
+  evidence: packages/sharing/src/share-access.ts re-checks the sharer's files:share and the matter's visibility on every read; the portal request lane that calls it is not merged.
+
+- id: portal.sharing-screens
+  name: Sharing in the File Manager
+  scope: Shared mark, Shared With column, Sharing section in the details panel, Share on the right-click menu, and a Sharing view reviewing every share by person over the matter's folders.
+  status: shipped
+  surface: screen
+  spec: docs/specs/2026-11-20-file-and-folder-sharing-design.md
+  evidence: apps/web/src/lib/file-manager/sharing-panel.svelte, sharing-review.svelte and shared-with-cell.svelte
+  audience: public
+  public-summary: Share a file or folder with a client, opposing counsel or an expert from the Files page, and see at a glance what is shared with whom.
 
 - id: portal.ui
   name: Recipient-facing portal UI

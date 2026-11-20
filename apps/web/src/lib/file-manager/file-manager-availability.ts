@@ -123,9 +123,8 @@ const CAPABILITIES: readonly Capability[] = [
   },
   {
     id: "share",
-    label: "Share a file with the client",
-    reach: "waiting",
-    waitingOn: "client-portal document sharing, which has not started.",
+    label: "Share files and folders with people outside the firm",
+    reach: "served",
   },
   {
     id: "compare-versions",

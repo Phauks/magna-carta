@@ -34,7 +34,10 @@ export function roleRank(role: ShareRole): number {
   return SHARE_ROLES.indexOf(role);
 }
 
-export function roleAllows(role: ShareRole, capability: Exclude<ShareCapability, "download">): boolean {
+export function roleAllows(
+  role: ShareRole,
+  capability: Exclude<ShareCapability, "download">,
+): boolean {
   if (capability === "view") return true;
   if (capability === "comment") return role === "commenter" || role === "editor";
   return role === "editor";
@@ -44,7 +47,11 @@ export function roleAllows(role: ShareRole, capability: Exclude<ShareCapability,
 export type ShareTarget =
   | { readonly scope: "matter" }
   | { readonly scope: "folder"; readonly folderId: FolderId }
-  | { readonly scope: "file"; readonly fileId: FileId; readonly fileVersionId?: FileVersionId | null };
+  | {
+      readonly scope: "file";
+      readonly fileId: FileId;
+      readonly fileVersionId?: FileVersionId | null;
+    };
 
 /** A share as the staff screens read it. */
 export interface ShareRecord {

@@ -1,6 +1,6 @@
 <script lang="ts">
   /*
-   * The details panel. It is TABBED — Preview, Details, Version History, Hashes, Safety — because
+   * The details panel. It is TABBED — Preview, Details, Sharing, Version History, Hashes, Safety — because
    * these are five different questions and stacking them made the one you came for the one you had
    * to scroll past. Preview is its own tab for the same reason: the thing you opened the file to
    * look at should not be a strip above the facts.
@@ -16,6 +16,7 @@
    * without warning. Agreement with what intake recorded is SILENT; a difference is stated loudly,
    * because on a matter record that difference is a chain-of-custody event.
    */
+  import type { Snippet } from "svelte";
   import * as Tabs from "@magna-carta/design-system/tabs";
   import * as DataTable from "@magna-carta/design-system/data-table";
   import * as Select from "@magna-carta/design-system/select";
@@ -133,6 +134,7 @@
     onVerifyIntegrity,
     onOpenVersion,
     onRestoreVersion,
+    sharing,
   }: {
     row: FileManagerRow | null;
     hideExtensions: boolean;
@@ -172,6 +174,11 @@
     onVerifyIntegrity: (versionId: string | null) => void;
     onOpenVersion: (version: MatterFileVersion) => void;
     onRestoreVersion: (version: MatterFileVersion) => void;
+    /**
+     * Who outside the firm can see what the panel shows. A file carries it as its Sharing tab; a
+     * folder carries it beneath its statistics, because sharing a folder is the commonest act on one.
+     */
+    sharing?: Snippet;
   } = $props();
 
   const file = $derived(row?.kind === "file" ? row.file : null);
@@ -180,6 +187,7 @@
   const TAB_LABELS: Readonly<Record<InspectorTab, string>> = {
     preview: "Preview",
     details: "Details",
+    sharing: "Sharing",
     versions: "Version History",
     hashes: "Hashes",
     safety: "Safety",
@@ -835,6 +843,11 @@
           </div>
         </dl>
       </div>
+      {#if sharing !== undefined}
+        <div class="border-t border-border-default">
+          {@render sharing()}
+        </div>
+      {/if}
     {:else if file !== null}
       <Tabs.Root bind:value={() => tab, (next) => (tab = next as InspectorTab)}>
         <!-- The strip scrolls SIDEWAYS only. It is tall enough for its own horizontal scrollbar,
@@ -952,6 +965,10 @@
               </div>
             {/if}
           </dl>
+        </Tabs.Content>
+
+        <Tabs.Content value="sharing">
+          {@render sharing?.()}
         </Tabs.Content>
 
         <Tabs.Content value="versions">

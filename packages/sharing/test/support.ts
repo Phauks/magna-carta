@@ -90,8 +90,16 @@ export function seedFirm(raw: Raw): void {
   }
 }
 
-export function seedFile(raw: Raw, name: string, folderId: FolderId | null, matterId = MATTER): FileId {
-  const fileId = `file_${name.replace(/[^a-zA-Z0-9]/gu, "").padEnd(21, "0").slice(0, 21)}` as FileId;
+export function seedFile(
+  raw: Raw,
+  name: string,
+  folderId: FolderId | null,
+  matterId = MATTER,
+): FileId {
+  const fileId = `file_${name
+    .replace(/[^a-zA-Z0-9]/gu, "")
+    .padEnd(21, "0")
+    .slice(0, 21)}` as FileId;
   raw.exec(
     `INSERT INTO file (id, matter_id, folder_id, name, edit_state, created_at, updated_at) VALUES ('${fileId}', '${matterId}', ${folderId === null ? "NULL" : `'${folderId}'`}, '${name}', 'idle', '2026-08-01T00:00:00.000Z', '2026-08-01T00:00:00.000Z')`,
   );

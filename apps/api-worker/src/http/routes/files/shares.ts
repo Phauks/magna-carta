@@ -119,7 +119,9 @@ const errors = {
   400: problem("Missing Idempotency-Key (this operation requires one)"),
   401: problem("No valid session"),
   403: problem("The session member lacks the required permission"),
-  404: problem("The firm is unreachable, the member is deactivated, or the matter or share is unknown"),
+  404: problem(
+    "The firm is unreachable, the member is deactivated, or the matter or share is unknown",
+  ),
   409: problem("A request with this Idempotency-Key is still in progress"),
   422: problem("The request names something that cannot be shared"),
   429: problem("Rate limited"),
@@ -161,7 +163,10 @@ const listSharesRoute = defineOpenAPIRoute(listMeta, {
     "included and marked, so they can be ended or taken over.",
   request: { params: matterIdParam },
   responses: {
-    200: { description: "The matter's shares", content: { "application/json": { schema: ShareListResponse } } },
+    200: {
+      description: "The matter's shares",
+      content: { "application/json": { schema: ShareListResponse } },
+    },
     401: errors[401],
     403: errors[403],
     404: errors[404],
@@ -207,7 +212,10 @@ const changeShareRoute = defineOpenAPIRoute(
       body: { content: { "application/json": { schema: ChangeShareRequest } }, required: true },
     },
     responses: {
-      200: { description: "Changed", content: { "application/json": { schema: ShareAcknowledged } } },
+      200: {
+        description: "Changed",
+        content: { "application/json": { schema: ShareAcknowledged } },
+      },
       400: errors[400],
       401: errors[401],
       403: errors[403],
@@ -229,7 +237,10 @@ const stopShareRoute = defineOpenAPIRoute(
       "could see what and until when stays answerable; sharing the item again makes a new share.",
     request: { headers: idempotencyKeyHeader, params: shareIdParam },
     responses: {
-      200: { description: "Stopped", content: { "application/json": { schema: ShareAcknowledged } } },
+      200: {
+        description: "Stopped",
+        content: { "application/json": { schema: ShareAcknowledged } },
+      },
       400: errors[400],
       401: errors[401],
       403: errors[403],
@@ -255,9 +266,19 @@ function shareErrorResponse(
   caught: ShareValidationError,
 ): ProblemResponse<404> | ProblemResponse<422> {
   if (caught.code === "matter-unknown" || caught.code === "share-unknown") {
-    return problemJson(c, { type: "not-found", title: "Not found", status: 404, detail: caught.message });
+    return problemJson(c, {
+      type: "not-found",
+      title: "Not found",
+      status: 404,
+      detail: caught.message,
+    });
   }
-  return problemJson(c, { type: "validation", title: "Share request invalid", status: 422, detail: caught.message });
+  return problemJson(c, {
+    type: "validation",
+    title: "Share request invalid",
+    status: 422,
+    detail: caught.message,
+  });
 }
 
 type Outcome =
@@ -284,13 +305,18 @@ async function commitShareEffect(
       },
     });
   } catch (caught) {
-    if (caught instanceof ShareValidationError) return { ok: false, problem: shareErrorResponse(c, caught) };
+    if (caught instanceof ShareValidationError)
+      return { ok: false, problem: shareErrorResponse(c, caught) };
     throw caught;
   }
   if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
     return { ok: false, problem: problemResponseForIdempotencyConflict(c, result) };
   }
-  return { ok: true, body: JSON.parse(result.responseBody ?? "{}"), replayed: result.kind === "replayed" };
+  return {
+    ok: true,
+    body: JSON.parse(result.responseBody ?? "{}"),
+    replayed: result.kind === "replayed",
+  };
 }
 
 function toTarget(item: z.infer<typeof ShareTargetBody>): ShareTarget {
@@ -313,40 +339,47 @@ export function registerSharesRoutes(
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { matterId } = c.req.valid("param");
-      const data = await listMatterShares(firm.firmDatabase, matterId, shareReadContext(Date.now()));
+      const data = await listMatterShares(
+        firm.firmDatabase,
+        matterId,
+        shareReadContext(Date.now()),
+      );
       return c.json({ data }, 200);
     },
   );
 
   // POST /api/v1/matters/{matterId}/shares
-  app.openapi({ ...shareRoute, middleware: chokepointMiddleware(chokepoint, shareRoute) }, async (c) => {
-    const firm = requireChokepointFirmContext(c);
-    const userId = requireChokepointUserId(c);
-    const idempotency = requireChokepointIdempotency(c);
-    const { matterId } = c.req.valid("param");
-    const request = c.req.valid("json");
-    const outcome = await commitShareEffect(c, firm.firmDatabase, idempotency, 201, async () => {
-      const { shareIds, effect } = await shareItems(
-        firm.firmDatabase,
-        {
-          matterId,
-          items: request.items.map(toTarget),
-          people: request.people.map((person) => ({
-            entityId: person.entityId as DirectoryPersonId,
-            role: person.role,
-          })),
-          allowDownload: request.allowDownload,
-          signIn: request.signIn,
-          endsOn: request.endsOn,
-        },
-        serviceOptions(userId),
-      );
-      return { body: { shareIds }, effect };
-    });
-    if (!outcome.ok) return outcome.problem;
-    if (outcome.replayed) c.header("Idempotency-Replayed", "true");
-    return c.json(outcome.body as z.infer<typeof SharedResponse>, 201);
-  });
+  app.openapi(
+    { ...shareRoute, middleware: chokepointMiddleware(chokepoint, shareRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { matterId } = c.req.valid("param");
+      const request = c.req.valid("json");
+      const outcome = await commitShareEffect(c, firm.firmDatabase, idempotency, 201, async () => {
+        const { shareIds, effect } = await shareItems(
+          firm.firmDatabase,
+          {
+            matterId,
+            items: request.items.map(toTarget),
+            people: request.people.map((person) => ({
+              entityId: person.entityId as DirectoryPersonId,
+              role: person.role,
+            })),
+            allowDownload: request.allowDownload,
+            signIn: request.signIn,
+            endsOn: request.endsOn,
+          },
+          serviceOptions(userId),
+        );
+        return { body: { shareIds }, effect };
+      });
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json(outcome.body as z.infer<typeof SharedResponse>, 201);
+    },
+  );
 
   // PATCH /api/v1/shares/{shareId}
   app.openapi(
@@ -358,7 +391,12 @@ export function registerSharesRoutes(
       const { shareId } = c.req.valid("param");
       const request = c.req.valid("json");
       const outcome = await commitShareEffect(c, firm.firmDatabase, idempotency, 200, async () => {
-        const { effect } = await changeShare(firm.firmDatabase, shareId as ShareId, request, serviceOptions(userId));
+        const { effect } = await changeShare(
+          firm.firmDatabase,
+          shareId as ShareId,
+          request,
+          serviceOptions(userId),
+        );
         return { body: { ok: true }, effect };
       });
       if (!outcome.ok) return outcome.problem;
@@ -376,7 +414,11 @@ export function registerSharesRoutes(
       const idempotency = requireChokepointIdempotency(c);
       const { shareId } = c.req.valid("param");
       const outcome = await commitShareEffect(c, firm.firmDatabase, idempotency, 200, async () => {
-        const { effect } = await revokeShare(firm.firmDatabase, shareId as ShareId, serviceOptions(userId));
+        const { effect } = await revokeShare(
+          firm.firmDatabase,
+          shareId as ShareId,
+          serviceOptions(userId),
+        );
         return { body: { ok: true }, effect };
       });
       if (!outcome.ok) return outcome.problem;

@@ -42,7 +42,7 @@
       color: "blue",
       fileCount: 12,
       children: [
-        { id: "complaint", label: "Complaint", fileCount: 3 },
+        { id: "complaint", label: "Complaint", fileCount: 3, shared: true },
         { id: "answers", label: "Answers", fileCount: 4, color: "green" },
       ],
     },

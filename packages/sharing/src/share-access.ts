@@ -1,5 +1,8 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
-import { visibleMatterPredicate, type VisibleMatterPredicate } from "@magna-carta/calendar/visibility";
+import {
+  visibleMatterPredicate,
+  type VisibleMatterPredicate,
+} from "@magna-carta/calendar/visibility";
 import { zonedReading } from "@magna-carta/civil-time/time-zone";
 import type {
   DirectoryPersonId,
@@ -9,7 +12,12 @@ import type {
   MatterId,
   ShareId,
 } from "@magna-carta/identifiers/types";
-import { SHARE_COLUMNS, SHARE_TABLE, openShareCondition, type ShareRow } from "./share-statements.ts";
+import {
+  SHARE_COLUMNS,
+  SHARE_TABLE,
+  openShareCondition,
+  type ShareRow,
+} from "./share-statements.ts";
 import {
   SHARE_SIGN_INS,
   roleAllows,
@@ -146,7 +154,12 @@ export async function listSharedFolderFiles(
        ORDER BY shared_file.name COLLATE NOCASE, shared_file.id`,
     )
     .bind(...bindingsFor(context, recipientEntityId, shareId))
-    .all<{ file_id: FileId; name: string; current_version_id: FileVersionId | null; updated_at: string }>();
+    .all<{
+      file_id: FileId;
+      name: string;
+      current_version_id: FileVersionId | null;
+      updated_at: string;
+    }>();
   return results.map((row) => ({
     fileId: row.file_id,
     name: row.name,

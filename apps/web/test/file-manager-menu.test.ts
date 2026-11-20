@@ -237,3 +237,21 @@ describe("the Convert flyout", () => {
     expect(convertOf(menu)?.disabledReason).toMatch(/no committed version/);
   });
 });
+
+describe("rowMenu's Share", () => {
+  it("is offered over one row and counts a selection, with no Soon mark", () => {
+    const one = itemFor(rowMenu({ ...base, rows: [file("a")] }), "share");
+    expect(one?.label).toBe("Share");
+    expect(one?.disabledReason).toBeUndefined();
+    expect(one?.soon).toBeFalsy();
+    const many = itemFor(rowMenu({ ...base, rows: [file("a"), file("b"), folder("f")] }), "share");
+    expect(many?.label).toMatch(/^Share 3/);
+  });
+
+  it("says why when the member cannot share", () => {
+    const refusal =
+      "Your role cannot share files outside the firm. An administrator can change that.";
+    const share = itemFor(rowMenu({ ...base, rows: [file("a")], shareRefusal: refusal }), "share");
+    expect(share?.disabledReason).toBe(refusal);
+  });
+});

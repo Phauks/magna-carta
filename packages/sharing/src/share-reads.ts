@@ -1,7 +1,13 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { MatterId } from "@magna-carta/identifiers/types";
-import { SHARE_COLUMNS, SHARE_TABLE, sharerCanShareCondition, type ShareRow } from "./share-statements.ts";
+import {
+  SHARE_COLUMNS,
+  SHARE_TABLE,
+  sharerCanShareCondition,
+  type ShareRow,
+} from "./share-statements.ts";
 import type { ShareReadContext } from "./share-access.ts";
+import { MAXIMUM_ACTIVE_SHARES_PER_MATTER } from "./share-service.ts";
 import type { ShareRecord } from "./types.ts";
 
 // THE STAFF SIDE'S ONE READ: every live share on a matter, with the person's name. The File Manager
@@ -35,7 +41,8 @@ export async function listMatterShares(
        WHERE share.matter_id = ?3 AND share.status = 'active'
          AND (share.scope <> 'file' OR shared_file.deleted_at IS NULL)
          AND ${context.visibility.fragmentFor("share.matter_id")}
-       ORDER BY recipient_name COLLATE NOCASE, share.recipient_entity_id, share.created_at`,
+       ORDER BY recipient_name COLLATE NOCASE, share.recipient_entity_id, share.created_at
+       LIMIT ${MAXIMUM_ACTIVE_SHARES_PER_MATTER}`,
     )
     .bind(context.today, context.now, matterId, ...context.visibility.bindings)
     .all<MatterShareRow>();

@@ -22,6 +22,12 @@ export const UNPAGED_LIST_OPERATIONS = [];
  * "it is probably small".
  */
 export const BOUNDED_BY_CONSTRUCTION = {
+  // --- Who outside the firm can see a matter's files ----------------------------------------------
+  "shares.list":
+    "One matter's live shares, read whole because the File Manager derives every row mark, the " +
+    "Shared With column and the Sharing view from the one list. shareItems in " +
+    "packages/sharing/src/share-service.ts refuses a share past MAXIMUM_ACTIVE_SHARES_PER_MATTER " +
+    "(2000), and listMatterShares in packages/sharing/src/share-reads.ts reads at most that many.",
   // --- A matter's Bates prefixes ------------------------------------------------------------------
   "bates.listBatesPrefixes":
     "One row per Bates prefix on ONE matter, grouped from its ranges. listBatesPrefixes in " +

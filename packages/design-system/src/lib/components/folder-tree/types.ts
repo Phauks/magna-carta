@@ -46,6 +46,8 @@ export type FolderTreeNode = {
   icon?: FolderIconName;
   /** How many files the folder holds, for the rail's counts. */
   fileCount?: number;
+  /** Whether the folder is shared with anybody outside the firm. Drawn as a people mark. */
+  shared?: boolean;
 };
 
 /** One row in the rail's second group: a view of the matter that is not a place in the folders. */

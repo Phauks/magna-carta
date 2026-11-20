@@ -1,5 +1,5 @@
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
-import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
+import { guarded, type EffectStatement, type EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { VisibleMatterPredicate } from "@magna-carta/calendar/visibility";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -18,7 +18,13 @@ import {
   revokeShareStatement,
   updateShareStatement,
 } from "./share-statements.ts";
-import { SHARE_ROLES, SHARE_SIGN_INS, type ShareRole, type ShareSignIn, type ShareTarget } from "./types.ts";
+import {
+  SHARE_ROLES,
+  SHARE_SIGN_INS,
+  type ShareRole,
+  type ShareSignIn,
+  type ShareTarget,
+} from "./types.ts";
 
 // The staff side's writes: share, change, stop. Each returns an effect the route commits in one
 // batch with its audit rows. Nothing here reads a clock or holds a binding; the route hands in the
@@ -54,6 +60,14 @@ export class ShareValidationError extends Error {
 // and a selection of hundreds is a folder that should be shared as a folder.
 export const MAXIMUM_SHARES_PER_WRITE = 500;
 
+/*
+ * The most live shares one matter may hold. The staff list reads a matter's shares whole, because
+ * every row mark, the Shared With column and the Sharing view are derived from the one list, so the
+ * list has to have an end. Two thousand is far past any real matter (a folder share already covers
+ * every file inside it); a firm that reaches it shares folders instead of files.
+ */
+export const MAXIMUM_ACTIVE_SHARES_PER_MATTER = 2000;
+
 export interface ShareServiceOptions {
   readonly clock: { now(): string };
   readonly actorUserId: UserId;
@@ -79,14 +93,20 @@ function validateSettings(settings: Partial<ShareSettings>): void {
     throw new ShareValidationError("role-unknown", "the role must be viewer, commenter or editor");
   }
   if (settings.signIn !== undefined && !SHARE_SIGN_INS.includes(settings.signIn)) {
-    throw new ShareValidationError("sign-in-unknown", "the sign-in must be link, emailCode or twoStep");
+    throw new ShareValidationError(
+      "sign-in-unknown",
+      "the sign-in must be link, emailCode or twoStep",
+    );
   }
   if (
     settings.endsOn !== undefined &&
     settings.endsOn !== null &&
     !/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/u.test(settings.endsOn)
   ) {
-    throw new ShareValidationError("ends-on-invalid", "the end date must be a date like 2026-12-31");
+    throw new ShareValidationError(
+      "ends-on-invalid",
+      "the end date must be a date like 2026-12-31",
+    );
   }
 }
 
@@ -96,39 +116,54 @@ async function assertMatterVisible(
   visibility: VisibleMatterPredicate,
 ): Promise<void> {
   const { results } = await database
-    .prepare(`SELECT matter.id FROM matter WHERE matter.id = ?1 AND ${visibility.fragmentFor("matter.id")}`)
+    .prepare(
+      `SELECT matter.id FROM matter WHERE matter.id = ?1 AND ${visibility.fragmentFor("matter.id")}`,
+    )
     .bind(matterId, ...visibility.bindings)
     .all();
-  if (results.length === 0) throw new ShareValidationError("matter-unknown", "that matter is not a matter in this firm");
+  if (results.length === 0)
+    throw new ShareValidationError("matter-unknown", "that matter is not a matter in this firm");
 }
 
-async function assertItemOnMatter(database: SqlDatabase, matterId: MatterId, item: ShareTarget): Promise<void> {
+async function assertItemOnMatter(
+  database: SqlDatabase,
+  matterId: MatterId,
+  item: ShareTarget,
+): Promise<void> {
   if (item.scope === "matter") return;
   if (item.scope === "folder") {
     const { results } = await database
       .prepare(`SELECT id FROM folder WHERE id = ?1 AND matter_id = ?2`)
       .bind(item.folderId, matterId)
       .all();
-    if (results.length === 0) throw new ShareValidationError("item-unknown", "a folder to share is not on this matter");
+    if (results.length === 0)
+      throw new ShareValidationError("item-unknown", "a folder to share is not on this matter");
     return;
   }
   const { results } = await database
     .prepare(`SELECT id FROM file WHERE id = ?1 AND matter_id = ?2 AND deleted_at IS NULL`)
     .bind(item.fileId, matterId)
     .all();
-  if (results.length === 0) throw new ShareValidationError("item-unknown", "a file to share is not on this matter");
+  if (results.length === 0)
+    throw new ShareValidationError("item-unknown", "a file to share is not on this matter");
   if (item.fileVersionId !== undefined && item.fileVersionId !== null) {
     const versions = await database
       .prepare(`SELECT id FROM file_version WHERE id = ?1 AND file_id = ?2 AND status = 'clean'`)
       .bind(item.fileVersionId, item.fileId)
       .all();
     if (versions.results.length === 0) {
-      throw new ShareValidationError("version-unknown", "the version to hold is not a clean version of that file");
+      throw new ShareValidationError(
+        "version-unknown",
+        "the version to hold is not a clean version of that file",
+      );
     }
   }
 }
 
-async function assertPersonShareable(database: SqlDatabase, entityId: DirectoryPersonId): Promise<void> {
+async function assertPersonShareable(
+  database: SqlDatabase,
+  entityId: DirectoryPersonId,
+): Promise<void> {
   const { results } = await database
     .prepare(
       `SELECT member_id FROM directory_person WHERE id = ?1 AND status = 'active' AND deleted_at IS NULL`,
@@ -137,11 +172,17 @@ async function assertPersonShareable(database: SqlDatabase, entityId: DirectoryP
     .all<{ member_id: string | null }>();
   const person = results[0];
   if (person === undefined) {
-    throw new ShareValidationError("person-unknown", "a person to share with is not in the Directory");
+    throw new ShareValidationError(
+      "person-unknown",
+      "a person to share with is not in the Directory",
+    );
   }
   // A colleague already sees the matter as a member; a share would give them a second, weaker door.
   if (person.member_id !== null) {
-    throw new ShareValidationError("person-is-member", "a person to share with is a member of the firm");
+    throw new ShareValidationError(
+      "person-is-member",
+      "a person to share with is a member of the firm",
+    );
   }
 }
 
@@ -163,37 +204,59 @@ export async function shareItems(
     throw new ShareValidationError("nothing-to-share", "name at least one item and one person");
   }
   if (input.items.length * input.people.length > MAXIMUM_SHARES_PER_WRITE) {
-    throw new ShareValidationError("too-many", `share at most ${MAXIMUM_SHARES_PER_WRITE} items at once`);
+    throw new ShareValidationError(
+      "too-many",
+      `share at most ${MAXIMUM_SHARES_PER_WRITE} items at once`,
+    );
   }
   validateSettings({ signIn: input.signIn, endsOn: input.endsOn });
   for (const person of input.people) validateSettings({ role: person.role });
   await assertMatterVisible(database, input.matterId, options.visibility);
   for (const item of input.items) await assertItemOnMatter(database, input.matterId, item);
   for (const person of input.people) await assertPersonShareable(database, person.entityId);
+  const held = await countActiveShares(database, input.matterId);
 
   const now = options.clock.now();
-  const statements: SqlStatement[] = [];
+  const statements: EffectStatement[] = [];
   const shareIds: ShareId[] = [];
+  let added = 0;
   for (const person of input.people) {
     for (const item of input.items) {
       const targetId = targetIdOf(input.matterId, item);
       const existing = await readActiveShareFor(database, person.entityId, targetId);
       const settings: ShareSettings = {
         role: person.role,
-        allowDownload: input.allowDownload ?? (existing === undefined ? true : existing.allow_download === 1),
+        allowDownload:
+          input.allowDownload ?? (existing === undefined ? true : existing.allow_download === 1),
         signIn: input.signIn ?? existing?.sign_in ?? "emailCode",
         endsOn: input.endsOn !== undefined ? input.endsOn : (existing?.ends_on ?? null),
       };
       if (existing !== undefined) {
         shareIds.push(existing.id);
         statements.push(
-          updateShareStatement(database, { id: existing.id, ...settings, sharedByUserId: options.actorUserId, now }),
-          auditStatement(database, "sharing.share.changed", existing.id, input.matterId, settings, options),
+          guarded(
+            updateShareStatement(database, {
+              id: existing.id,
+              ...settings,
+              sharedByUserId: options.actorUserId,
+              now,
+            }),
+            "share.active",
+          ),
+          auditStatement(
+            database,
+            "sharing.share.changed",
+            existing.id,
+            input.matterId,
+            settings,
+            options,
+          ),
         );
         continue;
       }
       const id = newIdentifier("share", options.randomSource);
       shareIds.push(id);
+      added += 1;
       statements.push(
         insertShareStatement(database, {
           id,
@@ -201,7 +264,8 @@ export async function shareItems(
           scope: item.scope,
           folderId: item.scope === "folder" ? item.folderId : null,
           fileId: item.scope === "file" ? item.fileId : null,
-          fileVersionId: item.scope === "file" ? ((item.fileVersionId ?? null) as FileVersionId | null) : null,
+          fileVersionId:
+            item.scope === "file" ? ((item.fileVersionId ?? null) as FileVersionId | null) : null,
           recipientEntityId: person.entityId,
           ...settings,
           sharedByUserId: options.actorUserId,
@@ -215,7 +279,21 @@ export async function shareItems(
       );
     }
   }
+  if (held + added > MAXIMUM_ACTIVE_SHARES_PER_MATTER) {
+    throw new ShareValidationError(
+      "too-many",
+      `a matter holds at most ${MAXIMUM_ACTIVE_SHARES_PER_MATTER} shares; share a folder instead of its files`,
+    );
+  }
   return { shareIds, effect: { statements, outboxMessages: [] } };
+}
+
+async function countActiveShares(database: SqlDatabase, matterId: MatterId): Promise<number> {
+  const { results } = await database
+    .prepare(`SELECT count(*) AS held FROM share WHERE matter_id = ?1 AND status = 'active'`)
+    .bind(matterId)
+    .all<{ held: number }>();
+  return results[0]?.held ?? 0;
 }
 
 export async function changeShare(
@@ -226,7 +304,11 @@ export async function changeShare(
 ): Promise<{ effect: EffectWrite }> {
   validateSettings(changes);
   const existing = await readActiveShare(database, shareId, options.visibility);
-  if (existing === undefined) throw new ShareValidationError("share-unknown", "that share is not an active share in this firm");
+  if (existing === undefined)
+    throw new ShareValidationError(
+      "share-unknown",
+      "that share is not an active share in this firm",
+    );
   const settings: ShareSettings = {
     role: changes.role ?? existing.role,
     allowDownload: changes.allowDownload ?? existing.allow_download === 1,
@@ -237,8 +319,25 @@ export async function changeShare(
   return {
     effect: {
       statements: [
-        updateShareStatement(database, { id: shareId, ...settings, sharedByUserId: options.actorUserId, now }),
-        auditStatement(database, "sharing.share.changed", shareId, existing.matter_id, settings, options),
+        // Stopped by someone else since it was read: the change is refused, never applied to a
+        // share nobody can see any more.
+        guarded(
+          updateShareStatement(database, {
+            id: shareId,
+            ...settings,
+            sharedByUserId: options.actorUserId,
+            now,
+          }),
+          "share.active",
+        ),
+        auditStatement(
+          database,
+          "sharing.share.changed",
+          shareId,
+          existing.matter_id,
+          settings,
+          options,
+        ),
       ],
       outboxMessages: [],
     },
@@ -253,19 +352,29 @@ export async function revokeShare(
   options: ShareServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
   const existing = await readActiveShare(database, shareId, options.visibility);
-  if (existing === undefined) throw new ShareValidationError("share-unknown", "that share is not an active share in this firm");
+  if (existing === undefined)
+    throw new ShareValidationError(
+      "share-unknown",
+      "that share is not an active share in this firm",
+    );
   const now = options.clock.now();
   return {
     effect: {
       statements: [
-        revokeShareStatement(database, { id: shareId, revokedByUserId: options.actorUserId, now }),
+        guarded(
+          revokeShareStatement(database, { id: shareId, revokedByUserId: options.actorUserId, now }),
+          "share.active",
+        ),
         domainAuditStatement(database, {
           event: "sharing.share.revoked",
           subjectId: shareId,
           actorUserId: options.actorUserId,
           clock: options.clock,
           randomSource: options.randomSource,
-          metadata: { matterId: existing.matter_id, recipientEntityId: existing.recipient_entity_id },
+          metadata: {
+            matterId: existing.matter_id,
+            recipientEntityId: existing.recipient_entity_id,
+          },
         }),
       ],
       outboxMessages: [],

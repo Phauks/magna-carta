@@ -402,7 +402,7 @@ very file while the screen still had the defect, because the harness asserted th
 | N25  | The breadcrumb Home button's hover box matches the toolbar buttons exactly: 30×30, same radius, same hover surface.                                                                                                                                                                                                                                                                                                                                                                                                                                    | settled                                            |
 | I43  | Versions are bare numbers — "12", never "v12" — in the Version column, version rows, tooltips, dialogs, and History's from/to. **Revises P9.** Where a bare number would dangle in prose, it reads "version 12". Scanner declarations in the safety history keep the scanner's own words (I29).                                                                                                                                                                                                                                                        | settled                                            |
 | L44  | A clear-filter affordance exists ONLY while a filter is in play — absence is the signal (recorded choice over disabling). The per-column menu's clear button appears the moment that column's filter engages and vanishes when it clears; the footer control was already presence-only.                                                                                                                                                                                                                                                                | settled                                            |
-| A26  | "Share" joins the file menu, Soon-disabled with its honest dependency: client-portal document sharing, which the build register carries as not started. Lucide share icon; multi-select composes ("Share 3 Files", still Soon).                                                                                                                                                                                                                                                                                                                        | settled                                            |
+| A26  | "Share" joins the file menu, Soon-disabled with its honest dependency: client-portal document sharing, which the build register carries as not started. Lucide share icon; multi-select composes ("Share 3 Files", still Soon). The Soon half is superseded by S1 (R28).                                                                                                                                                                                                                                                                               | settled                                            |
 | I44  | Timestamps render in the viewer's LOCAL time on every surface — History, Date Modified/Created/Deleted columns, version and safety histories, digest messages. Stored instants are UTC; the fixture's written-out stamps are parsed deterministically and formatted at render, exactly as the app will treat real data.                                                                                                                                                                                                                                | settled                                            |
 
 **Owner questions opened this round:**
@@ -1104,3 +1104,29 @@ reading is that the kind of a row was never a sort key at all.
   on a second column, the empty partition, and pinning's precedence), and
   `apps/web/test/upload-intake.test.ts` for the nested half. The check is added to a harness the day
   one targets the built app.
+
+## R28 — sharing with people outside the firm (2026-11-20)
+
+The owner's revision of the sharing mockups: "shared files should have a shared icon on them for
+sure, i want this more properly built with the actual components ... a shared with in list is really
+good. as well as in right sidebar, and reviewing it all together. i don't think i love the share
+window, because i think that understanding file structure is important when sharing."
+
+| #   | Ruling                                                                                                                                                                                                                                                                                       | Status  |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| S1  | **No Share window.** Sharing is done in the File Manager itself, where the folder structure stays in view. Share on the right-click menu opens the details panel's Sharing section with the Directory search showing; over a selection it shares every selected item. Supersedes A26's Soon. | settled |
+| S2  | **A shared row carries a mark.** A people icon after the name in the list, and on a shared folder in the rail, beside its count.                                                                                                                                                             | settled |
+| S3  | **Shared With is a column, beside Name.** Its value is the names, so sorting, filtering and fit read words; the cell draws up to three initials before them. A row only the firm can see is blank.                                                                                           | settled |
+| S4  | **Sharing lives in the details panel.** A file's Sharing tab, after Details; a folder's sharing beneath its statistics. People reached through the folder are listed read-only under Through, because their share is changed on the folder.                                                  | settled |
+| S5  | **One place reviews it all: the Sharing view in the rail.** The people with anything shared, and for the one picked, the matter's folders and files as an outline saying on each row what they can do and why.                                                                               | settled |
+
+**Notes recorded this round:**
+
+- **One index, every surface.** `apps/web/src/lib/file-manager/sharing-index.ts` is read by the mark,
+  the column, the rail, the panel and the view, so none of them can disagree; its rule is the
+  server's (`packages/sharing/src/share-access.ts`) and is pinned by
+  `apps/web/test/file-manager-sharing-index.test.ts`.
+- **Roles offered are Viewer and Editor** until files have comments; Commenter shows only on a share
+  that already holds it.
+- **Harness.** As with L59, `tooling/file-manager-rulings/` reads the retired mockup and cannot see
+  these; they are pinned by the unit tests above and `apps/web/test/file-manager-menu.test.ts`.

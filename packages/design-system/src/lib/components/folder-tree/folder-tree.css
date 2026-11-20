@@ -136,6 +136,14 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* The shared mark sits ahead of the count, in the info ink the file list's mark uses. */
+  .mc-folder-tree-shared {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+    flex: none;
+    color: var(--mc-status-info-subtle-foreground);
+  }
+
   .mc-folder-tree-empty {
     margin-block: var(--mc-space-4);
     margin-inline: var(--mc-space-8);
