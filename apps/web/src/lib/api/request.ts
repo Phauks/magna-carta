@@ -79,6 +79,8 @@ interface JsonRequest {
    * a fourth outcome would be a case every existing caller must handle to say nothing about.
    */
   readonly signal?: AbortSignal;
+  /** Extra request headers, such as the bot check's solution on a signed-out form. */
+  readonly headers?: Readonly<Record<string, string>>;
 }
 
 /** The one place a `/api/v1` call is made. Never throws; a dead transport is its own outcome. */
@@ -91,6 +93,7 @@ export async function requestJson<T>(
   const headers: Record<string, string> = { accept: "application/json" };
   if (request.body !== undefined) headers["content-type"] = "application/json";
   if (request.idempotencyKey !== undefined) headers["idempotency-key"] = request.idempotencyKey;
+  if (request.headers !== undefined) Object.assign(headers, request.headers);
 
   const line = requestLine(method, path);
 

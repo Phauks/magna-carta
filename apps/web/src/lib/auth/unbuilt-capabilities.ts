@@ -48,12 +48,6 @@ export const UNBUILT_CAPABILITIES: readonly UnbuiltCapability[] = [
       "No socialProviders are configured, so nothing resolves an address to a firm's identity provider and there is no redirect target.",
   },
   {
-    id: "human-verification",
-    label: "Human verification on the anonymous endpoints",
-    missing:
-      "The server verifies a Turnstile solution on the two joining endpoints, but nothing here mints one and the sign-in endpoints aren't checked at all. This row is a placeholder.",
-  },
-  {
     id: "second-factor-choice",
     label: "Choosing which second factor to use",
     missing:

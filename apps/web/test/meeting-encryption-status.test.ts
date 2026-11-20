@@ -3,9 +3,11 @@ import {
   encryptionState,
   keyGroupMembers,
   pauseBitsWith,
+  pauseReasonWords,
   pauseSentence,
   securityCodeGroups,
 } from "../src/lib/meetings/client/encryption-status.ts";
+import { encryptionMarkWords } from "../src/lib/meetings/screen/encryption-mark.svelte";
 
 // WHAT AN ENCRYPTED MEETING'S SCREEN SAYS ABOUT ITS ENCRYPTION, from the verified group state alone:
 // the banner's sentence, the security panel's code and members, and the state the header reads.
@@ -115,5 +117,24 @@ describe("the security panel", () => {
       { participantId: "stay_unnamed", displayName: null, self: false },
       { participantId: "stay_bob", displayName: "Bob Client", self: false },
     ]);
+  });
+});
+
+describe("the Security tab's state line and the header's mark", () => {
+  it("names every reason a pause holds, in the order the bits give them", () => {
+    expect(pauseReasonWords(["recording"])).toBe("Recording");
+    expect(pauseReasonWords(["recording", "captions", "phone"])).toBe(
+      "Recording, Live captions, Phone participant",
+    );
+  });
+
+  it("draws no mark in a meeting opened in the clear, and a word for every other state", () => {
+    expect(encryptionMarkWords({ kind: "off" })).toBeNull();
+    expect(encryptionMarkWords({ kind: "on" })).toBe("End-to-end encrypted");
+    expect(encryptionMarkWords({ kind: "paused", reasons: ["recording"] })).toBe(
+      "Encryption paused",
+    );
+    expect(encryptionMarkWords({ kind: "connecting" })).toBe("Encryption starting");
+    expect(encryptionMarkWords({ kind: "failed" })).toBe("Encryption failed");
   });
 });

@@ -53,11 +53,12 @@ function answerWith(status: number, body: unknown): void {
 }
 
 /** The session as the shared reader holds it, set directly: this control never does the read. */
-function sessionHolding(permissions: string[]): void {
+function sessionHolding(permissions: string[], encrypts?: boolean): void {
   sessionPermissions.session = {
     user: { id: "usr_1", name: "Member", email: "member@example.com" },
     firm: { id: "firm_1", name: "Goldsmith and Associates" },
     permissions,
+    ...(encrypts === undefined ? {} : { meetings: { endToEndEncryption: encrypts } }),
   } as unknown as typeof sessionPermissions.session;
   sessionPermissions.settled = true;
   sessionPermissions.failed = false;
@@ -227,7 +228,8 @@ describe("a member who may host, on an entry with no room yet", () => {
         eventId: "matterEvent_1",
         medium: "audio",
         lobby: "off",
-        encrypted: true,
+        // The session says nothing about encryption, so the deployment does not honour it.
+        encrypted: false,
       },
     ]);
   });
@@ -262,9 +264,59 @@ describe("a member who may host, on an entry with no room yet", () => {
         eventId: "matterEvent_1",
         medium: "video",
         lobby: "on",
+        encrypted: false,
+      },
+    ]);
+  });
+
+  it("offers no encryption switch where the deployment opens every meeting in the clear", async () => {
+    sessionHolding(["meetings:join", "meetings:host"], false);
+    answerWith(404, { type: "meeting-not-found", title: "No meeting", status: 404 });
+    const rendered = await draw();
+
+    expect(rendered.querySelectorAll('[role="switch"]')).toHaveLength(1);
+    expect(rendered.textContent).not.toContain("End-to-end encrypted");
+  });
+
+  it("asks for an encrypted meeting by default where the deployment honours it, and not once switched off", async () => {
+    sessionHolding(["meetings:join", "meetings:host"], true);
+    answerWith(404, { type: "meeting-not-found", title: "No meeting", status: 404 });
+    const rendered = await draw();
+
+    const switches = [...rendered.querySelectorAll('[role="switch"]')];
+    expect(switches).toHaveLength(2);
+    expect(rendered.textContent).toContain("End-to-end encrypted");
+    const encrypted = switches[0] as HTMLElement;
+    expect(encrypted.getAttribute("aria-checked")).toBe("true");
+
+    const startMeeting = (): void =>
+      [...rendered.querySelectorAll("button")]
+        .find((control) => control.textContent?.trim() === "Start Meeting")
+        ?.click();
+    startMeeting();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(started).toEqual([
+      {
+        eventKind: "matter",
+        eventId: "matterEvent_1",
+        medium: "video",
+        lobby: "off",
         encrypted: true,
       },
     ]);
+
+    encrypted.click();
+    flushSync();
+    expect(encrypted.getAttribute("aria-checked")).toBe("false");
+    startMeeting();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(started.at(-1)).toEqual({
+      eventKind: "matter",
+      eventId: "matterEvent_1",
+      medium: "video",
+      lobby: "off",
+      encrypted: false,
+    });
   });
 });
 

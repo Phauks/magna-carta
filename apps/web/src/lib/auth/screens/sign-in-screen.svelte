@@ -25,6 +25,7 @@
    * cannot move. That slot is the one exception because a human check is the last step before the
    * act it guards, and it appears for a small minority of attempts.
    */
+  import type { Snippet } from "svelte";
   import KeyRound from "@lucide/svelte/icons/key-round";
   import Mail from "@lucide/svelte/icons/mail";
   import ShieldCheck from "@lucide/svelte/icons/shield-check";
@@ -50,6 +51,7 @@
   export type SignInAlternative = "passkey" | "one-time-link" | "identity-provider";
 
   let {
+    humanCheck,
     email = $bindable(""),
     password = $bindable(""),
     rememberMe = $bindable(true),
@@ -69,6 +71,8 @@
     onForgotPassword,
     onRegister,
   }: {
+    /** The bot check, drawn just above the main button when the page supplies one. */
+    humanCheck?: Snippet;
     email?: string;
     password?: string;
     rememberMe?: boolean;
@@ -172,6 +176,8 @@
           <span class="ms-auto text-xs text-text-subtle">Cloudflare Turnstile</span>
         </div>
       {/if}
+
+      {@render humanCheck?.()}
 
       <Button
         type="submit"
