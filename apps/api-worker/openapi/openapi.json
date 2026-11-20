@@ -18406,6 +18406,23 @@
                     "null"
                   ]
                 },
+                "codeChannel": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "email",
+                    "text",
+                    null
+                  ]
+                },
+                "mobileNumber": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "status": {
                   "type": "string",
                   "enum": [
@@ -18448,6 +18465,8 @@
                 "email",
                 "attribution",
                 "userId",
+                "codeChannel",
+                "mobileNumber",
                 "status",
                 "notifiedAt",
                 "openedAt",
@@ -18725,6 +18744,17 @@
                 },
                 "userId": {
                   "type": "string"
+                },
+                "codeChannel": {
+                  "type": "string",
+                  "enum": [
+                    "email",
+                    "text"
+                  ]
+                },
+                "mobileNumber": {
+                  "type": "string",
+                  "maxLength": 40
                 }
               },
               "required": [
@@ -18834,6 +18864,17 @@
               "null"
             ]
           },
+          "codeChannel": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "email",
+              "text",
+              null
+            ]
+          },
           "needsCode": {
             "type": "boolean"
           },
@@ -18917,6 +18958,7 @@
           "expiresAt",
           "signerName",
           "codeSentTo",
+          "codeChannel",
           "needsCode",
           "consented",
           "adopted",
@@ -19072,6 +19114,115 @@
           "documentFileName",
           "certificateFileName"
         ]
+      },
+      "SigningSettingsResponse": {
+        "type": "object",
+        "properties": {
+          "emailCode": {
+            "type": "boolean"
+          },
+          "textCode": {
+            "type": "boolean"
+          },
+          "identityCheck": {
+            "type": "boolean"
+          },
+          "startWith": {
+            "type": "string",
+            "enum": [
+              "email-link",
+              "email-code",
+              "text-code",
+              "identity-check"
+            ]
+          },
+          "startingCheck": {
+            "type": "string",
+            "enum": [
+              "email-link",
+              "email-code",
+              "text-code",
+              "identity-check"
+            ]
+          },
+          "offered": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "email-link",
+                "email-code",
+                "text-code",
+                "identity-check"
+              ]
+            }
+          },
+          "textServiceReady": {
+            "type": "boolean"
+          },
+          "outsideServices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "identity-check",
+                    "online-notary"
+                  ]
+                },
+                "connected": {
+                  "type": "boolean"
+                },
+                "vendor": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "connected",
+                "vendor"
+              ]
+            }
+          }
+        },
+        "required": [
+          "emailCode",
+          "textCode",
+          "identityCheck",
+          "startWith",
+          "startingCheck",
+          "offered",
+          "textServiceReady",
+          "outsideServices"
+        ]
+      },
+      "PatchSigningSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "emailCode": {
+            "type": "boolean"
+          },
+          "textCode": {
+            "type": "boolean"
+          },
+          "identityCheck": {
+            "type": "boolean"
+          },
+          "startWith": {
+            "type": "string",
+            "enum": [
+              "email-link",
+              "email-code",
+              "text-code",
+              "identity-check"
+            ]
+          }
+        }
       },
       "SessionLaunchResponse": {
         "type": "object",
@@ -87048,6 +87199,203 @@
           },
           "410": {
             "description": "The link expired or was replaced, or the copy is not sealed yet",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/firm/signing/settings": {
+      "get": {
+        "description": "Reads which ways the firm's outside signers may prove who they are (a code by email, a code by text message, an outside identity check), which one a new signer starts with, and which are offered now. Beside them, two facts this route never writes: whether this deployment can send a text message, and which outside services are connected.",
+        "operationId": "signingSettings.get",
+        "tags": [
+          "signingSettings"
+        ],
+        "x-mc-operationId": "signingSettings.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:send",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signingSettings"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's signing settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SigningSettingsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks esign:send",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Updates which ways the firm's outside signers may prove who they are. Sparse: an absent field is left alone, and an empty patch changes nothing and records nothing. Returns the settings after the write.",
+        "operationId": "signingSettings.update",
+        "tags": [
+          "signingSettings"
+        ],
+        "x-mc-operationId": "signingSettings.update",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "esign:manageSettings",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "signingSettings"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchSigningSettingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's signing settings after the write",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SigningSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks esign:manageSettings",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is invalid, or the Idempotency-Key was reused with a different body",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -162088,6 +162436,9 @@
     },
     {
       "name": "signing"
+    },
+    {
+      "name": "signingSettings"
     },
     {
       "name": "supportDiagnostics"

@@ -211,6 +211,7 @@ describe("problem-type URI registry", () => {
         "discovery-selection-refused",
         "discovery-load-not-reconciled",
         "signed-copy-not-ready",
+        "text-undeliverable",
         "signing-link-expired",
         "signing-link-not-valid",
         "signing-not-a-pdf",

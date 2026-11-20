@@ -159,7 +159,7 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
 <div class="wrap">
 <header style="display:flex;flex-direction:column;gap:13px">
   <p class="eyebrow">Magna Carta &middot; decisions</p>
-  <h1>71 questions the build is waiting on you to answer</h1>
+  <h1>68 questions the build is waiting on you to answer</h1>
   <p class="lede">Every one of these was recorded where the work stopped, by whoever stopped. They
   are gathered here with the answer boxes, sorted by what leaving them open actually costs. Write
   as much or as little as you want; a sentence is usually enough, and &ldquo;not yet&rdquo; is an
@@ -168,8 +168,8 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
   Nothing leaves this page on its own &mdash; when you are done, <strong>Copy the answers</strong>
   at the bottom and paste them into the conversation, and they get applied from there.</p>
   <div class="band" style="margin-top:8px">
-    <div class="k "><span>Open questions</span><b>71</b><em>Every one is on this page.</em></div>
-    <div class="k n"><span>Holding a build</span><b>30</b><em>Nothing is written behind these.</em></div>
+    <div class="k "><span>Open questions</span><b>68</b><em>Every one is on this page.</em></div>
+    <div class="k n"><span>Holding a build</span><b>27</b><em>Nothing is written behind these.</em></div>
     <div class="k y"><span>Not holding a build</span><b>41</b><em>Mostly built already; some are parked.</em></div>
     <div class="k g"><span>Answered here</span><b data-answered-count="">0</b><em>Saved in this browser until you copy them out.</em></div>
   </div>
@@ -178,14 +178,14 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
 
 <section class="controls" aria-label="Filters">
   <label class="field"><span>Area</span>
-    <select data-filter-area=""><option value="">All areas</option><option value="ai.md">AI &amp; Inference (2)</option><option value="auth.md">Authentication, Access Control &amp; Encryption (1)</option><option value="communications.md">Communications Layer (1)</option><option value="conflicts.md">Conflicts Check (1)</option><option value="core-domain.md">Core Domain — Directory, Matters &amp; Locations (7)</option><option value="custodian.md">Custodian (Safe Custody) (1)</option><option value="discovery.md">Discovery (e-discovery) (3)</option><option value="document-automation.md">Document Automation (3)</option><option value="documents.md">Documents (3)</option><option value="exhibits.md">Exhibits and Exhibit Lists (5)</option><option value="financial.md">Financial Core (12)</option><option value="intake.md">Client Intake / CRM (3)</option><option value="meetings.md">Meetings (6)</option><option value="notes.md">Matter Notes and Activity (1)</option><option value="notifications.md">Notifications (1)</option><option value="payments.md">Payments (6)</option><option value="product-updates.md">Product Updates &amp; User-Facing Documentation (1)</option><option value="reports.md">Reports (1)</option><option value="self-serve.md">Self-Serve Provisioning and Entitlements (5)</option><option value="tasks.md">Tasks and Workflows / Matter Plans (2)</option><option value="translation.md">Translation Services (6)</option></select></label>
+    <select data-filter-area=""><option value="">All areas</option><option value="ai.md">AI &amp; Inference (2)</option><option value="auth.md">Authentication, Access Control &amp; Encryption (1)</option><option value="communications.md">Communications Layer (1)</option><option value="conflicts.md">Conflicts Check (1)</option><option value="core-domain.md">Core Domain — Directory, Matters &amp; Locations (6)</option><option value="custodian.md">Custodian (Safe Custody) (1)</option><option value="discovery.md">Discovery (e-discovery) (3)</option><option value="document-automation.md">Document Automation (3)</option><option value="documents.md">Documents (3)</option><option value="exhibits.md">Exhibits and Exhibit Lists (5)</option><option value="financial.md">Financial Core (10)</option><option value="intake.md">Client Intake / CRM (3)</option><option value="meetings.md">Meetings (6)</option><option value="notes.md">Matter Notes and Activity (1)</option><option value="notifications.md">Notifications (1)</option><option value="payments.md">Payments (6)</option><option value="product-updates.md">Product Updates &amp; User-Facing Documentation (1)</option><option value="reports.md">Reports (1)</option><option value="self-serve.md">Self-Serve Provisioning and Entitlements (5)</option><option value="tasks.md">Tasks and Workflows / Matter Plans (2)</option><option value="translation.md">Translation Services (6)</option></select></label>
   <label class="toggle"><input type="checkbox" data-filter-unanswered="">
     <span>Only what I have not answered</span></label>
   <p class="count" data-visible-count="" role="status"></p>
 </section>
 
 <section class="group" data-group="blocking">
-  <h2>Nothing is built behind these <span class="ac">30</span></h2>
+  <h2>Nothing is built behind these <span class="ac">27</span></h2>
   <p class="lede">An answer here decides what gets written next. Until one lands, the work has no shape to take — so these are the questions that cost time by staying open.</p>
   <div class="cards">
     <article class="card" data-node="ai.consent" data-name="Client-consent model" data-area="ai.md">
@@ -232,17 +232,6 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
       <p class="saved" data-saved="" aria-live="polite"></p>
     </article>
-    <article class="card" data-node="exhibits.package" data-name="Compiled exhibit package" data-area="exhibits.md">
-      <div class="chips"><span class="chip plan">Planned</span><span class="chip todo">Not built</span><code>exhibits.package</code></div>
-      <h3>Compiled exhibit package</h3>
-      <p class="q">Whether a compiled package paginates itself by default, and in which corner. The Nevada rule read for this design requires exhibits over ten pages to be numbered in the lower right — which is exactly where a page produced in discovery already carries its Bates stamp — and no reliable detector for an existing stamp exists, so a false negative overprints a number that was already served and a false positive drops pagination a rule requires. Defaulting on makes the common filing correct and risks overprinting; defaulting off makes every package a member has to remember to configure. Exhibits design flag E5.</p>
-      <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
-      <p class="scope">One PDF per set — the list, then a regenerated separator page and the exhibit itself for each member, bookmarked — built as an asynchronous job and landing as an ordinary matter file.</p>
-      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
-      <label class="answer"><span>Your answer</span>
-        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
-      <p class="saved" data-saved="" aria-live="polite"></p>
-    </article>
     <article class="card" data-node="financial.ledger.operating-gl.chart-of-accounts" data-name="Chart of accounts" data-area="financial.md">
       <div class="chips"><span class="chip plan">Designed</span><span class="chip todo">Not built</span><code>financial.ledger.operating-gl.chart-of-accounts</code></div>
       <h3>Chart of accounts</h3>
@@ -260,17 +249,6 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="q">Five flags, and the first decides whether this sub-slice exists — period close is not in the slice map's scope, and against that, statements nobody can rely on are not worth assembling. Then: who may close, and does closing take a second person the way a trust act does. What an operator may do to a closed period — reopen with a reason and an append-only event, post into it under a permission, or never. Whether the hard lock ever gets a route or stays a column nothing sets until a jurisdiction requires it. And whether the lock is checked inside the posting primitive itself, which is the one with reach: after it, a trust movement or an invoice finalization backdated into a closed period refuses, which is a behaviour change in shipped subsystems and is also the only version of a lock a caller cannot decline to honour. General ledger design, flags G3, G4, G5, G6 and G12.</p>
       <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
       <p class="scope">A monotonic lock date closing every effective date at or before it, with soft reopen.</p>
-      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
-      <label class="answer"><span>Your answer</span>
-        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
-      <p class="saved" data-saved="" aria-live="polite"></p>
-    </article>
-    <article class="card" data-node="financial.ledger.operating-gl.accounts-payable" data-name="Accounts payable" data-area="financial.md">
-      <div class="chips"><span class="chip plan">Designed</span><span class="chip todo">Not built</span><code>financial.ledger.operating-gl.accounts-payable</code></div>
-      <h3>Accounts payable</h3>
-      <p class="q">May accounts payable pay from anything but the resolved operating account — a firm with two operating banks has a legitimate need the single role cannot express, and the recommendation is a second role rather than a caller-supplied parameter. At what status a bill-originated cost enters the cost store, where draft respects the billability review and a firm whose lawyers never review costs would leave advanced costs unbilled forever. And whether vendor credits are in this pass or their own design, given they are the mirror of billing's credit note and need the same care about attribution. General ledger design, flags G7, G8 and G9.</p>
-      <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
-      <p class="scope">Accounts payable as a subledger of the operating books.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
@@ -507,17 +485,6 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
       <p class="saved" data-saved="" aria-live="polite"></p>
     </article>
-    <article class="card" data-node="translation.engines" data-name="Translation engines and consent gates" data-area="translation.md">
-      <div class="chips"><span class="chip plan">Designed</span><span class="chip todo">Not built</span><code>translation.engines</code></div>
-      <h3>Translation engines and consent gates</h3>
-      <p class="q">Which engine is the default and whether third-party translation vendors are adopted. Recommended: the on-platform model as the default, behind the feature gate alone rather than the third-party-processing gate, because it sends content to no third party and requiring that gate would deny the on-platform route to exactly the most conservative firms; the frontier route behind all three gates; and the dedicated translation vendors refused for now, since they buy quality the frontier route already delivers while adding a fourth data processor to the privilege chain and a credential lifecycle nobody has built. A yes to a vendor means building the credentialed adapter that is currently a deferred seam. Translation design flag T1.</p>
-      <p class="reach">No code exists behind this yet. The answer decides what gets written.</p>
-      <p class="scope">Which engine may see a privileged document under which consent — the on-platform engine behind the feature gate alone, and a frontier model through the shipped inference chokepoint behind all three gates.</p>
-      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
-      <label class="answer"><span>Your answer</span>
-        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
-      <p class="saved" data-saved="" aria-live="polite"></p>
-    </article>
   </div>
 </section>
 
@@ -575,17 +542,6 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="q">Whether a separate gender field is ever added to a Directory person. It is deliberately not built; pronouns are owner-entered and never inferred.</p>
       <p class="reach">This runs and a person can open it today. Changing it changes something live.</p>
       <p class="scope">Optional, owner-entered pronouns on a Directory person — the whole declension plus verb agreement — feeding the document-assembly pronoun helpers; never inferred from a name, a title, or a gender attribute.</p>
-      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
-      <label class="answer"><span>Your answer</span>
-        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
-      <p class="saved" data-saved="" aria-live="polite"></p>
-    </article>
-    <article class="card" data-node="directory.addresses.lookup" data-name="Address autocomplete" data-area="core-domain.md">
-      <div class="chips"><span class="chip done">Shipped</span><span class="chip done">Built · in use</span><code>directory.addresses.lookup</code></div>
-      <h3>Address autocomplete</h3>
-      <p class="q">Google's Places terms allow storing only a place ID, while a chosen suggestion is saved into the record as address parts; confirm that use before Google stays the permanent engine. The self-hosted engine (the magna-carta-addresses R2 bucket, apps/address-worker in Workers Builds, the ADDRESS_SERVICE binding; operations.md section 20) is optional since the owner chose Google Maps on 2026-11-13.</p>
-      <p class="reach">This runs and a person can open it today. Changing it changes something live.</p>
-      <p class="scope">Offering real addresses as a person types one, and turning a chosen offer into the parts a record stores — the United States from the platform's own OpenAddresses index, every other country from Smarty.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
@@ -756,6 +712,17 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
       <p class="saved" data-saved="" aria-live="polite"></p>
     </article>
+    <article class="card" data-node="exhibits.package" data-name="Compiled exhibit package" data-area="exhibits.md">
+      <div class="chips"><span class="chip part">Partial</span><span class="chip done">Built · in use</span><code>exhibits.package</code></div>
+      <h3>Compiled exhibit package</h3>
+      <p class="q">Exhibits design flag E5, answered provisionally. The package stamps by default in the lower right, carrying on from the matter's register; a member turns it off in the dialog. Overprinting a page that already carries a discovery stamp is still possible, because no detector for an existing stamp exists.</p>
+      <p class="reach">This runs and a person can open it today. Changing it changes something live.</p>
+      <p class="scope">One PDF per set — the list, then a regenerated cover sheet and the exhibit itself for each member — Bates-stamped from the matter's register and landing as an ordinary matter file.</p>
+      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
+      <label class="answer"><span>Your answer</span>
+        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
+      <p class="saved" data-saved="" aria-live="polite"></p>
+    </article>
     <article class="card" data-node="exhibits.admission-tracking" data-name="Trial admission tracking" data-area="exhibits.md">
       <div class="chips"><span class="chip park">Deferred</span><span class="chip park">Parked</span><code>exhibits.admission-tracking</code></div>
       <h3>Trial admission tracking</h3>
@@ -795,17 +762,6 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="q">An attorney review of the encoded Nevada trust profile, before any compliance surface is built on top of it.</p>
       <p class="reach">This is a heading over several capabilities rather than one of them, so its reach is whatever its parts' is. The answer here applies across the group.</p>
       <p class="scope">A rules profile per state/territory parameterized where states differ (citation, retention, reconciliation cadence, firm-funds allowance, IOLTA model, advance/flat-fee treatment, overdraft reporting, electronic payments, thresholds); rule numbers never hard-coded; Nevada seeded.</p>
-      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
-      <label class="answer"><span>Your answer</span>
-        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
-      <p class="saved" data-saved="" aria-live="polite"></p>
-    </article>
-    <article class="card" data-node="financial.trust.reconciliation" data-name="Interactive three-way reconciliation" data-area="financial.md">
-      <div class="chips"><span class="chip part">Partial</span><span class="chip done">Built · in use</span><code>financial.trust.reconciliation</code></div>
-      <h3>Interactive three-way reconciliation</h3>
-      <p class="q">The PDF import path is designed and unbuilt behind four calls about a firm's money. Whether a statement whose rows do not foot to its parsed closing balance is refused outright, or imported with the discrepancy recorded — refusing sends a firm with an irregular statement back to typing the month by hand, allowing it puts a difference into the bank leg of the proof that nobody can attribute to a trust problem or a parse error. Whether a scanned statement may produce stored lines at all, or recognition may only assist a person typing, which costs the firms with paper statements the most. Whether one statement line may match several ledger entries — a single deposit slip covering three cheques reads today as one match plus two items outstanding, so a firm that batches deposits has a period that can never balance, and this is the one flag the design makes no recommendation on. And how long the source PDF is kept, given it is a client's bank activity by name and amount, and whether a subject erasure request reaches it while the trust-record retention obligation runs. Trust PDF statement import design, flags S1, S2, S4 and S5.</p>
-      <p class="reach">This runs and a person can open it today. Changing it changes something live.</p>
-      <p class="scope">Monthly bank reconciliation (manual entry or banking-plugin import), match cleared items, flag outstanding/discrepancies, generate and archive a signed three-way reconciliation, per trust account.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
@@ -960,6 +916,17 @@ footer{color:var(--faint);font-size:13px;border-top:1px solid var(--hair);paddin
       <p class="q">Two calls about how far a plan may reach, neither of them blocking — the build took the design's own answer to each. Whether the platform ever ships curated matter plans of its own: it ships none, the malpractice argument holds, and a yes makes it a jurisdiction-keyed reference catalog with attorney review in the loop, a research workstream rather than a seed migration. And whether a template's anchor vocabulary may grow beyond "matter opened": it stays at that one value, because every other candidate anchor — service date, filing date, a trigger event — is the front half of a docketing rule, and one anchor is the whole reason the offset arithmetic is defensible while the calendar refuses to compute deadlines. Tasks and matter plans design flags W11 and W12.</p>
       <p class="reach">This runs and a person can open it today. Changing it changes something live.</p>
       <p class="scope">Templated task sequences per matter type, offered when a matter is open and written only when a member accepts them; pairs with document automation and the calendar.</p>
+      <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
+      <label class="answer"><span>Your answer</span>
+        <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>
+      <p class="saved" data-saved="" aria-live="polite"></p>
+    </article>
+    <article class="card" data-node="translation.engines" data-name="Translation engines and consent gates" data-area="translation.md">
+      <div class="chips"><span class="chip part">Partial</span><span class="chip part">Built · no screen yet</span><code>translation.engines</code></div>
+      <h3>Translation engines and consent gates</h3>
+      <p class="q">Whether a pasted translation is kept (flag T4). Built on the recommendation of a log row per run without the text; keeping the text means a run table and an object per paste.</p>
+      <p class="reach">The capability works. Nobody can reach it, because its interface is not built.</p>
+      <p class="scope">Which engine may see a firm's text under which consent: Google Cloud Translation behind the firm switch, and later a frontier model through the shipped inference chokepoint.</p>
       <div class="quicks"><button type="button" class="quick" data-quick="yes">Yes / approve</button><button type="button" class="quick" data-quick="no">No / decline</button><button type="button" class="quick" data-quick="defer">Not yet — park it</button><button type="button" class="quick" data-quick="discuss">Let us talk it through</button></div>
       <label class="answer"><span>Your answer</span>
         <textarea rows="3" data-answer="" placeholder="A sentence is usually enough."></textarea></label>

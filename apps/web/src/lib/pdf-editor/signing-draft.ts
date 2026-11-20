@@ -9,6 +9,12 @@
  */
 import type { PdfPageSize } from "$lib/documents/pdf-pages.ts";
 import type { SaveSigningDraftRequest, SigningRequestDetail } from "./signing-api.ts";
+import {
+  SIGNER_CHECK_MODULES,
+  checkOf,
+  type CodeChannel,
+  type SignerCheck,
+} from "@magna-carta/signing/signer-checks";
 
 export type FieldKind = SaveSigningDraftRequest["fields"][number]["kind"];
 export type Attribution = SaveSigningDraftRequest["signers"][number]["attribution"];
@@ -23,6 +29,10 @@ export interface DraftSigner {
   readonly email: string;
   readonly attribution: Attribution;
   readonly userId?: string;
+  /** Where the code goes, for an access-code signer. Absent is email. */
+  readonly codeChannel?: CodeChannel;
+  /** The number a text code goes to, as the member wrote it. */
+  readonly mobileNumber?: string;
 }
 
 export interface DraftField {
@@ -70,23 +80,50 @@ const DEFAULT_SIZE: Record<FieldKind, readonly [number, number]> = {
   checkbox: [14, 14],
 };
 
-/** The ways of proving identity this build offers, as the screen names and explains them. */
-export const ATTRIBUTIONS: readonly {
-  readonly value: Attribution;
+/** What each check asks of the signer, as the chooser explains it. */
+const CHECK_DETAIL: Record<SignerCheck, string> = {
+  "email-link": "Anyone who opens the email can sign",
+  "email-code": "Also needs a one-time code sent by email",
+  "text-code": "Also needs a one-time code sent by text message",
+  "identity-check": "Also needs an identity check by an outside service",
+};
+
+/** A check as the chooser lists it. */
+export function checkItem(check: SignerCheck): {
+  readonly value: SignerCheck;
   readonly label: string;
   readonly detail: string;
-}[] = [
-  { value: "email-link", label: "Emailed Link", detail: "Anyone who opens the email can sign" },
-  {
-    value: "access-code",
-    label: "Link and Email Code",
-    detail: "Also needs a one-time code sent by email",
-  },
-  { value: "firm-authenticated", label: "Signed In to the Firm", detail: "Firm members only" },
-];
+} {
+  return { value: check, label: SIGNER_CHECK_MODULES[check].label, detail: CHECK_DETAIL[check] };
+}
 
-export function attributionLabel(value: string): string {
-  return ATTRIBUTIONS.find((one) => one.value === value)?.label ?? value;
+/** The check a signer was given; null for a firm member, who signs signed in. */
+export function checkOfSigner(signer: {
+  readonly attribution: string;
+  readonly codeChannel?: CodeChannel | null;
+}): SignerCheck | null {
+  if (signer.attribution === "firm-authenticated") return null;
+  return checkOf(signer.attribution as Attribution, signer.codeChannel ?? null);
+}
+
+/** A signer given another check. The number stays, so switching away and back does not lose it. */
+export function withCheck(signer: DraftSigner, check: SignerCheck): DraftSigner {
+  const { codeChannel: _channel, ...rest } = signer;
+  const module = SIGNER_CHECK_MODULES[check];
+  return {
+    ...rest,
+    attribution: module.attribution as Attribution,
+    ...(module.codeChannel === undefined ? {} : { codeChannel: module.codeChannel }),
+  };
+}
+
+/** How a signer proves who they are, in the plain name the chooser uses. */
+export function attributionLabel(signer: {
+  readonly attribution: string;
+  readonly codeChannel?: CodeChannel | null;
+}): string {
+  const check = checkOfSigner(signer);
+  return check === null ? "Signed In to the Firm" : SIGNER_CHECK_MODULES[check].label;
 }
 
 /**
@@ -177,6 +214,8 @@ export function draftFromDetail(detail: SigningRequestDetail): SigningDraft {
       email: signer.email,
       attribution: signer.attribution,
       ...(signer.userId === null ? {} : { userId: signer.userId }),
+      ...(signer.codeChannel === null ? {} : { codeChannel: signer.codeChannel }),
+      ...(signer.mobileNumber === null ? {} : { mobileNumber: signer.mobileNumber }),
     })),
     fields: detail.fields.map((field) => ({
       key: field.id,
@@ -203,6 +242,12 @@ export function draftRequest(draft: SigningDraft): SaveSigningDraftRequest {
       email: signer.attribution === "firm-authenticated" ? "" : signer.email,
       attribution: signer.attribution,
       ...(signer.userId === undefined ? {} : { userId: signer.userId }),
+      ...(signer.attribution === "access-code" && signer.codeChannel !== undefined
+        ? { codeChannel: signer.codeChannel }
+        : {}),
+      ...(signer.attribution === "access-code" && signer.codeChannel === "text"
+        ? { mobileNumber: signer.mobileNumber ?? "" }
+        : {}),
     })),
     fields: draft.fields.map((field) => ({
       signerKey: field.signerKey,

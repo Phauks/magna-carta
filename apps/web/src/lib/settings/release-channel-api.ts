@@ -19,7 +19,9 @@
  *
  * Mirrors the `releaseChannel.set` operation in apps/api-worker/openapi/openapi.json.
  */
-import { requestJson, type ApiOutcome } from "$lib/api/request.ts";
+import { firmSetReleaseChannel } from "@magna-carta/api-client";
+import { outcomeOf } from "$lib/api/api-client.ts";
+import type { ApiOutcome } from "$lib/api/request.ts";
 
 /** What a firm may be on. */
 export type ReleaseChannel = "stable" | "beta" | "alpha";
@@ -30,16 +32,22 @@ export type ChoosableReleaseChannel = "stable" | "beta";
 /** The permission the write names. A member without it reads the channel and cannot move it. */
 export const MANAGE_RELEASE_CHANNEL_PERMISSION = "firm:manageReleaseChannel";
 
-export function setReleaseChannel(
+export async function setReleaseChannel(
   fetchImpl: typeof fetch,
   channel: ChoosableReleaseChannel,
   idempotencyKey: string,
 ): Promise<ApiOutcome<{ channel: ChoosableReleaseChannel }>> {
-  return requestJson(fetchImpl, "/api/v1/firm/release-channel", {
-    method: "PUT",
-    // The acknowledgement is what the server refuses beta without, and it is only ever true on the
-    // way in: sending it on the way back to stable would be recording a consent nobody gave.
-    body: { channel, consentAcknowledged: channel === "beta" },
-    idempotencyKey,
-  });
+  try {
+    const { data } = await firmSetReleaseChannel({
+      fetch: fetchImpl,
+      // The acknowledgement is what the server refuses beta without, and it is only ever true on the
+      // way in: sending it on the way back to stable would be recording a consent nobody gave.
+      body: { channel, consentAcknowledged: channel === "beta" },
+      headers: { "idempotency-key": idempotencyKey },
+      throwOnError: true,
+    });
+    return { kind: "ok", value: { channel: data.channel } };
+  } catch (caught) {
+    return outcomeOf(caught);
+  }
 }

@@ -475,7 +475,7 @@ export const emailDeliveryFailed = defineMetric("email.delivery_failed", [
 // first sign the provider has refused — a spent subscription answers exactly that way. There is
 // deliberately no dimension that could hold what was typed: the query is a client's address.
 //   operation: suggest | resolve
-//   engine:    smarty | deferred
+//   engine:    google | deferred
 //   outcome:   suggestions | address | group | expired | no-coverage | unavailable | failed
 export const addressesLookup = defineMetric("addresses.lookup", [
   "operation",
@@ -548,6 +548,14 @@ export const signingSignedCopiesUndelivered = defineMetric(
   "signing.signed_copies_undelivered",
   [] as const,
 );
+
+// A signer's code that could not be texted, by why: a label from the text-message port, never the
+// number and never the code. `number-not-allowed` climbing means the sending number has lost its
+// registration for business texting.
+//   reason: not-configured | transport | refused | number-not-allowed | rate-limited | malformed
+export const signingTextCodesUndelivered = defineMetric("signing.text_codes_undelivered", [
+  "reason",
+] as const);
 
 const CATALOG: readonly MetricDefinition[] = [
   scrubbedField,
@@ -629,6 +637,7 @@ const CATALOG: readonly MetricDefinition[] = [
   signingRemindersUndelivered,
   signingSealOutcome,
   signingSignedCopiesUndelivered,
+  signingTextCodesUndelivered,
 ];
 
 const BY_NAME = new Map(CATALOG.map((definition) => [definition.metricName, definition]));

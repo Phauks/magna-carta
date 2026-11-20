@@ -52,11 +52,8 @@ describe("featureStatuses", () => {
     expect(stateOf({ TURNSTILE_SECRET_KEY: "  " }, "signUpBotCheck")).toBe("not-set-up");
   });
 
-  it("either alternative sets address suggestions up", () => {
-    expect(stateOf({ SMARTY_AUTH_ID: "a", SMARTY_AUTH_TOKEN: "b" }, "addressSuggestions")).toBe(
-      "working",
-    );
-    expect(stateOf({ ADDRESS_SERVICE: {} }, "addressSuggestions")).toBe("working");
+  it("the Google key alone sets address suggestions up", () => {
+    expect(stateOf({}, "addressSuggestions")).toBe("not-set-up");
     expect(stateOf({ GOOGLE_PLACES_API_KEY: "key" }, "addressSuggestions")).toBe("working");
   });
 
