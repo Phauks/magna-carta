@@ -151990,7 +151990,7 @@
     },
     "/api/v1/trust/bank-reconciliations/{reconciliationId}/files": {
       "post": {
-        "description": "Keeps a file with the reconciliation: the bank statement, a deposit slip. PDF, PNG or JPEG, up to 25 MB.",
+        "description": "Keeps a file with the reconciliation: the bank statement, a deposit slip. PDF, PNG or JPEG, up to 25 MB. The file is malware-scanned first and not kept when the scan flags it.",
         "operationId": "trust.attachBankReconciliationFile",
         "tags": [
           "trust"
@@ -152111,6 +152111,16 @@
           },
           "429": {
             "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The malware-scan engine did not answer; nothing was kept",
             "content": {
               "application/problem+json": {
                 "schema": {

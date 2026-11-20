@@ -37,6 +37,10 @@ Enter the **End Date** and, if you have it, the **End Balance** from the stateme
 work: a month, half a month or a quarter. You can attach the statement and any other files now,
 or later with **Attach Files**. Press **Start Reconciliation**.
 
+Every attached file is checked for malware first. A file that fails the check is not kept, and you
+see a message saying so: ask the bank for a fresh copy of the statement. If the check can't run at
+that moment, nothing is kept and you can try again shortly.
+
 ## Ticking off the statement
 
 The figures across the top read: start balance, plus what is ticked as deposited, less what is
