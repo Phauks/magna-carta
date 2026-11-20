@@ -17096,7 +17096,7 @@ export const trustAddBankReconciliationNoteMutation = (options?: Partial<Options
 };
 
 /**
- * Keeps a file with the reconciliation: the bank statement, a deposit slip. PDF, PNG or JPEG, up to 25 MB.
+ * Keeps a file with the reconciliation: the bank statement, a deposit slip. PDF, PNG or JPEG, up to 25 MB. The file is malware-scanned first and not kept when the scan flags it.
  */
 export const trustAttachBankReconciliationFileMutation = (options?: Partial<Options<TrustAttachBankReconciliationFileData>>): MutationOptions<TrustAttachBankReconciliationFileResponse, TrustAttachBankReconciliationFileError, Options<TrustAttachBankReconciliationFileData>> => {
     const mutationOptions: MutationOptions<TrustAttachBankReconciliationFileResponse, TrustAttachBankReconciliationFileError, Options<TrustAttachBankReconciliationFileData>> = {

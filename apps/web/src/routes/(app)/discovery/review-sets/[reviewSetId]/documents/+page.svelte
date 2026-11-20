@@ -109,7 +109,7 @@
         },
   );
 
-  const criteria = $derived(criteriaFromSearchParameters(page.url.searchParams));
+  const criteria = $derived(criteriaFromSearchParameters(new URLSearchParams(page.url.search)));
 
   /*
    * The criteria set is held in the address and nowhere else, so there is one answer to "what is

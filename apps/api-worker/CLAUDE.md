@@ -128,7 +128,8 @@ routes requests through the chokepoint into those packages.
   **Three states, not two, and only the first two are verdicts.** No binding at all → the engine-less
   adapter's honest `unscanned`/`no-engine`. Bound and answering → a real verdict. Bound and answering
   5xx — a placeholder worker, a Container that is not up — → `ScanFaultError`, which the ingest
-  consumer retries on, and which `routes/files/scan-diagnose.ts` and `routes/documents/templates.ts` both answer as a
+  consumer retries on, and which `routes/files/scan-diagnose.ts`, `routes/documents/templates.ts` and
+  `routes/trust/trust-bank-reconciliation.ts` (a statement attached to a reconciliation) answer as a
   `503`, because a member asking whether a file is safe — or registering a template — must not be
   handed an Error ID for an engine that is simply not there. On the template path the scan runs inside
   `runIdempotentEffect`, whose callback owes a write and a response code rather than a `Response`, so

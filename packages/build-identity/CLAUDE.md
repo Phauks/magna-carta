@@ -7,7 +7,7 @@ dedicated Worker exposes so the app Worker's aggregate version endpoint
 package's runtime exports: its identity is baked in by vite define (`apps/web/vite.config.ts` →
 `apps/web/src/lib/build-identity.ts`), but that define, the SPA's static `/__version` asset
 (`apps/web/scripts/emit-version-asset.mjs` — the assets-only `magna-carta-web` Worker's version
-answer), and the SvelteKit version-poll name (`apps/web/svelte.config.js`) all resolve the commit
+answer), and the SvelteKit version-poll name (`apps/web/vite.config.ts`) all resolve the commit
 through this package's `scripts/commit-identity.mjs`, the one shared resolution.
 
 ## Key files
