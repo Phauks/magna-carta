@@ -63,6 +63,7 @@ import Sparkles from "@lucide/svelte/icons/sparkles";
 import ListChecks from "@lucide/svelte/icons/list-checks";
 import HandCoins from "@lucide/svelte/icons/hand-coins";
 import BookCheck from "@lucide/svelte/icons/book-check";
+import Banknote from "@lucide/svelte/icons/banknote";
 
 export type DestinationGroup =
   | "favorites"
@@ -569,6 +570,22 @@ const DESTINATION_LIST = [
     shipped: true,
     stage: "alpha",
     defaultShown: true,
+  },
+  {
+    // What the bank says, beside the books: every connected bank account with the bank's balance
+    // and the books' balance, and the bank's recent lines marked In Books or Not in Books. Read
+    // only: the feed never posts to the books. It sits between Trust and Reconciliation because
+    // the bank's lines are what a reconciliation is ticked against.
+    id: "banking",
+    label: "Banking",
+    href: "/banking",
+    icon: Banknote,
+    description: "The bank's balances and transactions, beside the books.",
+    group: "money",
+    shipped: true,
+    stage: "alpha",
+    defaultShown: true,
+    permission: assertPermission("banking:read"),
   },
   {
     // Matching a trust account's book to its bank statement, one period at a time. A screen of
