@@ -14,20 +14,15 @@ import { matterScopedObjectDimensions } from "@magna-carta/object-dimensions";
 import type { Context } from "hono";
 import type { Bindings } from "../../../bindings.ts";
 import { constantTimeStringEquals } from "../../../constant-time.ts";
-import { sendMessage } from "../../../email-delivery.ts";
 import type { SendEmail } from "../../../email-port.ts";
 import { resolveFirmBucket } from "../../../files/firm-bucket.ts";
 import { SigningRequestRefusal, readRequestDetail } from "../../../signing/request-service.ts";
-import {
-  MAXIMUM_MARK_BYTES,
-  maskedAddress,
-  signerViewBody,
-} from "../../../signing/signer-contract.ts";
+import { MAXIMUM_MARK_BYTES, signerViewBody } from "../../../signing/signer-contract.ts";
 import { linkStatements, mailSigners } from "../../../signing/signer-delivery.ts";
 import { hashAccessCode, newAccessCode } from "../../../signing/signer-link.ts";
+import { deliverAccessCode } from "../../../signing/access-code-delivery.ts";
 import { signerLinkRefusal, signerLinkRefusalFor } from "../../../signing/signer-refusals.ts";
 import {
-  ACCESS_CODE_LIFETIME_MINUTES,
   SignerStepRefusal,
   adoptSignature,
   checkAccessCode,
@@ -41,10 +36,6 @@ import {
   type Observed,
   type SignerView,
 } from "../../../signing/signer-service.ts";
-import {
-  SIGNING_ACCESS_CODE_MESSAGE_CLASS,
-  accessCodeEmail,
-} from "../../../signing/signing-mail.ts";
 import {
   listWaitingOnMember,
   readMemberName,
@@ -358,33 +349,28 @@ export function registerSignerRoutes(
         if (answer !== undefined) return answer;
         throw error;
       }
-      const { subject, text } = accessCodeEmail({
-        firmName: await firm.readFirmName(),
-        code: digits,
-        minutes: ACCESS_CODE_LIFETIME_MINUTES,
-      });
       const logger = c.get("logger");
-      const delivery = await sendMessage({
-        send: sendEmail(c.env),
-        surface: "signing.access-code",
+      const delivery = await deliverAccessCode({
+        env: c.env,
+        sendEmail,
+        signer: view.signer,
+        firmName: await firm.readFirmName(),
+        digits,
         ...(logger === undefined ? {} : { logger }),
         correlationId: c.get("correlationId") ?? "",
-        message: {
-          to: view.signer.email,
-          subject,
-          text,
-          messageClass: SIGNING_ACCESS_CODE_MESSAGE_CLASS,
-        },
       });
       if (!delivery.delivered) {
         return problemJson(c, {
-          type: "mail-undeliverable",
+          type: delivery.channel === "text" ? "text-undeliverable" : "mail-undeliverable",
           title: "The code was not sent",
           status: 503,
-          detail: `The code could not be emailed. Try again in a minute. Error ID ${delivery.errorId}.`,
+          detail:
+            delivery.channel === "text"
+              ? `The code could not be texted. Try again in a minute, or ask the sender to send it by email. Error ID ${delivery.errorId}.`
+              : `The code could not be emailed. Try again in a minute. Error ID ${delivery.errorId}.`,
         });
       }
-      return c.json({ sentTo: maskedAddress(view.signer.email) }, 202);
+      return c.json({ sentTo: delivery.sentTo }, 202);
     },
   );
 
@@ -414,7 +400,7 @@ export function registerSignerRoutes(
             type: "signing-step-refused",
             title: "That code is not right",
             status: 422,
-            detail: "Check the code in your email and try again, or ask for a new one.",
+            detail: "Check the code you were sent and try again, or ask for a new one.",
           });
         }
         return c.json(await freshViewBody(c, LINK_LANE), 200);

@@ -20,6 +20,7 @@ import type {
   SigningFieldKind,
   SigningOrder,
 } from "@magna-carta/signing/request";
+import type { CodeChannel } from "@magna-carta/signing/signer-checks";
 
 // SQL statement builders for the four signing tables. This module composes statements and runs
 // bounded reads; it holds no binding and crosses no firm, because the caller supplies the firm's own
@@ -72,6 +73,10 @@ export interface SigningSignerRow {
   readonly email: string;
   readonly attributionLevel: AttributionLevel;
   readonly userId: UserId | null;
+  /** Where the code goes, for 'access-code' only; null on a row written before texting existed. */
+  readonly codeChannel: CodeChannel | null;
+  /** E.164, for a text code only. */
+  readonly mobileNumber: string | null;
   readonly status: SignerStatus;
   readonly notifiedAt: string | null;
   readonly openedAt: string | null;
@@ -253,13 +258,21 @@ export function insertSignerStatement(
   database: SqlDatabase,
   signer: Pick<
     SigningSignerRow,
-    "id" | "requestId" | "position" | "name" | "email" | "attributionLevel" | "userId"
+    | "id"
+    | "requestId"
+    | "position"
+    | "name"
+    | "email"
+    | "attributionLevel"
+    | "userId"
+    | "codeChannel"
+    | "mobileNumber"
   >,
   now: string,
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${SIGNING_SIGNER_TABLE} (id, request_id, position, name, email, attribution_level, user_id, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?)`,
+      `INSERT INTO ${SIGNING_SIGNER_TABLE} (id, request_id, position, name, email, attribution_level, user_id, code_channel, mobile_number, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?)`,
     )
     .bind(
       signer.id,
@@ -269,6 +282,8 @@ export function insertSignerStatement(
       signer.email,
       signer.attributionLevel,
       signer.userId,
+      signer.codeChannel,
+      signer.mobileNumber,
       now,
       now,
     );
@@ -462,6 +477,8 @@ interface SignerDatabaseRow {
   email: string;
   attribution_level: string;
   user_id: string | null;
+  code_channel: string | null;
+  mobile_number: string | null;
   status: string;
   notified_at: string | null;
   opened_at: string | null;
@@ -482,7 +499,7 @@ export async function readSigners(
 ): Promise<SigningSignerRow[]> {
   const { results } = await database
     .prepare(
-      `SELECT id, request_id, position, name, email, attribution_level, user_id, status, notified_at, opened_at, signed_at, declined_at, decline_reason, secret_version, consent_disclosure_version, consented_at, adoption, signature_object_key, initials_object_key FROM ${SIGNING_SIGNER_TABLE} WHERE request_id = ? ORDER BY position LIMIT ?`,
+      `SELECT id, request_id, position, name, email, attribution_level, user_id, code_channel, mobile_number, status, notified_at, opened_at, signed_at, declined_at, decline_reason, secret_version, consent_disclosure_version, consented_at, adoption, signature_object_key, initials_object_key FROM ${SIGNING_SIGNER_TABLE} WHERE request_id = ? ORDER BY position LIMIT ?`,
     )
     .bind(requestId, MAXIMUM_SIGNERS)
     .all<SignerDatabaseRow>();
@@ -494,6 +511,9 @@ export async function readSigners(
     email: row.email,
     attributionLevel: row.attribution_level as AttributionLevel,
     userId: row.user_id as UserId | null,
+    codeChannel:
+      row.code_channel === "text" || row.code_channel === "email" ? row.code_channel : null,
+    mobileNumber: row.mobile_number,
     status: row.status as SignerStatus,
     notifiedAt: row.notified_at,
     openedAt: row.opened_at,

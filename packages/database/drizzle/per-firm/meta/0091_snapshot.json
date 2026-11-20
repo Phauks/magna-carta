@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "935ef580-3092-48de-b226-f6c69e93bfe1",
+  "id": "c7ada307-05ce-410c-8165-2f07b22b2c29",
   "prevId": "09b24967-2c77-435f-a34a-a4a27297dee7",
   "tables": {
     "account_balance": {
@@ -1353,14 +1353,6 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
-        },
-        "share_busy": {
-          "name": "share_busy",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
         }
       },
       "indexes": {},
@@ -30455,6 +30447,20 @@
         },
         "user_id": {
           "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "code_channel": {
+          "name": "code_channel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "mobile_number": {
+          "name": "mobile_number",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

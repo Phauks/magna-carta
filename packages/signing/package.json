@@ -11,10 +11,13 @@
     "./contract": "./src/contract.ts",
     "./engine": "./src/engine.ts",
     "./esign": "./src/esign.ts",
+    "./outside-service": "./src/outside-service.ts",
     "./platform-certificate": "./src/platform-certificate.ts",
     "./port": "./src/port.ts",
     "./request": "./src/request.ts",
     "./seal": "./src/seal.ts",
+    "./signer-checks": "./src/signer-checks.ts",
+    "./text-message": "./src/text-message.ts",
     ".": "./src/index.ts"
   },
   "scripts": {
