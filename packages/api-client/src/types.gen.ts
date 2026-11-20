@@ -50,6 +50,7 @@ export type MeResponse = {
     };
     joining?: JoiningState;
     membership?: Membership;
+    meetings?: MeetingsDeployment;
 };
 
 export type JoiningState = {
@@ -91,6 +92,13 @@ export type Membership = {
      * Whether this account's member record has reached the firm's own database. `provisioning` is a wait, not a permission somebody has to grant; `stalled` is that write having been given up on, which waiting will not fix; `unknown` is a read that did not answer, which is not a verdict about the account.
      */
     state: 'active' | 'provisioning' | 'stalled' | 'unknown';
+};
+
+export type MeetingsDeployment = {
+    /**
+     * Whether this deployment opens meetings end-to-end encrypted. False, every meeting opens in the clear whatever Start asks for.
+     */
+    endToEndEncryption: boolean;
 };
 
 export type FirmMemberListResponse = {
