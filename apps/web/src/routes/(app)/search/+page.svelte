@@ -84,8 +84,8 @@
   function submit(next: string): void {
     if (next.trim() === addressQuery.trim()) return;
     void goto(searchAddress(next, ALL_PLACES, addressReach), {
-      replaceState: true,
-      keepFocus: true,
+      replace: true,
+      reset: false,
     });
   }
 
@@ -93,7 +93,7 @@
   // every place for the reason a new question does. It is a step the back button returns from.
   function chooseReach(next: SearchReach): void {
     if (reachKey(next) === addressReachKey) return;
-    void goto(searchAddress(field, ALL_PLACES, next), { keepFocus: true });
+    void goto(searchAddress(field, ALL_PLACES, next), { reset: false });
   }
 
   // One matter is searched by that matter's own search, which carries the question in its address

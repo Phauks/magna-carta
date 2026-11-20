@@ -289,7 +289,7 @@
   let recordId = $state("");
 
   $effect(() => {
-    const addressed = entityRecordFromAddress(page.url);
+    const addressed = entityRecordFromAddress(new URL(page.url.href));
     untrack(() => {
       if (addressed === null) {
         recordOpen = false;
@@ -302,7 +302,7 @@
 
   /** Put a record's identity into the address in place, or take it out. */
   function mirrorRecord(identifier: string | null): void {
-    const url = new URL(page.url);
+    const url = new URL(page.url.href);
     if (identifier === null) url.searchParams.delete(RECORD_PARAMETER);
     else url.searchParams.set(RECORD_PARAMETER, identifier);
     if (url.href === page.url.href) return;

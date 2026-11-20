@@ -1,4 +1,4 @@
-import type { Reroute } from "@sveltejs/kit";
+import type { Reroute } from "@sveltejs/kit/hooks";
 import { boardRouteFor, isCommunityHost } from "$lib/community/board-paths.ts";
 
 // The community board is served from its own host by its own worker (apps/community-worker), which
