@@ -106,17 +106,19 @@ sheet ("EXHIBIT A" or "EXHIBIT 1", with its title) followed by the exhibit's pag
 exhibits are on the list but not in the package.
 
 **Stamp Bates Numbers** is on to begin with. Every page of the package, the list and cover sheets
-included, is numbered in the bottom right, carrying on from the last number used on the matter. Type
-a **Prefix** (for example "SMITH-") and the number of **Digits** if you want them. The list inside the
-package shows where each exhibit's pages fall. Turn the box off to make the package without numbers.
+included, is numbered in the bottom right, carrying on in the **Bates Log** you pick. The box opens on
+the log named after the set, or offers to start one with that name, a **Prefix** (for example
+"SMITH-") and the number of **Digits**. Pick another log to number the package as part of a
+different filing. The list inside the package shows where each exhibit's pages fall. Turn the box
+off to make the package without numbers.
 
 Press **Save Package**. The package is saved beside the list, named after the set and its number
 range. Only PDFs can go in a package. An exhibit that is not a PDF is left out, its line on the list
 says "Not included", and the message after saving names it so you can convert it and make the
 package again.
 
-Bates numbers taken for a package are logged on the matter like any other, so the PDF Editor's
-Bates tab and the next package carry on after them.
+Bates numbers taken for a package are recorded in that log like any other, so the PDF Editor's
+Bates tab and the next package in the same log carry on after them.
 
 ## Not Yet Available
 

@@ -15,6 +15,7 @@ import { civilDateShape } from "./date-shape-checks.ts";
 import type {
   AiDetectionUsageId,
   AuditLogId,
+  BatesLogId,
   BatesRangeId,
   BillingArrangementId,
   CalendarEventLinkId,
@@ -14517,12 +14518,39 @@ export const inOutEntryNumberAllocation = sqliteTable(
   ],
 );
 
-// Bates numbers. One row per run of page numbers a stamp took from the matter's register under one
-// prefix. The register is these rows and nothing else: the next number under a prefix is one past
-// the highest last_number, and ranges under one prefix never overlap, because the insert that takes
-// a range is guarded on no row overlapping it (packages/bates/src/range-statements.ts). A range is
-// never deleted or renumbered, so a number once stamped is never handed out again, even when the
-// stamped copy was never saved.
+// Bates logs. A matter keeps as many as it needs: each filing or production that wants numbers of
+// its own gets a log with its own name, prefix and padding, and counts from its own start. The log
+// is what a member picks; its ranges are the record of what was stamped.
+export const batesLog = sqliteTable(
+  "bates_log",
+  {
+    id: text("id").primaryKey().$type<BatesLogId>(), // batesLog_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    name: text("name").notNull(),
+    prefix: text("prefix").notNull(),
+    // How many digits the number is padded to when stamped. A floor, not a ceiling.
+    digits: integer("digits").notNull(),
+    createdBy: text("created_by").$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("bates_log_matter_name_unique_index").on(table.matterId, table.name),
+    check("bates_log_name_length_check", sql`length(${table.name}) BETWEEN 1 AND 120`),
+    check("bates_log_digits_check", sql`${table.digits} BETWEEN 1 AND 12`),
+    check("bates_log_prefix_length_check", sql`length(${table.prefix}) <= 40`),
+  ],
+);
+
+// Bates numbers. One row per run of page numbers a stamp took from one of the matter's logs. The
+// log's count is these rows and nothing else: the next number is one past the highest last_number,
+// and ranges in one log never overlap, because the insert that takes a range is guarded on no row
+// in the log overlapping it (packages/bates/src/range-statements.ts). A range is never deleted or
+// renumbered, so a number once stamped in a log is never handed out again, even when the stamped
+// copy was never saved. The prefix and padding are copied from the log onto the range, because they
+// are part of what was printed.
 export const batesRange = sqliteTable(
   "bates_range",
   {
@@ -14531,6 +14559,11 @@ export const batesRange = sqliteTable(
       .notNull()
       .$type<MatterId>()
       .references(() => matter.id),
+    // Set on every range. Nullable only because the column was added to a table that already had
+    // rows; the migration that added it gave each of those a log.
+    logId: text("log_id")
+      .$type<BatesLogId>()
+      .references(() => batesLog.id),
     prefix: text("prefix").notNull(),
     // How many digits the number is padded to when stamped. A floor, not a ceiling.
     digits: integer("digits").notNull(),
@@ -14553,11 +14586,7 @@ export const batesRange = sqliteTable(
     createdAt: text("created_at").notNull(),
   },
   (table) => [
-    uniqueIndex("bates_range_matter_prefix_first_unique_index").on(
-      table.matterId,
-      table.prefix,
-      table.firstNumber,
-    ),
+    uniqueIndex("bates_range_log_first_unique_index").on(table.logId, table.firstNumber),
     index("bates_range_matter_created_index").on(table.matterId, table.createdAt),
     index("bates_range_source_file_index").on(table.sourceFileId),
     index("bates_range_stamped_file_index").on(table.stampedFileId),
