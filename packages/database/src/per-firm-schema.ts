@@ -92,6 +92,10 @@ import type {
   IntegrationCredentialId,
   InvoiceApplicationId,
   InvoiceDeliveryId,
+  PaymentDepositFeeId,
+  PaymentDepositFileId,
+  PaymentDepositId,
+  PaymentDepositNoteId,
   PaymentReceiptId,
   InvoiceId,
   InvoiceLineId,
@@ -7131,43 +7135,185 @@ export const invoiceDelivery = sqliteTable(
   ],
 );
 
-// A payment the firm recorded by hand: a check, cash, a bank transfer, or a card run on the firm's
-// own terminal. The money and its date live on the `payment` application this row names, which in
-// turn names the ledger entry that put the money in the operating bank; this row adds only what the
-// application has no column for — HOW it arrived and the firm's own reference for it (a check
-// number, a wire confirmation). One receipt per application, enforced by the unique index, and
-// append-only by trigger: a receipt recorded in error is undone by reversing its application, which
-// leaves both records standing, never by editing this one.
+// A DEPOSIT: payments the firm received by hand, taken to the bank together on one deposit slip. Each
+// line is a `payment_receipt` naming its own matter and bill, so one deposit can pay many matters'
+// bills. The money moves in two steps, the way QuickBooks books it through Undeposited Funds:
 //
-// A CLOSED VOCABULARY, for the same reason `invoice_delivery.channel` is one: SQLite cannot widen a
-// table CHECK without a destructive rebuild of an evidence table. Payments taken through a processor
-// are not receipts and will not land here.
+//   each line, on the date it was received   Dr Undeposited Funds / Cr Accounts Receivable
+//                                            (the line's `payment` application carries that entry)
+//   the deposit, on the date it was deposited Dr the bank account (net of fees) and Dr Bank Fees /
+//                                            Cr Undeposited Funds (the entry on this row)
+//
+// so what a client owes comes down on the day the firm received the money, and the bank's book shows
+// one deposit for the slip, which is the one line the bank statement shows. Append-only by trigger: a
+// deposit recorded in error is undone by reversing it, never by editing it.
+export const paymentDeposit = sqliteTable(
+  "payment_deposit",
+  {
+    id: text("id").primaryKey().$type<PaymentDepositId>(), // paymentDeposit_ handle
+    // The bank account the money went into: the account's own cash leaf in the ledger.
+    depositToAccountId: text("deposit_to_account_id")
+      .notNull()
+      .$type<LedgerAccountId>()
+      .references(() => ledgerAccount.id),
+    depositedOn: text("deposited_on").notNull(), // civil date
+    // The number printed on the bank's deposit slip, where the firm has one.
+    slipNumber: text("slip_number"),
+    currency: text("currency").notNull(),
+    entryId: text("entry_id")
+      .notNull()
+      .$type<LedgerEntryId>()
+      .references(() => ledgerEntry.id),
+    recordedBy: text("recorded_by").$type<UserId>(),
+    recordedAt: text("recorded_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("payment_deposit_entry_unique_index").on(table.entryId),
+    index("payment_deposit_deposited_on_index").on(table.depositedOn),
+    check(
+      "payment_deposit_slip_number_nonempty_check",
+      sql`${table.slipNumber} IS NULL OR length(trim(${table.slipNumber})) > 0`,
+    ),
+  ],
+);
+
+// One line of a deposit: one item the firm received (a check, cash, a money order, a transfer, a card
+// run on its own terminal) paying one matter's share of one bill. The money and the date it was
+// received live on the `payment` application this row names; this row adds what the application has
+// no column for: how it arrived, who it came from, the firm's reference for it, and the details of
+// that method (`details`, JSON checked by @magna-carta/billing: a check's bank and date, a card's
+// brand and last four, cash counted by bill and coin). Only the last four digits of an account or card
+// number are ever kept. One receipt per application, append-only by trigger.
+//
+// A CLOSED VOCABULARY of methods, for the same reason `invoice_delivery.channel` is one: SQLite cannot
+// widen a table CHECK without a rebuild. A payment taken through a processor is not a receipt.
 export const paymentReceipt = sqliteTable(
   "payment_receipt",
   {
     id: text("id").primaryKey().$type<PaymentReceiptId>(), // paymentReceipt_ handle
+    depositId: text("deposit_id")
+      .notNull()
+      .$type<PaymentDepositId>()
+      .references(() => paymentDeposit.id),
+    lineNumber: integer("line_number").notNull(),
     applicationId: text("application_id")
       .notNull()
       .$type<InvoiceApplicationId>()
       .references(() => invoiceApplication.id),
     method: text("method", {
-      enum: ["check", "cash", "bank_transfer", "card_terminal"],
+      enum: [
+        "check",
+        "cashiers_check",
+        "money_order",
+        "cash",
+        "ach",
+        "wire",
+        "card",
+        "payment_app",
+        "other",
+      ],
     }).notNull(),
-    // The firm's own handle on the payment, where it has one. Absent is ordinary for cash.
+    // The firm's handle on the item: a check number, a trace number, an approval code. Required for
+    // every method but cash and other, by the CHECK below.
     reference: text("reference"),
+    receivedFrom: text("received_from").notNull(),
+    memo: text("memo"),
+    details: text("details").notNull(), // JSON object
     recordedBy: text("recorded_by").$type<UserId>(),
     recordedAt: text("recorded_at").notNull(),
   },
   (table) => [
     uniqueIndex("payment_receipt_application_unique_index").on(table.applicationId),
+    uniqueIndex("payment_receipt_deposit_line_unique_index").on(table.depositId, table.lineNumber),
     check(
       "payment_receipt_method_check",
-      sql`${table.method} IN ('check', 'cash', 'bank_transfer', 'card_terminal')`,
+      sql`${table.method} IN ('check', 'cashiers_check', 'money_order', 'cash', 'ach', 'wire', 'card', 'payment_app', 'other')`,
     ),
     check(
-      "payment_receipt_reference_nonempty_check",
-      sql`${table.reference} IS NULL OR length(trim(${table.reference})) > 0`,
+      "payment_receipt_reference_check",
+      sql`(${table.reference} IS NULL AND ${table.method} IN ('cash', 'other')) OR length(trim(${table.reference})) > 0`,
     ),
+    check("payment_receipt_received_from_check", sql`length(trim(${table.receivedFrom})) > 0`),
+    check("payment_receipt_line_number_check", sql`${table.lineNumber} >= 1`),
+    check("payment_receipt_details_check", sql`json_valid(${table.details}) AND json_type(${table.details}) = 'object'`),
+  ],
+);
+
+// A bank fee taken out of a deposit: the bank credited less than the items add up to. It is a line on
+// the deposit's own entry (Dr Bank Fees), so the bank's book shows what the bank actually credited.
+export const paymentDepositFee = sqliteTable(
+  "payment_deposit_fee",
+  {
+    id: text("id").primaryKey().$type<PaymentDepositFeeId>(), // paymentDepositFee_ handle
+    depositId: text("deposit_id")
+      .notNull()
+      .$type<PaymentDepositId>()
+      .references(() => paymentDeposit.id),
+    lineNumber: integer("line_number").notNull(),
+    description: text("description").notNull(),
+    amountMinor: integer("amount_minor").notNull(),
+  },
+  (table) => [
+    uniqueIndex("payment_deposit_fee_line_unique_index").on(table.depositId, table.lineNumber),
+    check("payment_deposit_fee_amount_check", sql`${table.amountMinor} > 0`),
+    check("payment_deposit_fee_description_check", sql`length(trim(${table.description})) > 0`),
+  ],
+);
+
+// A note on a deposit, or on one of its lines. Notes are never edited or removed.
+export const paymentDepositNote = sqliteTable(
+  "payment_deposit_note",
+  {
+    id: text("id").primaryKey().$type<PaymentDepositNoteId>(), // paymentDepositNote_ handle
+    depositId: text("deposit_id")
+      .notNull()
+      .$type<PaymentDepositId>()
+      .references(() => paymentDeposit.id),
+    // The line it is about; absent for a note on the whole deposit.
+    receiptId: text("receipt_id")
+      .$type<PaymentReceiptId>()
+      .references(() => paymentReceipt.id),
+    body: text("body").notNull(),
+    writtenBy: text("written_by").$type<UserId>(),
+    writtenAt: text("written_at").notNull(),
+  },
+  (table) => [
+    index("payment_deposit_note_deposit_index").on(table.depositId),
+    check("payment_deposit_note_body_check", sql`length(trim(${table.body})) > 0`),
+  ],
+);
+
+// A file kept with a deposit or one of its lines: a check scan, a deposit slip, a wire confirmation.
+// The bytes are in the firm's bucket under the key. Removing one is a new row naming it; the bytes
+// stay, as payment records are kept.
+export const paymentDepositFile = sqliteTable(
+  "payment_deposit_file",
+  {
+    id: text("id").primaryKey().$type<PaymentDepositFileId>(), // paymentDepositFile_ handle
+    depositId: text("deposit_id")
+      .notNull()
+      .$type<PaymentDepositId>()
+      .references(() => paymentDeposit.id),
+    receiptId: text("receipt_id")
+      .$type<PaymentReceiptId>()
+      .references(() => paymentReceipt.id),
+    // A scan of the item itself (a check's front or back), or any other file kept with it.
+    kind: text("kind", { enum: ["scan", "file"] }).notNull(),
+    name: text("name").notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    objectKey: text("object_key").notNull(),
+    sha256: text("sha256").notNull(),
+    removesFileId: text("removes_file_id").$type<PaymentDepositFileId>(),
+    recordedBy: text("recorded_by").$type<UserId>(),
+    recordedAt: text("recorded_at").notNull(),
+  },
+  (table) => [
+    index("payment_deposit_file_deposit_index").on(table.depositId),
+    uniqueIndex("payment_deposit_file_removes_unique_index").on(table.removesFileId),
+    check("payment_deposit_file_kind_check", sql`${table.kind} IN ('scan', 'file')`),
+    check("payment_deposit_file_name_check", sql`length(${table.name}) > 0`),
+    check("payment_deposit_file_size_check", sql`${table.sizeBytes} >= 0`),
   ],
 );
 

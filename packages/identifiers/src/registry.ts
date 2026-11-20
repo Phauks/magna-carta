@@ -281,10 +281,17 @@ export const ENTITY_PREFIXES = {
   creditNoteLine: "creditNoteLine",
   clientCredit: "clientCredit",
   invoiceDelivery: "invoiceDelivery",
-  // A `paymentReceipt` is a payment the firm recorded by hand (a check, cash, a bank transfer, a card
-  // run on a terminal), standing beside the `payment` application it produced and naming how the
-  // money arrived and the firm's own reference for it.
+  // A `paymentDeposit` is payments the firm received by hand and took to the bank together on one
+  // deposit slip. Each of its lines is a `paymentReceipt`: one item (a check, cash, a money order, a
+  // transfer, a card run on the firm's terminal) paying one matter's share of one bill, standing
+  // beside the `payment` application it produced. A `paymentDepositFee` is a bank fee taken out of the
+  // deposit; a `paymentDepositNote` and a `paymentDepositFile` are a note and a file kept with the
+  // deposit or one of its lines.
+  paymentDeposit: "paymentDeposit",
   paymentReceipt: "paymentReceipt",
+  paymentDepositFee: "paymentDepositFee",
+  paymentDepositNote: "paymentDepositNote",
+  paymentDepositFile: "paymentDepositFile",
   billingArrangement: "billingArrangement",
   taxRate: "taxRate",
   // A `matterRecovery` is one recorded recovery on a matter — a settlement, judgment, or award — the
