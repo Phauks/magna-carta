@@ -33,11 +33,13 @@ Categories: **Added · Changed · Deprecated · Removed · Fixed · Security.**
 - **Filter your searches.** The Search page now has filters beside the results: pick which places to look in, which matters (including just the ones you pick), a date range, and who wrote it. Results show as one list, newest first.
 - When you send a document for signature, you can now have a signer confirm it is them with a code sent by text message, as well as by email. Your firm decides which ways to offer.
 - **Reconcile a trust account.** A new Reconciliation screen lets you tick off each bank statement against the trust account, see the difference as you go, keep notes on any line, undo any change, and print a draft or final report.
+- You can now let colleagues see when your own Outlook or Google calendar has you busy. Turn on Show Colleagues as Busy beside a calendar in Settings, Calendar Sync. They see the word Busy and the times, never the title or place.
 
 ### Changed
 
 - A matter can now keep separate Bates logs, one for each filing or production that needs its own numbers. Pick the log in the PDF Editor's Bates tab or when making an exhibit package, or start a new one with its own name, prefix and digits. Each log counts on its own.
 - The link signers get when a document is complete now shows the signed copy and its Certificate of Completion right on the page, as well as letting them download both. On a phone, documents to sign now fit the screen's width.
+- The calendar now updates by itself. A change a colleague makes, or one you make in Outlook or Google, appears without reloading the page.
 
 ### Removed
 
