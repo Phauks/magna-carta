@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "35f06219-5fdc-4d14-9da0-d7f02d56b05f",
+  "id": "aea89901-9c84-49c7-a6ca-19408e3a4406",
   "prevId": "86518891-14f3-40a9-aa17-ea1506d5b8df",
   "tables": {
     "account_balance": {
@@ -482,101 +482,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "bates_log": {
-      "name": "bates_log",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matter_id": {
-          "name": "matter_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "prefix": {
-          "name": "prefix",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "digits": {
-          "name": "digits",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "bates_log_matter_name_unique_index": {
-          "name": "bates_log_matter_name_unique_index",
-          "columns": [
-            "matter_id",
-            "name"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "bates_log_matter_id_matter_id_fk": {
-          "name": "bates_log_matter_id_matter_id_fk",
-          "tableFrom": "bates_log",
-          "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "bates_log_name_length_check": {
-          "name": "bates_log_name_length_check",
-          "value": "length(\"bates_log\".\"name\") BETWEEN 1 AND 120"
-        },
-        "bates_log_digits_check": {
-          "name": "bates_log_digits_check",
-          "value": "\"bates_log\".\"digits\" BETWEEN 1 AND 12"
-        },
-        "bates_log_prefix_length_check": {
-          "name": "bates_log_prefix_length_check",
-          "value": "length(\"bates_log\".\"prefix\") <= 40"
-        }
-      }
-    },
     "bates_range": {
       "name": "bates_range",
       "columns": {
@@ -592,13 +497,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
-        },
-        "log_id": {
-          "name": "log_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
           "autoincrement": false
         },
         "prefix": {
@@ -680,10 +578,11 @@
         }
       },
       "indexes": {
-        "bates_range_log_first_unique_index": {
-          "name": "bates_range_log_first_unique_index",
+        "bates_range_matter_prefix_first_unique_index": {
+          "name": "bates_range_matter_prefix_first_unique_index",
           "columns": [
-            "log_id",
+            "matter_id",
+            "prefix",
             "first_number"
           ],
           "isUnique": true
@@ -725,19 +624,6 @@
           "tableTo": "matter",
           "columnsFrom": [
             "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "bates_range_log_id_bates_log_id_fk": {
-          "name": "bates_range_log_id_bates_log_id_fk",
-          "tableFrom": "bates_range",
-          "tableTo": "bates_log",
-          "columnsFrom": [
-            "log_id"
           ],
           "columnsTo": [
             "id"
@@ -27440,6 +27326,82 @@
         "record_custodian_name_nonempty_check": {
           "name": "record_custodian_name_nonempty_check",
           "value": "length(\"record_custodian\".\"display_name\") > 0"
+        }
+      }
+    },
+    "record_presence": {
+      "name": "record_presence",
+      "columns": {
+        "record_kind": {
+          "name": "record_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "record_id": {
+          "name": "record_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "member_user_id": {
+          "name": "member_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "seen_at": {
+          "name": "seen_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "record_presence_record_seen_index": {
+          "name": "record_presence_record_seen_index",
+          "columns": [
+            "record_kind",
+            "record_id",
+            "seen_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "record_presence_member_user_id_member_user_id_fk": {
+          "name": "record_presence_member_user_id_member_user_id_fk",
+          "tableFrom": "record_presence",
+          "tableTo": "member",
+          "columnsFrom": [
+            "member_user_id"
+          ],
+          "columnsTo": [
+            "user_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "record_presence_record_kind_record_id_member_user_id_pk": {
+          "columns": [
+            "record_kind",
+            "record_id",
+            "member_user_id"
+          ],
+          "name": "record_presence_record_kind_record_id_member_user_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "record_presence_kind_length_check": {
+          "name": "record_presence_kind_length_check",
+          "value": "length(\"record_presence\".\"record_kind\") BETWEEN 1 AND 64"
         }
       }
     },

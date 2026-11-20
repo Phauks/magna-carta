@@ -11468,6 +11468,19 @@ export type TrustFrozenProof = {
     balanced: boolean;
 };
 
+export type RecordPresence = {
+    others: Array<PresentMember>;
+};
+
+export type PresentMember = {
+    userId: string;
+    name: string;
+    /**
+     * When they last touched, as an ISO-8601 instant.
+     */
+    seenAt: string;
+};
+
 export type TrustBankReconciliationList = {
     reconciliations: Array<TrustBankReconciliationSummary>;
     nextStart: {
@@ -53413,6 +53426,88 @@ export type TrustCloseReconciliationResponses = {
 };
 
 export type TrustCloseReconciliationResponse = TrustCloseReconciliationResponses[keyof TrustCloseReconciliationResponses];
+
+export type TrustLeaveBankReconciliationPresenceData = {
+    body?: never;
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/presence';
+};
+
+export type TrustLeaveBankReconciliationPresenceErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member cannot read this record
+     */
+    403: Problem;
+    /**
+     * The record id is malformed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustLeaveBankReconciliationPresenceError = TrustLeaveBankReconciliationPresenceErrors[keyof TrustLeaveBankReconciliationPresenceErrors];
+
+export type TrustLeaveBankReconciliationPresenceResponses = {
+    /**
+     * Left
+     */
+    204: void;
+};
+
+export type TrustLeaveBankReconciliationPresenceResponse = TrustLeaveBankReconciliationPresenceResponses[keyof TrustLeaveBankReconciliationPresenceResponses];
+
+export type TrustTouchBankReconciliationPresenceData = {
+    body?: never;
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/presence';
+};
+
+export type TrustTouchBankReconciliationPresenceErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member cannot read this record
+     */
+    403: Problem;
+    /**
+     * The record is unknown
+     */
+    404: Problem;
+    /**
+     * The record id is malformed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustTouchBankReconciliationPresenceError = TrustTouchBankReconciliationPresenceErrors[keyof TrustTouchBankReconciliationPresenceErrors];
+
+export type TrustTouchBankReconciliationPresenceResponses = {
+    /**
+     * Who else is here
+     */
+    200: RecordPresence;
+};
+
+export type TrustTouchBankReconciliationPresenceResponse = TrustTouchBankReconciliationPresenceResponses[keyof TrustTouchBankReconciliationPresenceResponses];
 
 export type TrustListBankReconciliationsData = {
     body?: never;

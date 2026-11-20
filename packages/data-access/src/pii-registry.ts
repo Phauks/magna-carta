@@ -1455,6 +1455,15 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // bucket that nothing can ever find again to delete. The object key has to be read off the row
   // before the row goes. The route that removes a picture does exactly that
   // (apps/api-worker/src/http/routes/session/me-photo.ts).
+  // Who has a record open right now. It names a member and nothing else about them, and it is gone
+  // within the hour by design (a touch on the record clears older rows), so it goes outright at
+  // the subject: there is nothing in it any record depends on.
+  {
+    table: "record_presence",
+    subjectKey: "member_user_id",
+    action: "hard-delete",
+    note: "ephemeral; rows older than an hour are cleared on the next touch of the same record",
+  },
   {
     table: "member_photo",
     subjectKey: "member_user_id",
