@@ -1,6 +1,5 @@
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { MiddlewareHandler } from "hono";
-import { makeZip } from "client-zip";
 import {
   insertMemberStatement,
   insertRoleAssignmentStatement,
@@ -25,6 +24,7 @@ import { createAuth } from "../../../auth.ts";
 import type { ProxyBatchDatabase } from "../../../firm-database/firm-database-proxy.ts";
 import { firmDatabaseFor } from "../../../firm-database/firm-database-proxy.ts";
 import { devUploadEmulationActive } from "../../../files/presigner-wiring.ts";
+import { SAMPLE_FILES } from "../../../files/dev-sample-files.ts";
 
 // The DEVELOPMENT-ONLY firm seeder. Local dev (`vp run worker-dev`) starts with an empty control
 // plane: no firm, no user, no data — so every authenticated API call 401s and the SPA renders
@@ -340,56 +340,36 @@ async function seedQuarantinedFile(
   ).run();
 }
 
-// The browsable-archive sample's stable name — the convergence key, like the matter title above.
-const ARCHIVE_SAMPLE_NAME = "Case Documents.zip";
-
-// Real zip bytes with nested directories, so browsing inside an archive has something local to
-// read. Built through the same library the bundle download streams through, so the central
-// directory is a faithful one rather than a hand-maintained blob.
-async function sampleArchiveBytes(): Promise<Uint8Array> {
-  const lastModified = new Date("2026-05-14T10:30:00Z");
-  const entries = [
-    "case-documents/retainer-agreement.txt",
-    "case-documents/engagement-notes.txt",
-    "case-documents/pleadings/complaint.txt",
-    "case-documents/pleadings/answer.txt",
-    "case-documents/discovery/requests/first-set-requests.txt",
-    "case-documents/discovery/production/bates-000001.txt",
-    "case-documents/discovery/production/bates-000002.txt",
-    "case-documents/exhibits/exhibit-a-contract.txt",
-  ].map((name) => ({
-    name,
-    lastModified,
-    input: `Seeded archive member ${name} for local development.\n`,
-  }));
-  return new Uint8Array(await new Response(makeZip(entries)).arrayBuffer());
-}
-
 // Convergent like the owner account: local uploads cannot commit a version (the scan service is not
-// connected under `wrangler dev`), so without this sample no zip in a warm local tenant is ever
-// browsable. Runs on the resume branch as well as the fresh one, so a tenant seeded before the
-// sample existed picks it up on the next seed call.
-async function ensureArchiveSample(
+// connected under `wrangler dev`), so without these samples no warm local tenant has a browsable zip
+// or a PDF for the PDF Editor and an exhibit package to open. Runs on the resume branch as well as
+// the fresh one, so a tenant seeded before a sample existed picks it up on the next seed call. A
+// sample already seeded has a version; an upload of the same name that never committed does not.
+async function ensureSampleFiles(
   env: Bindings,
   firmDatabase: ProxyBatchDatabase,
   matterId: MatterId,
   ownerUserId: UserId,
 ): Promise<void> {
-  const existing = await firmDatabase
-    .prepare("SELECT id FROM file WHERE matter_id = ?1 AND name = ?2 LIMIT 1")
-    .bind(matterId, ARCHIVE_SAMPLE_NAME)
-    .first<{ id: string }>();
-  if (existing !== null) return;
-  await seedCleanFile(env, firmDatabase, {
-    matterId,
-    folderId: null,
-    name: ARCHIVE_SAMPLE_NAME,
-    content: await sampleArchiveBytes(),
-    sniffedContentType: "application/zip",
-    scanVerdict: "clean",
-    uploadedBy: ownerUserId,
-    now: new Date().toISOString(),
-  });
+  for (const sample of SAMPLE_FILES) {
+    const existing = await firmDatabase
+      .prepare(
+        "SELECT id FROM file WHERE matter_id = ?1 AND name = ?2 AND current_version_id IS NOT NULL LIMIT 1",
+      )
+      .bind(matterId, sample.name)
+      .first<{ id: string }>();
+    if (existing !== null) continue;
+    await seedCleanFile(env, firmDatabase, {
+      matterId,
+      folderId: null,
+      name: sample.name,
+      content: await sample.bytes(),
+      sniffedContentType: sample.contentType,
+      scanVerdict: "clean",
+      uploadedBy: ownerUserId,
+      now: new Date().toISOString(),
+    });
+  }
 }
 
 // Seeds the matter, folders, and files — but only when the dev matter does not already exist, so a
@@ -405,7 +385,7 @@ async function ensureSeededData(
     .first<{ id: string }>();
   if (existing !== null) {
     const matterId = assertIdentifier(existing.id, "matter");
-    await ensureArchiveSample(env, firmDatabase, matterId, ownerUserId);
+    await ensureSampleFiles(env, firmDatabase, matterId, ownerUserId);
     const count = await firmDatabase
       .prepare("SELECT COUNT(*) AS n FROM file WHERE matter_id = ?1")
       .bind(existing.id)
@@ -490,7 +470,7 @@ async function ensureSeededData(
     uploadedBy: ownerUserId,
     now,
   });
-  await ensureArchiveSample(env, firmDatabase, matterId, ownerUserId);
+  await ensureSampleFiles(env, firmDatabase, matterId, ownerUserId);
 
   return { matterId, fileCount: 6, created: true };
 }

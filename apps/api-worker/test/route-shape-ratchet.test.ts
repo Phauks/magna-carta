@@ -70,7 +70,6 @@ export const LEDGER: Readonly<Record<string, Shape>> = {
   // the growth is the comments that say who may change the account and why the fee is not sent in.
   "communications/shipping.ts": { lines: 1390, shapes: 26 },
   "custody/custody.ts": { lines: 3145, shapes: 65 },
-  "developer/dev-seed.ts": { lines: 516, shapes: 0 },
   // Raised when the conflicts branch (subject parties on the run and check summaries) landed after
   // the ratchet; the two new shapes belong in packages/conflicts/src/contract.ts.
   "directory/conflicts.ts": { lines: 1905, shapes: 42 },

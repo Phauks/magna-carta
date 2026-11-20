@@ -123,6 +123,7 @@ export function startMeeting(
   eventId: string,
   medium: MeetingMedium = "video",
   lobby: MeetingLobbyMode = "off",
+  encrypted = true,
 ): Promise<MeetingWrite<StartedMeeting>> {
   return write(() =>
     meetingsStart({
@@ -130,7 +131,10 @@ export function startMeeting(
       // same thing, so the medium is part of opening the room rather than a setting inside it. The
       // door is the opposite and is sent here only as the standing it OPENS with: a host changes it
       // from inside the room, because who may come in has no bearing on what anybody agreed to.
-      body: { eventKind, eventId, medium, lobby },
+      // Encryption is the medium's kind of fact: on unless the host switched it off at Start, fixed
+      // for the meeting's life, and honoured only where the deployment opens meetings encrypted at
+      // all (the started summary's `encrypted` says which it got).
+      body: { eventKind, eventId, medium, lobby, encrypted },
       headers: { "idempotency-key": newWriteKey() },
       throwOnError: true,
     }),

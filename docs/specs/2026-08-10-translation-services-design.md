@@ -4,6 +4,10 @@
 **Status:** Design proposed. The owner flags in section 8 are open; **slice 1 is buildable on the
 recommended defaults** and depends on nothing that is not already shipped. No product code, no schema
 migration, and no engine adapter in this cycle.
+**Owner answer, 2026-11-19 (flag T1):** the engine is **Google Cloud Translation**, not the
+on-platform model this design recommends; ADR-translation-runs-on-google-cloud-translation records it
+and `packages/translation` builds it. Section 3.2 is the comparison the owner decided against; the
+other flags stand.
 **Scope:** A translation capability for the platform — pasted text and uploaded documents, the
 extraction and conversion path a scanned PDF needs before it can be translated at all, the aligned
 side-by-side artifact and its printable rendition, the provenance record that says what produced the

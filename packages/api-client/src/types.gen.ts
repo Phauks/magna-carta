@@ -396,12 +396,12 @@ export type ConnectedServiceStatus = {
 };
 
 export type FeatureStatus = {
-    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'googleCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'aiTextDetection' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
+    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'googleCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'aiTextDetection' | 'translation' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
     state: 'working' | 'not-set-up' | 'fault';
 };
 
 export type FeatureRequirements = {
-    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'googleCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'aiTextDetection' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
+    id: 'meetings' | 'meetingRecording' | 'networkPacketLoss' | 'callerLookup' | 'outlookCalendarSync' | 'googleCalendarSync' | 'outgoingEmail' | 'notificationDigest' | 'emailCapture' | 'directUpload' | 'malwareScanning' | 'filePreview' | 'fileConversion' | 'textRecognition' | 'documentEditing' | 'documentSealing' | 'archiveDownloads' | 'fileRepair' | 'passwordRecovery' | 'discoveryProcessing' | 'fileContentsSearch' | 'naturalLanguageSearch' | 'addressSuggestions' | 'aiTextDetection' | 'translation' | 'modelAvailabilityCheck' | 'signUpBotCheck' | 'communitySignIn' | 'featureFlags' | 'usageAnalytics' | 'recentErrors';
     alternatives: Array<Array<{
         name: string;
         present: boolean;
@@ -556,7 +556,7 @@ export type ErrorLookupResponse = {
 export type ErrorRecord = {
     errorId: string;
     recordedAt: string;
-    source: 'server' | 'browser';
+    source: 'server' | 'browser' | 'background';
     service: string | null;
     operation: string | null;
     status: number | null;
@@ -590,6 +590,54 @@ export type ReportIncidentRequest = {
         clientAt: string;
         deployment?: string;
     };
+};
+
+export type IncidentList = {
+    incidents: Array<IncidentSummary>;
+};
+
+export type IncidentSummary = {
+    id: string;
+    createdAt: string;
+    status: 'open' | 'investigating' | 'fixed' | 'closed';
+    statusChangedAt: string | null;
+    reportedBy: string;
+    reporterName: string | null;
+    summary: string | null;
+    route: string | null;
+    errorIdCount: number;
+    hasScreenshot: boolean;
+};
+
+export type IncidentDetail = {
+    id: string;
+    createdAt: string;
+    status: 'open' | 'investigating' | 'fixed' | 'closed';
+    statusChangedAt: string | null;
+    answeredByName: string | null;
+    statusNote: string | null;
+    reportedBy: string;
+    reporterName: string | null;
+    description: string | null;
+    errorIds: Array<string>;
+    breadcrumbs: Array<{
+        at: string;
+        action: string;
+        route: string;
+    }>;
+    route: string | null;
+    appVersion: string | null;
+    deployment: string | null;
+    hasScreenshot: boolean;
+};
+
+export type AttachIncidentScreenshotRequest = {
+    imageBase64: string;
+};
+
+export type AnswerIncidentRequest = {
+    status: 'open' | 'investigating' | 'fixed' | 'closed';
+    note?: string | null;
 };
 
 export type RecordClientErrorResponse = {
@@ -1335,6 +1383,21 @@ export type SearchStatusRecordPlace = {
 
 export type FirmSearchRebuildResponse = {
     requestedAt: string;
+};
+
+export type FirmTranslationSettingsResponse = {
+    /**
+     * Whether members may translate text.
+     */
+    enabled: boolean;
+    /**
+     * Whether a translation engine is set up in this deployment. Read-only.
+     */
+    engineConnected: boolean;
+};
+
+export type PatchFirmTranslationSettingsRequest = {
+    enabled?: boolean;
 };
 
 export type ExportRenderRequest = {
@@ -3734,6 +3797,50 @@ export type SafeBrowseLocationProbe = {
     quickActionHonoursLocation: boolean;
 };
 
+export type TranslationLanguagesResponse = {
+    languages: Array<TranslationLanguage>;
+};
+
+export type TranslationLanguage = {
+    code: string;
+    name: string;
+};
+
+export type TranslateResponse = {
+    /**
+     * One per paragraph of the text, in order, each beside its translation.
+     */
+    passages: Array<TranslatedPassage>;
+    /**
+     * The language the text was in: the one asked for, or the one the engine found.
+     */
+    source: string | null;
+    target: string;
+    engine: 'google';
+    /**
+     * The characters sent to the engine, which is what it charges by.
+     */
+    characters: number;
+};
+
+export type TranslatedPassage = {
+    original: string;
+    translation: string;
+};
+
+export type TranslateRequest = {
+    text: string;
+    target: string;
+    /**
+     * The language the text is in. Absent, the engine detects it.
+     */
+    source?: string;
+    /**
+     * The matter the translation is for, recorded on the firm's log of the run.
+     */
+    matterId?: string;
+};
+
 export type MatterSuggestionList = {
     data: Array<{
         matterId: string;
@@ -6077,6 +6184,65 @@ export type ContinueExhibitSetRequest = {
     name: string;
 };
 
+export type BatesPrefixList = {
+    data: Array<BatesPrefixSummary>;
+    capped: boolean;
+};
+
+export type BatesPrefixSummary = {
+    prefix: string;
+    digits: number;
+    nextNumber: number;
+    rangeCount: number;
+    pagesStamped: number;
+    lastStampedAt: string;
+};
+
+export type BatesRangeList = {
+    data: Array<BatesRange>;
+    nextCursor: string | null;
+};
+
+export type BatesRange = {
+    id: string;
+    prefix: string;
+    digits: number;
+    firstNumber: number;
+    lastNumber: number;
+    pageCount: number;
+    purpose: 'pdfEditor' | 'exhibitPackage';
+    sourceFileId: string | null;
+    sourceFileName: string | null;
+    exhibitSetId: string | null;
+    stampedFileId: string | null;
+    stampedFileName: string | null;
+    stampedFileSavedAt: string | null;
+    createdBy: string | null;
+    createdAt: string;
+};
+
+export type TakenBatesRange = {
+    id: string;
+    prefix: string;
+    digits: number;
+    firstNumber: number;
+    lastNumber: number;
+};
+
+export type TakeBatesRangeRequest = {
+    prefix: string;
+    digits: number;
+    pageCount: number;
+    firstNumber?: number;
+    purpose: 'pdfEditor' | 'exhibitPackage';
+    sourceFileId?: string | null;
+    exhibitSetId?: string | null;
+};
+
+export type RecordBatesStampedFileRequest = {
+    fileId: string;
+};
+
 export type CreatedDirectoryEntityResponse = {
     id: string;
 };
@@ -7995,6 +8161,14 @@ export type CalendarSyncIssue = {
         timeZone: string;
     } | null;
     detectedAt: string;
+    /**
+     * Set when the question is about one day of a repeating event that is gone from the member's calendar while the rest of the series is there: that day, as YYYY-MM-DD. `sent` is then that day. Null for a question about a whole copy.
+     */
+    occurrenceOn: string | null;
+    /**
+     * False where the member's provider has no way to put the copy or the day back.
+     */
+    canPutBack: boolean;
 };
 
 export type CalendarSeriesInWindow = {
@@ -11181,6 +11355,232 @@ export type TrustFrozenProof = {
     balanced: boolean;
 };
 
+export type TrustBankReconciliationList = {
+    reconciliations: Array<TrustBankReconciliationSummary>;
+    nextStart: {
+        startDate: string;
+        startBalanceMinor: number;
+    } | null;
+};
+
+export type TrustBankReconciliationSummary = {
+    reconciliation: TrustBankReconciliationHeader;
+    endDate: string;
+    endBalanceMinor: number | null;
+    depositedMinor: number;
+    withdrawnMinor: number;
+    clearedBalanceMinor: number;
+    differenceMinor: number | null;
+    fileCount: number;
+    noteCount: number;
+    needsReviewCount: number;
+    interestCreditedMinor: number;
+    interestSweptMinor: number;
+};
+
+export type TrustBankReconciliationHeader = {
+    trustBankReconciliationId: string;
+    trustAccountId: string;
+    currency: string;
+    startDate: string;
+    startBalanceMinor: number;
+    startCarriedOver: boolean;
+    startedBy: string;
+    startedByName: string | null;
+    startedAt: string;
+    finishedBy: string | null;
+    finishedByName: string | null;
+    finishedAt: string | null;
+};
+
+export type StartTrustBankReconciliationResponse = {
+    trustBankReconciliationId: string;
+};
+
+export type StartTrustBankReconciliationRequest = {
+    trustAccountId: string;
+    startDate?: string | null;
+    startBalanceMinor?: number | null;
+    endDate: string;
+    endBalanceMinor?: number | null;
+};
+
+export type TrustBankReconciliationDetail = {
+    reconciliation: TrustBankReconciliationHeader;
+    endDate: string;
+    endBalanceMinor: number | null;
+    figures: TrustBankReconciliationFigures;
+    items: Array<TrustBankReconciliationItem>;
+    interest: Array<TrustBankReconciliationInterest>;
+    notes: Array<TrustBankReconciliationNote>;
+    files: Array<TrustBankReconciliationFile>;
+    changes: Array<TrustBankReconciliationChange>;
+    restorePoints: Array<TrustBankReconciliationRestorePoint>;
+    undoChangeId: string | null;
+    redoChangeId: string | null;
+    version: number;
+};
+
+export type TrustBankReconciliationFigures = {
+    startBalanceMinor: number;
+    depositedMinor: number;
+    withdrawnMinor: number;
+    clearedBalanceMinor: number;
+    endBalanceMinor: number | null;
+    differenceMinor: number | null;
+    depositCount: number;
+    depositClearedCount: number;
+    withdrawalCount: number;
+    withdrawalClearedCount: number;
+};
+
+export type TrustBankReconciliationItem = {
+    entryId: string;
+    effectiveDate: string;
+    description: string;
+    amountMinor: number;
+    type: 'check' | 'cash' | 'wire' | 'electronic_transfer' | 'card' | 'internal' | 'transfer' | 'bank_charge' | 'other';
+    number: string | null;
+    payeeOrFrom: string | null;
+    purpose: string | null;
+    matterId: string | null;
+    matterNumber: string | null;
+    matterTitle: string | null;
+    firmFunds: boolean;
+    movementId: string | null;
+    transferId: string | null;
+    recordedAt: string;
+    isNew: boolean;
+    cleared: boolean;
+};
+
+export type TrustBankReconciliationInterest = {
+    interestId: string;
+    kind: 'credited' | 'swept';
+    postedOn: string;
+    amountMinor: number;
+    description: string;
+    cleared: boolean;
+    recordedBy: string;
+    recordedAt: string;
+};
+
+export type TrustBankReconciliationNote = {
+    noteId: string;
+    line: TrustBankReconciliationLine;
+    kind: 'note' | 'needs_review' | 'resolved';
+    body: string | null;
+    writtenBy: string;
+    writtenByName: string | null;
+    writtenAt: string;
+};
+
+export type TrustBankReconciliationLine = {
+    kind: 'entry';
+    entryId: string;
+} | {
+    kind: 'interest';
+    interestId: string;
+};
+
+export type TrustBankReconciliationFile = {
+    fileId: string;
+    name: string;
+    contentType: string;
+    sizeBytes: number;
+    recordedBy: string;
+    recordedAt: string;
+};
+
+export type TrustBankReconciliationChange = {
+    changeId: string;
+    sequence: number;
+    kind: 'cleared' | 'uncleared' | 'end_date' | 'end_balance';
+    line: {
+        kind: 'entry';
+        entryId: string;
+    } | {
+        kind: 'interest';
+        interestId: string;
+    } | null;
+    endDate: string | null;
+    endBalanceMinor: number | null;
+    cause: 'edit' | 'undo' | 'redo' | 'history' | 'restore';
+    revertsChangeId: string | null;
+    restorePointId: string | null;
+    changedBy: string;
+    changedByName: string | null;
+    changedAt: string;
+    canRevert: boolean;
+};
+
+export type TrustBankReconciliationRestorePoint = {
+    restorePointId: string;
+    name: string;
+    atSequence: number;
+    automatic: boolean;
+    savedBy: string;
+    savedByName: string | null;
+    savedAt: string;
+};
+
+export type TrustBankReconciliationAcknowledgement = {
+    ok: true;
+};
+
+export type TrustBankReconciliationEditsRequest = {
+    edits: Array<TrustBankReconciliationEdit>;
+};
+
+export type TrustBankReconciliationEdit = {
+    kind: 'tick';
+    line: TrustBankReconciliationLine;
+    cleared: boolean;
+} | {
+    kind: 'end_date';
+    endDate: string;
+} | {
+    kind: 'end_balance';
+    endBalanceMinor: number;
+};
+
+export type TrustBankReconciliationRevertRequest = {
+    kind: 'undo';
+} | {
+    kind: 'redo';
+} | {
+    kind: 'history';
+    changeId: string;
+};
+
+export type TrustBankReconciliationSaveRequest = {
+    name: string;
+};
+
+export type TrustBankReconciliationRestoreRequest = {
+    restorePointId: string;
+};
+
+export type TrustBankReconciliationInterestRequest = {
+    kind: 'credited' | 'swept';
+    postedOn: string;
+    amountMinor: number;
+    description: string;
+    alsoSweep?: boolean;
+};
+
+export type TrustBankReconciliationNoteRequest = {
+    line: TrustBankReconciliationLine;
+    kind: 'note' | 'needs_review' | 'resolved';
+    body?: string | null;
+};
+
+export type TrustBankReconciliationFileRequest = {
+    name: string;
+    contentType: string;
+    dataBase64: string;
+};
+
 export type TrustChecksResponse = {
     nextCheckNumber: number;
     stock: TrustCheckStock | null;
@@ -11672,6 +12072,10 @@ export type StartRecordTransferRunRequest = {
     label: string;
 };
 
+export type RecordTransferRunEndedResponse = {
+    run: RecordTransferRun;
+};
+
 export type RecordTransferSourceFileResponse = {
     file: RecordTransferSourceFile;
 };
@@ -11679,6 +12083,51 @@ export type RecordTransferSourceFileResponse = {
 export type RecordTransferSourceFilePreviewResponse = {
     columns: Array<string>;
     rows: Array<Array<string>>;
+};
+
+export type RecordTransferSourceFileColumnValuesResponse = {
+    values: Array<{
+        value: string;
+        rowCount: number;
+    }>;
+    rowsWithValue: number;
+    rowsRead: number;
+    truncated: boolean;
+};
+
+export type RecordTransferFileMappingResponse = {
+    saved: {
+        mapping: RecordTransferFileMapping;
+        savedBy: string;
+        savedAt: string;
+    } | null;
+};
+
+export type RecordTransferFileMapping = {
+    recordKind: 'person' | 'organization' | 'matter';
+    sourceKind: string;
+    delimiter: 'comma' | 'tab' | 'semicolon' | 'pipe';
+    assignments: {
+        [key: string]: {
+            holds: string;
+            referenceSourceKind: string;
+            role: string;
+        };
+    };
+    dateOrder: 'year-month-day' | 'day-month-year' | 'month-day-year' | '';
+    timeZone: string;
+    addressCountry: string;
+    matterTypes: {
+        [key: string]: string;
+    };
+    members: {
+        [key: string]: string;
+    };
+    otherwiseMember: string;
+};
+
+export type SaveRecordTransferFileMappingRequest = {
+    mapping: RecordTransferFileMapping;
 };
 
 export type RecordTransferPassResponse = {
@@ -13320,6 +13769,43 @@ export type PlatformErrorLookupResponses = {
 
 export type PlatformErrorLookupResponse = PlatformErrorLookupResponses[keyof PlatformErrorLookupResponses];
 
+export type IncidentsListData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/incidents';
+};
+
+export type IncidentsListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the route's permission
+     */
+    403: Problem;
+    /**
+     * No such report in this firm, or not one this member filed
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type IncidentsListError = IncidentsListErrors[keyof IncidentsListErrors];
+
+export type IncidentsListResponses = {
+    /**
+     * The reports
+     */
+    200: IncidentList;
+};
+
+export type IncidentsListResponse = IncidentsListResponses[keyof IncidentsListResponses];
+
 export type IncidentsReportData = {
     body: ReportIncidentRequest;
     path?: never;
@@ -13360,6 +13846,289 @@ export type IncidentsReportResponses = {
 };
 
 export type IncidentsReportResponse = IncidentsReportResponses[keyof IncidentsReportResponses];
+
+export type IncidentsListMineData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/incidents/mine';
+};
+
+export type IncidentsListMineErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the route's permission
+     */
+    403: Problem;
+    /**
+     * No such report in this firm, or not one this member filed
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type IncidentsListMineError = IncidentsListMineErrors[keyof IncidentsListMineErrors];
+
+export type IncidentsListMineResponses = {
+    /**
+     * The member's reports
+     */
+    200: IncidentList;
+};
+
+export type IncidentsListMineResponse = IncidentsListMineResponses[keyof IncidentsListMineResponses];
+
+export type IncidentsGetMineData = {
+    body?: never;
+    path: {
+        incidentId: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/mine/{incidentId}';
+};
+
+export type IncidentsGetMineErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the route's permission
+     */
+    403: Problem;
+    /**
+     * No such report in this firm, or not one this member filed
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type IncidentsGetMineError = IncidentsGetMineErrors[keyof IncidentsGetMineErrors];
+
+export type IncidentsGetMineResponses = {
+    /**
+     * The report
+     */
+    200: IncidentDetail;
+};
+
+export type IncidentsGetMineResponse = IncidentsGetMineResponses[keyof IncidentsGetMineResponses];
+
+export type IncidentsScreenshotMineData = {
+    body?: never;
+    path: {
+        incidentId: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/mine/{incidentId}/screenshot';
+};
+
+export type IncidentsScreenshotMineErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the route's permission
+     */
+    403: Problem;
+    /**
+     * No such report in this firm, or not one this member filed
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type IncidentsScreenshotMineError = IncidentsScreenshotMineErrors[keyof IncidentsScreenshotMineErrors];
+
+export type IncidentsScreenshotMineResponses = {
+    /**
+     * The image bytes
+     */
+    200: string;
+};
+
+export type IncidentsScreenshotMineResponse = IncidentsScreenshotMineResponses[keyof IncidentsScreenshotMineResponses];
+
+export type IncidentsAttachScreenshotData = {
+    body: AttachIncidentScreenshotRequest;
+    path: {
+        incidentId: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/mine/{incidentId}/screenshot';
+};
+
+export type IncidentsAttachScreenshotErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the route's permission
+     */
+    403: Problem;
+    /**
+     * No such report in this firm, or not one this member filed
+     */
+    404: Problem;
+    /**
+     * The report already has a screenshot
+     */
+    409: Problem;
+    /**
+     * Not a PNG or JPEG, or too large
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type IncidentsAttachScreenshotError = IncidentsAttachScreenshotErrors[keyof IncidentsAttachScreenshotErrors];
+
+export type IncidentsAttachScreenshotResponses = {
+    /**
+     * Attached
+     */
+    204: void;
+};
+
+export type IncidentsAttachScreenshotResponse = IncidentsAttachScreenshotResponses[keyof IncidentsAttachScreenshotResponses];
+
+export type IncidentsGetData = {
+    body?: never;
+    path: {
+        incidentId: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incidentId}';
+};
+
+export type IncidentsGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the route's permission
+     */
+    403: Problem;
+    /**
+     * No such report in this firm, or not one this member filed
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type IncidentsGetError = IncidentsGetErrors[keyof IncidentsGetErrors];
+
+export type IncidentsGetResponses = {
+    /**
+     * The report
+     */
+    200: IncidentDetail;
+};
+
+export type IncidentsGetResponse = IncidentsGetResponses[keyof IncidentsGetResponses];
+
+export type IncidentsAnswerData = {
+    body: AnswerIncidentRequest;
+    path: {
+        incidentId: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incidentId}';
+};
+
+export type IncidentsAnswerErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the route's permission
+     */
+    403: Problem;
+    /**
+     * No such report in this firm, or not one this member filed
+     */
+    404: Problem;
+    /**
+     * The body failed validation
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type IncidentsAnswerError = IncidentsAnswerErrors[keyof IncidentsAnswerErrors];
+
+export type IncidentsAnswerResponses = {
+    /**
+     * The answered report
+     */
+    200: IncidentDetail;
+};
+
+export type IncidentsAnswerResponse = IncidentsAnswerResponses[keyof IncidentsAnswerResponses];
+
+export type IncidentsScreenshotData = {
+    body?: never;
+    path: {
+        incidentId: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incidentId}/screenshot';
+};
+
+export type IncidentsScreenshotErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the route's permission
+     */
+    403: Problem;
+    /**
+     * No such report in this firm, or not one this member filed
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type IncidentsScreenshotError = IncidentsScreenshotErrors[keyof IncidentsScreenshotErrors];
+
+export type IncidentsScreenshotResponses = {
+    /**
+     * The image bytes
+     */
+    200: string;
+};
+
+export type IncidentsScreenshotResponse = IncidentsScreenshotResponses[keyof IncidentsScreenshotResponses];
 
 export type ClientErrorsRecordData = {
     body: RecordClientErrorRequest;
@@ -16403,6 +17172,95 @@ export type FirmSearchStatusRebuildResponses = {
 };
 
 export type FirmSearchStatusRebuildResponse = FirmSearchStatusRebuildResponses[keyof FirmSearchStatusRebuildResponses];
+
+export type FirmTranslationSettingsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/translation-settings';
+};
+
+export type FirmTranslationSettingsGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageAiSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmTranslationSettingsGetError = FirmTranslationSettingsGetErrors[keyof FirmTranslationSettingsGetErrors];
+
+export type FirmTranslationSettingsGetResponses = {
+    /**
+     * The firm's translation settings
+     */
+    200: FirmTranslationSettingsResponse;
+};
+
+export type FirmTranslationSettingsGetResponse = FirmTranslationSettingsGetResponses[keyof FirmTranslationSettingsGetResponses];
+
+export type FirmTranslationSettingsUpdateData = {
+    body: PatchFirmTranslationSettingsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/translation-settings';
+};
+
+export type FirmTranslationSettingsUpdateErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageAiSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmTranslationSettingsUpdateError = FirmTranslationSettingsUpdateErrors[keyof FirmTranslationSettingsUpdateErrors];
+
+export type FirmTranslationSettingsUpdateResponses = {
+    /**
+     * The firm's translation settings after the change
+     */
+    200: FirmTranslationSettingsResponse;
+};
+
+export type FirmTranslationSettingsUpdateResponse = FirmTranslationSettingsUpdateResponses[keyof FirmTranslationSettingsUpdateResponses];
 
 export type ReportsExportRenderData = {
     body: ExportRenderRequest;
@@ -22554,6 +23412,90 @@ export type SafeBrowseLiveCloseResponses = {
 };
 
 export type SafeBrowseLiveCloseResponse = SafeBrowseLiveCloseResponses[keyof SafeBrowseLiveCloseResponses];
+
+export type TranslationLanguagesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        display?: string;
+    };
+    url: '/api/v1/translation/languages';
+};
+
+export type TranslationLanguagesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks tools:translation
+     */
+    403: Problem;
+    /**
+     * No translation engine is set up
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The translation engine did not answer
+     */
+    502: Problem;
+};
+
+export type TranslationLanguagesError = TranslationLanguagesErrors[keyof TranslationLanguagesErrors];
+
+export type TranslationLanguagesResponses = {
+    /**
+     * The engine's languages, sorted by name
+     */
+    200: TranslationLanguagesResponse;
+};
+
+export type TranslationLanguagesResponse2 = TranslationLanguagesResponses[keyof TranslationLanguagesResponses];
+
+export type TranslationTranslateData = {
+    body: TranslateRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/translation/translate';
+};
+
+export type TranslationTranslateErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks tools:translation
+     */
+    403: Problem;
+    /**
+     * Translation is off for this firm, no engine is set up, the text has nothing to translate, a paragraph is too long, or the engine refused the request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The translation engine did not answer
+     */
+    502: Problem;
+};
+
+export type TranslationTranslateError = TranslationTranslateErrors[keyof TranslationTranslateErrors];
+
+export type TranslationTranslateResponses = {
+    /**
+     * Each paragraph beside its translation
+     */
+    200: TranslateResponse;
+};
+
+export type TranslationTranslateResponse = TranslationTranslateResponses[keyof TranslationTranslateResponses];
 
 export type EmailInspectorInspectData = {
     body: unknown;
@@ -30853,6 +31795,198 @@ export type ExhibitsContinueExhibitSetResponses = {
 
 export type ExhibitsContinueExhibitSetResponse = ExhibitsContinueExhibitSetResponses[keyof ExhibitsContinueExhibitSetResponses];
 
+export type BatesListBatesPrefixesData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/bates-prefixes';
+};
+
+export type BatesListBatesPrefixesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The matter, file, exhibit set or range is unknown on this matter
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type BatesListBatesPrefixesError = BatesListBatesPrefixesErrors[keyof BatesListBatesPrefixesErrors];
+
+export type BatesListBatesPrefixesResponses = {
+    /**
+     * The matter's Bates prefixes
+     */
+    200: BatesPrefixList;
+};
+
+export type BatesListBatesPrefixesResponse = BatesListBatesPrefixesResponses[keyof BatesListBatesPrefixesResponses];
+
+export type BatesListBatesRangesData = {
+    body?: never;
+    path: {
+        matterId: string;
+    };
+    query?: {
+        cursor?: string;
+        prefix?: string;
+    };
+    url: '/api/v1/matters/{matterId}/bates-ranges';
+};
+
+export type BatesListBatesRangesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The matter, file, exhibit set or range is unknown on this matter
+     */
+    404: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type BatesListBatesRangesError = BatesListBatesRangesErrors[keyof BatesListBatesRangesErrors];
+
+export type BatesListBatesRangesResponses = {
+    /**
+     * The matter's Bates ranges
+     */
+    200: BatesRangeList;
+};
+
+export type BatesListBatesRangesResponse = BatesListBatesRangesResponses[keyof BatesListBatesRangesResponses];
+
+export type BatesTakeBatesRangeData = {
+    body: TakeBatesRangeRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/bates-ranges';
+};
+
+export type BatesTakeBatesRangeErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The matter, file, exhibit set or range is unknown on this matter
+     */
+    404: Problem;
+    /**
+     * Some number in the range is already stamped under that prefix, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type BatesTakeBatesRangeError = BatesTakeBatesRangeErrors[keyof BatesTakeBatesRangeErrors];
+
+export type BatesTakeBatesRangeResponses = {
+    /**
+     * The range taken
+     */
+    201: TakenBatesRange;
+};
+
+export type BatesTakeBatesRangeResponse = BatesTakeBatesRangeResponses[keyof BatesTakeBatesRangeResponses];
+
+export type BatesRecordBatesStampedFileData = {
+    body: RecordBatesStampedFileRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+        rangeId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/bates-ranges/{rangeId}/stamped-file';
+};
+
+export type BatesRecordBatesStampedFileErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The matter, file, exhibit set or range is unknown on this matter
+     */
+    404: Problem;
+    /**
+     * Some number in the range is already stamped under that prefix, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type BatesRecordBatesStampedFileError = BatesRecordBatesStampedFileErrors[keyof BatesRecordBatesStampedFileErrors];
+
+export type BatesRecordBatesStampedFileResponses = {
+    /**
+     * The copy is recorded
+     */
+    200: {
+        id: string;
+    };
+};
+
+export type BatesRecordBatesStampedFileResponse = BatesRecordBatesStampedFileResponses[keyof BatesRecordBatesStampedFileResponses];
+
 export type DirectoryCreatePersonData = {
     body: CreateDirectoryPersonRequest;
     headers: {
@@ -36047,6 +37181,7 @@ export type CalendarSyncPutBackMyCopyData = {
          * The provider of the member's account the request is about. Left out, it is the account the member connected first.
          */
         provider?: 'microsoft' | 'google';
+        occurrenceOn?: string;
     };
     url: '/api/v1/me/calendar-sync/issues/{localKind}/{localId}/put-back';
 };
@@ -36064,6 +37199,10 @@ export type CalendarSyncPutBackMyCopyErrors = {
      * The member has no such open question, or the firm is unreachable or the member deactivated
      */
     404: Problem;
+    /**
+     * The member's provider has no way to put this one day back
+     */
+    409: Problem;
     /**
      * Rate limit exceeded
      */
@@ -36092,6 +37231,7 @@ export type CalendarSyncLeaveMyCopyData = {
          * The provider of the member's account the request is about. Left out, it is the account the member connected first.
          */
         provider?: 'microsoft' | 'google';
+        occurrenceOn?: string;
     };
     url: '/api/v1/me/calendar-sync/issues/{localKind}/{localId}/leave';
 };
@@ -51692,6 +52832,742 @@ export type TrustCloseReconciliationResponses = {
 
 export type TrustCloseReconciliationResponse = TrustCloseReconciliationResponses[keyof TrustCloseReconciliationResponses];
 
+export type TrustListBankReconciliationsData = {
+    body?: never;
+    path?: never;
+    query: {
+        trustAccountId: string;
+    };
+    url: '/api/v1/trust/bank-reconciliations';
+};
+
+export type TrustListBankReconciliationsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustListBankReconciliationsError = TrustListBankReconciliationsErrors[keyof TrustListBankReconciliationsErrors];
+
+export type TrustListBankReconciliationsResponses = {
+    /**
+     * The reconciliations
+     */
+    200: TrustBankReconciliationList;
+};
+
+export type TrustListBankReconciliationsResponse = TrustListBankReconciliationsResponses[keyof TrustListBankReconciliationsResponses];
+
+export type TrustStartBankReconciliationData = {
+    body: StartTrustBankReconciliationRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations';
+};
+
+export type TrustStartBankReconciliationErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustStartBankReconciliationError = TrustStartBankReconciliationErrors[keyof TrustStartBankReconciliationErrors];
+
+export type TrustStartBankReconciliationResponses = {
+    /**
+     * Started
+     */
+    201: StartTrustBankReconciliationResponse;
+};
+
+export type TrustStartBankReconciliationResponse = TrustStartBankReconciliationResponses[keyof TrustStartBankReconciliationResponses];
+
+export type TrustGetBankReconciliationData = {
+    body?: never;
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}';
+};
+
+export type TrustGetBankReconciliationErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustGetBankReconciliationError = TrustGetBankReconciliationErrors[keyof TrustGetBankReconciliationErrors];
+
+export type TrustGetBankReconciliationResponses = {
+    /**
+     * The reconciliation
+     */
+    200: TrustBankReconciliationDetail;
+};
+
+export type TrustGetBankReconciliationResponse = TrustGetBankReconciliationResponses[keyof TrustGetBankReconciliationResponses];
+
+export type TrustEditBankReconciliationData = {
+    body: TrustBankReconciliationEditsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/changes';
+};
+
+export type TrustEditBankReconciliationErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustEditBankReconciliationError = TrustEditBankReconciliationErrors[keyof TrustEditBankReconciliationErrors];
+
+export type TrustEditBankReconciliationResponses = {
+    /**
+     * Saved
+     */
+    201: TrustBankReconciliationAcknowledgement;
+};
+
+export type TrustEditBankReconciliationResponse = TrustEditBankReconciliationResponses[keyof TrustEditBankReconciliationResponses];
+
+export type TrustRevertBankReconciliationChangeData = {
+    body: TrustBankReconciliationRevertRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/revert';
+};
+
+export type TrustRevertBankReconciliationChangeErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustRevertBankReconciliationChangeError = TrustRevertBankReconciliationChangeErrors[keyof TrustRevertBankReconciliationChangeErrors];
+
+export type TrustRevertBankReconciliationChangeResponses = {
+    /**
+     * Saved
+     */
+    201: TrustBankReconciliationAcknowledgement;
+};
+
+export type TrustRevertBankReconciliationChangeResponse = TrustRevertBankReconciliationChangeResponses[keyof TrustRevertBankReconciliationChangeResponses];
+
+export type TrustSaveBankReconciliationData = {
+    body: TrustBankReconciliationSaveRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/restore-points';
+};
+
+export type TrustSaveBankReconciliationErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustSaveBankReconciliationError = TrustSaveBankReconciliationErrors[keyof TrustSaveBankReconciliationErrors];
+
+export type TrustSaveBankReconciliationResponses = {
+    /**
+     * Saved
+     */
+    201: TrustBankReconciliationAcknowledgement;
+};
+
+export type TrustSaveBankReconciliationResponse = TrustSaveBankReconciliationResponses[keyof TrustSaveBankReconciliationResponses];
+
+export type TrustRestoreBankReconciliationData = {
+    body: TrustBankReconciliationRestoreRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/restore';
+};
+
+export type TrustRestoreBankReconciliationErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustRestoreBankReconciliationError = TrustRestoreBankReconciliationErrors[keyof TrustRestoreBankReconciliationErrors];
+
+export type TrustRestoreBankReconciliationResponses = {
+    /**
+     * Saved
+     */
+    201: TrustBankReconciliationAcknowledgement;
+};
+
+export type TrustRestoreBankReconciliationResponse = TrustRestoreBankReconciliationResponses[keyof TrustRestoreBankReconciliationResponses];
+
+export type TrustAddBankReconciliationInterestData = {
+    body: TrustBankReconciliationInterestRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/interest';
+};
+
+export type TrustAddBankReconciliationInterestErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustAddBankReconciliationInterestError = TrustAddBankReconciliationInterestErrors[keyof TrustAddBankReconciliationInterestErrors];
+
+export type TrustAddBankReconciliationInterestResponses = {
+    /**
+     * Saved
+     */
+    201: TrustBankReconciliationAcknowledgement;
+};
+
+export type TrustAddBankReconciliationInterestResponse = TrustAddBankReconciliationInterestResponses[keyof TrustAddBankReconciliationInterestResponses];
+
+export type TrustRemoveBankReconciliationInterestData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+        interestId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/interest/{interestId}/removal';
+};
+
+export type TrustRemoveBankReconciliationInterestErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustRemoveBankReconciliationInterestError = TrustRemoveBankReconciliationInterestErrors[keyof TrustRemoveBankReconciliationInterestErrors];
+
+export type TrustRemoveBankReconciliationInterestResponses = {
+    /**
+     * Saved
+     */
+    201: TrustBankReconciliationAcknowledgement;
+};
+
+export type TrustRemoveBankReconciliationInterestResponse = TrustRemoveBankReconciliationInterestResponses[keyof TrustRemoveBankReconciliationInterestResponses];
+
+export type TrustAddBankReconciliationNoteData = {
+    body: TrustBankReconciliationNoteRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/notes';
+};
+
+export type TrustAddBankReconciliationNoteErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustAddBankReconciliationNoteError = TrustAddBankReconciliationNoteErrors[keyof TrustAddBankReconciliationNoteErrors];
+
+export type TrustAddBankReconciliationNoteResponses = {
+    /**
+     * Saved
+     */
+    201: TrustBankReconciliationAcknowledgement;
+};
+
+export type TrustAddBankReconciliationNoteResponse = TrustAddBankReconciliationNoteResponses[keyof TrustAddBankReconciliationNoteResponses];
+
+export type TrustAttachBankReconciliationFileData = {
+    body: TrustBankReconciliationFileRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/files';
+};
+
+export type TrustAttachBankReconciliationFileErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustAttachBankReconciliationFileError = TrustAttachBankReconciliationFileErrors[keyof TrustAttachBankReconciliationFileErrors];
+
+export type TrustAttachBankReconciliationFileResponses = {
+    /**
+     * Saved
+     */
+    201: TrustBankReconciliationAcknowledgement;
+};
+
+export type TrustAttachBankReconciliationFileResponse = TrustAttachBankReconciliationFileResponses[keyof TrustAttachBankReconciliationFileResponses];
+
+export type TrustRemoveBankReconciliationFileData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/files/{fileId}/removal';
+};
+
+export type TrustRemoveBankReconciliationFileErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustRemoveBankReconciliationFileError = TrustRemoveBankReconciliationFileErrors[keyof TrustRemoveBankReconciliationFileErrors];
+
+export type TrustRemoveBankReconciliationFileResponses = {
+    /**
+     * Saved
+     */
+    201: TrustBankReconciliationAcknowledgement;
+};
+
+export type TrustRemoveBankReconciliationFileResponse = TrustRemoveBankReconciliationFileResponses[keyof TrustRemoveBankReconciliationFileResponses];
+
+export type TrustBankReconciliationFileData = {
+    body?: never;
+    path: {
+        reconciliationId: string;
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/files/{fileId}';
+};
+
+export type TrustBankReconciliationFileErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustBankReconciliationFileError = TrustBankReconciliationFileErrors[keyof TrustBankReconciliationFileErrors];
+
+export type TrustBankReconciliationFileResponses = {
+    /**
+     * The file
+     */
+    200: Blob | File;
+};
+
+export type TrustBankReconciliationFileResponse = TrustBankReconciliationFileResponses[keyof TrustBankReconciliationFileResponses];
+
+export type TrustFinishBankReconciliationData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/finish';
+};
+
+export type TrustFinishBankReconciliationErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The trust account, reconciliation or file is unknown
+     */
+    404: Problem;
+    /**
+     * The reconciliation changed or finished, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The trust rules refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustFinishBankReconciliationError = TrustFinishBankReconciliationErrors[keyof TrustFinishBankReconciliationErrors];
+
+export type TrustFinishBankReconciliationResponses = {
+    /**
+     * Saved
+     */
+    201: TrustBankReconciliationAcknowledgement;
+};
+
+export type TrustFinishBankReconciliationResponse = TrustFinishBankReconciliationResponses[keyof TrustFinishBankReconciliationResponses];
+
 export type TrustChecksData = {
     body?: never;
     path?: never;
@@ -53138,7 +55014,7 @@ export type RecordTransferStartRunErrors = {
      */
     403: Problem;
     /**
-     * The run has ended, the file is already in the run, or the key is in progress
+     * The run has ended, a pass is still running, the file is already in the run, or the key is in progress
      */
     409: Problem;
     /**
@@ -53201,6 +55077,114 @@ export type RecordTransferGetRunResponses = {
 
 export type RecordTransferGetRunResponse = RecordTransferGetRunResponses[keyof RecordTransferGetRunResponses];
 
+export type RecordTransferAcceptRunData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        runId: string;
+    };
+    query?: never;
+    url: '/api/v1/record-transfer/runs/{runId}/accept';
+};
+
+export type RecordTransferAcceptRunErrors = {
+    /**
+     * The Idempotency-Key header is missing, or the body is empty
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * The run has ended, a pass is still running, the file is already in the run, or the key is in progress
+     */
+    409: Problem;
+    /**
+     * The request is not valid, or the Idempotency-Key was reused for another request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferAcceptRunError = RecordTransferAcceptRunErrors[keyof RecordTransferAcceptRunErrors];
+
+export type RecordTransferAcceptRunResponses = {
+    /**
+     * The run as it now stands
+     */
+    200: RecordTransferRunEndedResponse;
+};
+
+export type RecordTransferAcceptRunResponse = RecordTransferAcceptRunResponses[keyof RecordTransferAcceptRunResponses];
+
+export type RecordTransferAbandonRunData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        runId: string;
+    };
+    query?: never;
+    url: '/api/v1/record-transfer/runs/{runId}/abandon';
+};
+
+export type RecordTransferAbandonRunErrors = {
+    /**
+     * The Idempotency-Key header is missing, or the body is empty
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * The run has ended, a pass is still running, the file is already in the run, or the key is in progress
+     */
+    409: Problem;
+    /**
+     * The request is not valid, or the Idempotency-Key was reused for another request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferAbandonRunError = RecordTransferAbandonRunErrors[keyof RecordTransferAbandonRunErrors];
+
+export type RecordTransferAbandonRunResponses = {
+    /**
+     * The run as it now stands
+     */
+    200: RecordTransferRunEndedResponse;
+};
+
+export type RecordTransferAbandonRunResponse = RecordTransferAbandonRunResponses[keyof RecordTransferAbandonRunResponses];
+
 export type RecordTransferAddSourceFileData = {
     body: unknown;
     path: {
@@ -53231,7 +55215,7 @@ export type RecordTransferAddSourceFileErrors = {
      */
     404: Problem;
     /**
-     * The run has ended, the file is already in the run, or the key is in progress
+     * The run has ended, a pass is still running, the file is already in the run, or the key is in progress
      */
     409: Problem;
     /**
@@ -53305,6 +55289,145 @@ export type RecordTransferPreviewSourceFileResponses = {
 
 export type RecordTransferPreviewSourceFileResponse = RecordTransferPreviewSourceFileResponses[keyof RecordTransferPreviewSourceFileResponses];
 
+export type RecordTransferListSourceFileColumnValuesData = {
+    body?: never;
+    path: {
+        runId: string;
+        fileId: string;
+    };
+    query: {
+        column: string;
+        delimiter?: 'comma' | 'tab' | 'semicolon' | 'pipe';
+    };
+    url: '/api/v1/record-transfer/runs/{runId}/files/{fileId}/column-values';
+};
+
+export type RecordTransferListSourceFileColumnValuesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * The request is not valid, or the Idempotency-Key was reused for another request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferListSourceFileColumnValuesError = RecordTransferListSourceFileColumnValuesErrors[keyof RecordTransferListSourceFileColumnValuesErrors];
+
+export type RecordTransferListSourceFileColumnValuesResponses = {
+    /**
+     * The column's values, the most used first
+     */
+    200: RecordTransferSourceFileColumnValuesResponse;
+};
+
+export type RecordTransferListSourceFileColumnValuesResponse = RecordTransferListSourceFileColumnValuesResponses[keyof RecordTransferListSourceFileColumnValuesResponses];
+
+export type RecordTransferGetSourceFileMappingData = {
+    body?: never;
+    path: {
+        runId: string;
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/v1/record-transfer/runs/{runId}/files/{fileId}/mapping';
+};
+
+export type RecordTransferGetSourceFileMappingErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferGetSourceFileMappingError = RecordTransferGetSourceFileMappingErrors[keyof RecordTransferGetSourceFileMappingErrors];
+
+export type RecordTransferGetSourceFileMappingResponses = {
+    /**
+     * The saved mapping, or null
+     */
+    200: RecordTransferFileMappingResponse;
+};
+
+export type RecordTransferGetSourceFileMappingResponse = RecordTransferGetSourceFileMappingResponses[keyof RecordTransferGetSourceFileMappingResponses];
+
+export type RecordTransferSaveSourceFileMappingData = {
+    body: SaveRecordTransferFileMappingRequest;
+    path: {
+        runId: string;
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/v1/record-transfer/runs/{runId}/files/{fileId}/mapping';
+};
+
+export type RecordTransferSaveSourceFileMappingErrors = {
+    /**
+     * The Idempotency-Key header is missing, or the body is empty
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * The run has ended, a pass is still running, the file is already in the run, or the key is in progress
+     */
+    409: Problem;
+    /**
+     * The request is not valid, or the Idempotency-Key was reused for another request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferSaveSourceFileMappingError = RecordTransferSaveSourceFileMappingErrors[keyof RecordTransferSaveSourceFileMappingErrors];
+
+export type RecordTransferSaveSourceFileMappingResponses = {
+    /**
+     * The mapping as saved
+     */
+    200: RecordTransferFileMappingResponse;
+};
+
+export type RecordTransferSaveSourceFileMappingResponse = RecordTransferSaveSourceFileMappingResponses[keyof RecordTransferSaveSourceFileMappingResponses];
+
 export type RecordTransferRequestPassData = {
     body: RequestRecordTransferPassRequest;
     headers: {
@@ -53335,7 +55458,7 @@ export type RecordTransferRequestPassErrors = {
      */
     404: Problem;
     /**
-     * The run has ended, the file is already in the run, or the key is in progress
+     * The run has ended, a pass is still running, the file is already in the run, or the key is in progress
      */
     409: Problem;
     /**
@@ -53478,6 +55601,50 @@ export type RecordTransferGetPassReportResponses = {
 };
 
 export type RecordTransferGetPassReportResponse = RecordTransferGetPassReportResponses[keyof RecordTransferGetPassReportResponses];
+
+export type RecordTransferDownloadRejectedRowsData = {
+    body?: never;
+    path: {
+        runId: string;
+        passId: string;
+    };
+    query?: never;
+    url: '/api/v1/record-transfer/runs/{runId}/passes/{passId}/rejected-rows';
+};
+
+export type RecordTransferDownloadRejectedRowsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * The run has ended, a pass is still running, the file is already in the run, or the key is in progress
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferDownloadRejectedRowsError = RecordTransferDownloadRejectedRowsErrors[keyof RecordTransferDownloadRejectedRowsErrors];
+
+export type RecordTransferDownloadRejectedRowsResponses = {
+    /**
+     * Delimited text: the reason column, then the file's own columns
+     */
+    200: string;
+};
+
+export type RecordTransferDownloadRejectedRowsResponse = RecordTransferDownloadRejectedRowsResponses[keyof RecordTransferDownloadRejectedRowsResponses];
 
 export type ShippingDisconnectCarrierData = {
     body?: never;

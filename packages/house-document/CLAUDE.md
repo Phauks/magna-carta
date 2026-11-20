@@ -1,7 +1,7 @@
 # @magna-carta/house-document (packages/house-document) — CLAUDE.md
 
 **Purpose.** How a document Magna Carta generates looks, and the pieces one is built from: the
-margins, accent, typeface, letterhead and page number, and builders for cards, fields, tables,
+margins, accent, typeface, letterhead, page number and an optional watermark (`DRAFT` on a report not yet final), and builders for cards, fields, tables,
 notes, pictures and long tables that run over pages. A package that prints a record describes its
 sections with these and names no colour, margin, typeface or paper size of its own. The first
 document on it is the Certificate of Completion (`packages/signing/src/certificate-sheet.ts`).

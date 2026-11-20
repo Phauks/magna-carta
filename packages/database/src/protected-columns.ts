@@ -13,6 +13,7 @@ export const PROTECTED_COLUMNS: readonly ProtectedColumn[] = [
   { table: "firm_secret", column: "ciphertext" },
   { table: "integration_credential", column: "ciphertext" },
   { table: "incident", column: "description_ciphertext" },
+  { table: "incident", column: "status_note_ciphertext" },
   { table: "directory_identifier", column: "value_ciphertext" },
   { table: "matter_asset_identifier", column: "value_ciphertext" },
 ];

@@ -75,7 +75,7 @@
     </ScreenHeader>
 
     <Tabs.Root bind:value={tool} class="flex-none">
-      <Tabs.List aria-label="PDF tools">
+      <Tabs.List aria-label="PDF tools" class="flex-wrap">
         <Tabs.Trigger value="pages">
           <Layers class="size-16" aria-hidden="true" />
           Pages

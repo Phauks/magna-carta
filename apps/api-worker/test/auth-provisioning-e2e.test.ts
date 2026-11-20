@@ -493,6 +493,7 @@ describe("end-to-end", () => {
         "tools:safeBrowse",
         "tools:shipping",
         "tools:speedTest",
+        "tools:translation",
         "tools:whois",
         // trust:read reaches Admin, Attorney, Paralegal, and Billing; trust:manage moves
         // client money and reaches Admin, Attorney, and Billing
@@ -669,6 +670,16 @@ const GUEST_LANE_OPERATIONS: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * The signed-copy link the completion email carries: the same signer's secret minted as its own
+ * kind of token, admitted only once the request is sealed, and never accepted by the signing routes.
+ */
+const SIGNED_COPY_OPERATIONS: ReadonlySet<string> = new Set([
+  "signer.readSignedCopy",
+  "signer.readSignedCopyCertificate",
+  "signer.readSignedCopyDocument",
+]);
+
+/**
  * AND AN OUTSIDE SIGNER'S LANE: the same shape for a signing link, admitted by the chokepoint's
  * signer lane (`x-mc-signerLane`), which verifies the link before anything is read and checks it
  * against the signer's row on every request. Enumerated for the same reason.
@@ -683,6 +694,7 @@ const SIGNER_LANE_OPERATIONS: ReadonlySet<string> = new Set([
   "signer.adopt",
   "signer.finish",
   "signer.decline",
+  ...SIGNED_COPY_OPERATIONS,
 ]);
 
 function expectSignerLaneShape(operation: OpenApiOperation, label: string): void {
@@ -690,7 +702,9 @@ function expectSignerLaneShape(operation: OpenApiOperation, label: string): void
   expect(operation["x-mc-permission"], label).toBeNull();
   expect(operation["x-mc-surface"], label).toBe("app");
   expect(operation["x-mc-resource"], label).toBe("firm");
-  expect(operation["x-mc-signerLane"], label).toBe("link");
+  expect(operation["x-mc-signerLane"], label).toBe(
+    SIGNED_COPY_OPERATIONS.has(operation["operationId"] as string) ? "signed-copy" : "link",
+  );
 }
 
 /** The shape every guest-lane operation must have, asserted wherever the sweeps meet one. */

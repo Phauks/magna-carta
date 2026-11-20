@@ -208,6 +208,11 @@ export interface ComposeDocument {
     /** The line under the title, set bold: the document's own number. */
     readonly detail?: string;
   };
+  /**
+   * A word set large, pale and on a slant across the middle of every page, under the content:
+   * "DRAFT" on a report that may still change.
+   */
+  readonly watermark?: string;
   readonly header?: ComposeRunningLine;
   readonly footer?: ComposeRunningLine;
   readonly blocks: readonly ComposeBlock[];

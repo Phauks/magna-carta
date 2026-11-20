@@ -62,6 +62,7 @@ import FolderInput from "@lucide/svelte/icons/folder-input";
 import Sparkles from "@lucide/svelte/icons/sparkles";
 import ListChecks from "@lucide/svelte/icons/list-checks";
 import HandCoins from "@lucide/svelte/icons/hand-coins";
+import BookCheck from "@lucide/svelte/icons/book-check";
 
 export type DestinationGroup =
   | "favorites"
@@ -564,6 +565,19 @@ const DESTINATION_LIST = [
     href: "/trust",
     icon: Landmark,
     description: "Client money held in trust, to the penny.",
+    group: "money",
+    shipped: true,
+    stage: "alpha",
+    defaultShown: true,
+  },
+  {
+    // Matching a trust account's book to its bank statement, one period at a time. A screen of
+    // its own beside Trust because it is a monthly job with its own list, not a section of one.
+    id: "reconciliation",
+    label: "Reconciliation",
+    href: "/reconciliation",
+    icon: BookCheck,
+    description: "Tick off a trust account's bank statement, period by period.",
     group: "money",
     shipped: true,
     stage: "alpha",
