@@ -407,6 +407,7 @@ describe("GET /api/v1/me", () => {
       channel: "stable",
       flags: { "release-channels.smoke": false },
       membership: { state: "provisioning" },
+      meetings: { endToEndEncryption: false },
     });
   });
 
