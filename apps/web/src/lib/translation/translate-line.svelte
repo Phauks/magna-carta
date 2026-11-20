@@ -128,13 +128,10 @@
         class="flex flex-col gap-12 rounded-md border border-border-default bg-surface-sunken p-12"
         aria-label="Translation"
       >
-        <div class="flex flex-wrap items-center gap-8">
-          {#if result !== null && result.source !== null}
-            <span class="text-sm text-text-muted">From {languageName(languages, result.source)}</span>
-          {/if}
-          <div class="flex items-center gap-8">
+        <div class="flex items-center gap-8">
+          <div class="flex min-w-0 flex-1 items-center gap-8">
             <Label for="{identity}-target" class="text-sm text-text-muted">To</Label>
-            <div class="w-3xs">
+            <div class="w-full max-w-3xs min-w-0">
               <LanguagePicker
                 {languages}
                 inputId="{identity}-target"
@@ -145,8 +142,11 @@
               />
             </div>
           </div>
-          <Button class="ms-auto" variant="ghost" size="sm" onclick={hide}>Hide</Button>
+          <Button variant="ghost" size="sm" onclick={hide}>Hide</Button>
         </div>
+        {#if result !== null && result.source !== null}
+          <span class="text-sm text-text-muted">From {languageName(languages, result.source)}</span>
+        {/if}
 
         <LoadingRegion loading={busy} label="Translating the text">
           {#if failure !== null}

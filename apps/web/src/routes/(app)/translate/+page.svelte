@@ -181,7 +181,8 @@
       <Label for="translate-text" class="sr-only">Text to Translate</Label>
       <Textarea
         id="translate-text"
-        class="min-h-64 resize-none lg:min-h-96"
+        class="flex-1 resize-none"
+        rows={16}
         resizable={false}
         placeholder="Text"
         aria-invalid={tooLong}
@@ -208,7 +209,7 @@
       <LoadingRegion
         loading={busy}
         label="Translating the text"
-        class="min-h-64 rounded-md border border-border-default bg-surface-sunken p-12 lg:min-h-96"
+        class="flex-1 rounded-md border border-border-default bg-surface-sunken p-12"
         aria-label="Translation"
       >
         {#if failure !== null}
