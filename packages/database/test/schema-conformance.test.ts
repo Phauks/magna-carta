@@ -70,6 +70,8 @@ describe("schema conformance (fitness functions)", () => {
       time_entry_number_counter: "scope_key",
       communication_number_counter: "scope_key",
       conflicts_check_number_counter: "scope_key",
+      // The In/Out Log's entry sequence: the same counter shape again, keyed by its scope.
+      in_out_entry_number_counter: "scope_key",
       setting: "key",
       // The firm's limit is keyed by what it limits: an event type's id, or deadlines as one kind.
       calendar_sync_firm_limit: "subject",
@@ -205,6 +207,7 @@ describe("schema conformance (fitness functions)", () => {
       "invoice_number_allocation",
       "time_entry_number_allocation",
       "conflicts_check_number_allocation",
+      "in_out_entry_number_allocation",
       "time_entry_attachment",
       "magnus_conversation_attachment",
       "invoice_matter_balance",
@@ -266,6 +269,7 @@ describe("schema conformance (fitness functions)", () => {
       "invoice_number_allocation.drawn_value",
       "time_entry_number_allocation.drawn_value",
       "conflicts_check_number_allocation.drawn_value",
+      "in_out_entry_number_allocation.drawn_value",
       "index_split_member.version",
       // A fed object's version is the same integer the file entry and the split catalog already carry;
       // spelling it as text here would let the feed row disagree with the split row about which
