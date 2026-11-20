@@ -50,7 +50,7 @@
   const addressSearch = $derived(page.url.search);
   const filters = $derived.by((): SearchFilters => {
     void addressSearch;
-    return filtersFromAddress(page.url.searchParams);
+    return filtersFromAddress(new URLSearchParams(page.url.search));
   });
 
   let field = $state("");
