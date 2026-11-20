@@ -72,6 +72,8 @@
       columns: () => referralSourceColumns(canEdit),
       rows: () => sources ?? [],
       rowKey: (source) => source.id,
+      // The firm's own order, the way the Source field offers the list.
+      initialSort: { columnId: "order", direction: "ascending" },
       itemNoun: { singular: "source", plural: "sources" },
     }),
   );
