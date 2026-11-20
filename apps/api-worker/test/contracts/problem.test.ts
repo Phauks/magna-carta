@@ -108,8 +108,6 @@ describe("problem-type URI registry", () => {
         "trust-check-refused",
         "trust-disbursement-authorization-refused",
         "trust-authorization-policy-conflict",
-        "trust-bank-reconciliation-conflict",
-        "trust-bank-reconciliation-refused",
         "trust-reconciliation-closed",
         "trust-reconciliation-already-accounted-for",
         "trust-statement-import-refused",
