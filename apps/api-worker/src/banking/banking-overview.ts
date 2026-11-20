@@ -61,7 +61,7 @@ export async function readMarkedTransactions(
           await selectBookLinesStatement(
             database,
             account.ledger_account_id,
-            civilDateDaysBefore(now, TRANSACTION_WINDOW_DAYS + DATE_WINDOW_DAYS),
+            addCalendarDays(civilDateOf(now), -(TRANSACTION_WINDOW_DAYS + DATE_WINDOW_DAYS)),
           ).all<BookLineRow>()
         ).results;
   const statuses = matchBankLines(
