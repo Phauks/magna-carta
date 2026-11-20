@@ -1061,8 +1061,10 @@ System Status shows Usage analytics as not set up and no usage event ever reache
 **Switching it on**
 
 1. Make a long random value (for example a password manager's 64-character generator) and keep a copy
-   in the password manager. **Never change it once set:** a new value gives every firm and user a new
-   pseudonym, which breaks every trend that spans the change.
+   in the password manager. Unlike `ROOT_KEK` it encrypts nothing, so losing or changing it loses no
+   data: events already written keep their old pseudonyms and new events get new ones. The only cost
+   is that a trend spanning the change can no longer join the same firm or user across it, so change
+   it only when there is a reason to (a suspected leak).
 2. Create it in the Secrets Store as `USAGE_ANALYTICS_PEPPER` (scope _Workers_). `apps/api-worker/wrangler.jsonc`
    binds that name as `SECRETS_STORE_USAGE_ANALYTICS_PEPPER`; a per-Worker secret of the same name on
    `magna-carta` is the fallback (§23). System Status then shows Usage analytics as set up.
