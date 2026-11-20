@@ -13,6 +13,7 @@
     "./incident-views": "./src/incident-views.ts",
     "./member-statements": "./src/member-statements.ts",
     "./member-photo-statements": "./src/member-photo-statements.ts",
+    "./record-presence-statements": "./src/record-presence-statements.ts",
     "./email-filing-statements": "./src/email-filing-statements.ts",
     "./email-auto-file-statements": "./src/email-auto-file-statements.ts",
     "./email-capture-route-statements": "./src/email-capture-route-statements.ts",
