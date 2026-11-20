@@ -3,6 +3,7 @@ import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
 import { registerClientErrorsRoute } from "./client-errors.ts";
 import { registerFirmsRoute } from "./firms.ts";
+import { registerIncidentAnswerRoutes } from "./incident-answers.ts";
 import { registerIncidentsRoute } from "./incidents.ts";
 import { registerMetaDatabaseHealthRoute } from "./meta-database-health.ts";
 import { registerMetaVersionsRoute } from "./meta-versions.ts";
@@ -31,6 +32,7 @@ export function mountPlatform(
   registerPlatformRecentErrorsRoute(domain, chokepoint);
   registerPlatformErrorLookupRoute(domain, chokepoint);
   registerIncidentsRoute(domain, chokepoint);
+  registerIncidentAnswerRoutes(domain, chokepoint);
   registerClientErrorsRoute(domain, chokepoint);
   app.route("/", domain);
 }

@@ -632,6 +632,50 @@ describe("the days of a series a member changed on their own", () => {
     expect(await port.listSeriesChangedDays("series-gone")).toEqual({ ok: true, value: null });
   });
 
+  it("answers the days deleted from a series by their dates, with no way to put one back", async () => {
+    const deleted =
+      "https://graph.microsoft.com/v1.0/me/events/series-1?$select=id,cancelledOccurrences";
+    const { http, sent } = serving({
+      [deleted]: {
+        status: 200,
+        body: {
+          id: "series-1",
+          // The last names no day, so it is passed over: a day not noticed, never one guessed.
+          cancelledOccurrences: ["OID.series-1.2026-12-01", "OID.series-1.2026-12-08", "OID.odd"],
+        },
+      },
+      "https://graph.microsoft.com/v1.0/me/events/series-2?$select=id,cancelledOccurrences": {
+        status: 200,
+        body: { id: "series-2" },
+      },
+    });
+    const port = createMicrosoftCalendarAdapter({ http }).create({ credential });
+    expect(await port.listSeriesDeletedDays("series-1")).toEqual({
+      ok: true,
+      value: [
+        {
+          originalStartsAtMilliseconds: Date.parse("2026-12-01T12:00:00.000Z"),
+          dayRemoteId: null,
+        },
+        {
+          originalStartsAtMilliseconds: Date.parse("2026-12-08T12:00:00.000Z"),
+          dayRemoteId: null,
+        },
+      ],
+    });
+    expect(sent[0]?.method).toBe("GET");
+    expect(await port.listSeriesDeletedDays("series-2")).toEqual({ ok: true, value: [] });
+    expect(await port.listSeriesDeletedDays("series-gone")).toEqual({ ok: true, value: null });
+    // Asked to put a day back, it sends nothing and says the day was not found.
+    const before = sent.length;
+    expect(await port.restoreSeriesDay("anything")).toEqual({ ok: true, value: { found: false } });
+    expect(sent).toHaveLength(before);
+    expect(createMicrosoftCalendarAdapter({ http }).descriptor.operations).toMatchObject({
+      listSeriesDeletedDays: { supported: true },
+      restoreSeriesDay: { supported: false },
+    });
+  });
+
   it("writes one day by its own identifier, with no rule and no mark", async () => {
     const { http, sent } = serving({
       "https://graph.microsoft.com/v1.0/me/events/day-1": {

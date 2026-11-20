@@ -90,6 +90,11 @@ export const FIXTURE_GROUPS: readonly DevPageGroup[] = [
         href: "/developer-console/trust-checks",
         note: "The Checks screen and the check stock editor over fixtures, in each state",
       },
+      {
+        label: "Trust reconciliation",
+        href: "/developer-console/trust-reconciliation",
+        note: "The Reconciliation list and one reconciliation over fixtures, ticking and all",
+      },
     ],
   },
   {

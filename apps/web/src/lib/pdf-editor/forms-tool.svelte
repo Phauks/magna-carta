@@ -187,7 +187,7 @@
       {/if}
     </div>
 
-    <aside aria-label="Form fields" class="flex min-h-0 w-480 shrink-0 flex-col border-s border-border-default bg-surface-default">
+    <aside aria-label="Form fields" class="flex min-h-0 w-lg shrink-0 flex-col border-s border-border-default bg-surface-default">
       <div class="flex flex-none items-center gap-8 px-16 pt-16 pb-8">
         <h2 class="text-sm font-semibold">Fields</h2>
         <span class="rounded-full bg-surface-selected px-8 text-xs font-semibold tabular-nums">{fields.length}</span>

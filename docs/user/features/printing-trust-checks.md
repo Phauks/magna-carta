@@ -88,6 +88,25 @@ client's ledger as well.
 A sheet torn in the printer before it was printed can be voided with **Void Next Number** in the screen's **...** menu, so the
 numbers on screen keep matching the paper.
 
+## Positive pay file
+
+Many banks offer **positive pay**: you upload a list of the checks you issued and voided, and the
+bank refuses any check presented that is not on it. To make that list, open the **...** menu on the
+Checks screen and choose **Positive Pay File**.
+
+1. Pick the dates. **From** starts on the first of this month and **To** on today.
+2. Enter the bank account's full **Account Number**, digits only. It is not saved anywhere, so you
+   enter it each time.
+3. The line under the fields says how many checks the file holds and how many of those are voided.
+   Press **Download**.
+
+The file lists every check whose number was used in those dates, and every check voided in those
+dates, even one printed earlier. A number voided before anything printed on it goes in as a void
+for 0.00 with no payee. Each row has the account number, check number, issue date, amount, payee
+and **Y** or **N** for void. The matter and memo are left out.
+
+The file is a plain CSV in the layout most banks accept.
+
 ## A check you wrote by hand
 
 If you record a payment by check and type the check number yourself, it is never put in the print

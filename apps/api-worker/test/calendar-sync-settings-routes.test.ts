@@ -582,6 +582,8 @@ describe("a copy the member changed in their own calendar", () => {
           sent,
           found: { ...sent, startsAtTime: "14:00" },
           detectedAt: stamp,
+          occurrenceOn: null,
+          canPutBack: true,
         },
       ],
     });
@@ -654,6 +656,117 @@ describe("a copy the member changed in their own calendar", () => {
       )
       .first<{ count: number }>();
     expect(audit?.count).toBe(4);
+  });
+
+  // One day of a repeating event, deleted in the member's own calendar. A handle is what the
+  // provider gave for putting the day back; a provider that cannot gives none.
+  async function raiseDay(
+    localId: string,
+    occurrenceOn: string,
+    dayRemoteId: string | null,
+  ): Promise<void> {
+    await firmDatabase
+      .prepare(
+        "INSERT OR REPLACE INTO connection_sync_day_issue (connection_id, local_kind, local_id, occurrence_on, state, day_remote_id, sent_json, detected_at) VALUES (?1, 'matter_event', ?2, ?3, 'open', ?4, ?5, ?6)",
+      )
+      .bind(
+        connectionId,
+        localId,
+        occurrenceOn,
+        dayRemoteId,
+        JSON.stringify({ ...sent, startsOn: occurrenceOn, endsOn: occurrenceOn }),
+        stamp,
+      )
+      .run();
+  }
+
+  async function answerDay(localId: string, occurrenceOn: string, verb: string) {
+    return await app.request(
+      `${ISSUES_URL}/matter_event/${localId}/${verb}?occurrenceOn=${occurrenceOn}`,
+      { method: "POST", headers: headers(memberCookie) },
+      PROVISIONED,
+    );
+  }
+
+  async function dayStates() {
+    const { results } = await firmDatabase
+      .prepare(
+        "SELECT occurrence_on, state FROM connection_sync_day_issue WHERE connection_id = ?1 ORDER BY occurrence_on",
+      )
+      .bind(connectionId)
+      .all<{ occurrence_on: string; state: string }>();
+    return results;
+  }
+
+  it("lists a deleted day of a repeating event, and says whether it can be put back", async () => {
+    await firmDatabase.prepare("DELETE FROM connection_sync_issue").run();
+    await raiseDay("matterEvent_issue0000series", "2026-12-08", "gone-1208");
+    await raiseDay("matterEvent_issue0000series", "2026-12-15", null);
+    const listed = await app.request(ISSUES_URL, { headers: headers(memberCookie) }, PROVISIONED);
+    expect(await readJson(listed)).toEqual({
+      issues: [
+        {
+          localKind: "matter_event",
+          localId: "matterEvent_issue0000series",
+          kind: "removed",
+          sent: { ...sent, startsOn: "2026-12-08", endsOn: "2026-12-08" },
+          found: null,
+          detectedAt: stamp,
+          occurrenceOn: "2026-12-08",
+          canPutBack: true,
+        },
+        {
+          localKind: "matter_event",
+          localId: "matterEvent_issue0000series",
+          kind: "removed",
+          sent: { ...sent, startsOn: "2026-12-15", endsOn: "2026-12-15" },
+          found: null,
+          detectedAt: stamp,
+          occurrenceOn: "2026-12-15",
+          canPutBack: false,
+        },
+      ],
+    });
+  });
+
+  it("answers a deleted day by the day: put back where the account can, or left", async () => {
+    // No handle, no way back: said plainly, and nothing changes.
+    const refused = await answerDay("matterEvent_issue0000series", "2026-12-15", "put-back");
+    expect(refused.status).toBe(409);
+    // A day nobody asked about is not found.
+    expect((await answerDay("matterEvent_issue0000series", "2026-12-22", "leave")).status).toBe(
+      404,
+    );
+    expect(await dayStates()).toEqual([
+      { occurrence_on: "2026-12-08", state: "open" },
+      { occurrence_on: "2026-12-15", state: "open" },
+    ]);
+
+    // Asked back: the day waits for the next pass, and is no longer a question.
+    const putBack = await answerDay("matterEvent_issue0000series", "2026-12-08", "put-back");
+    expect(putBack.status).toBe(200);
+    expect(await readJson(putBack)).toMatchObject({ issues: [{ occurrenceOn: "2026-12-15" }] });
+    const left = await answerDay("matterEvent_issue0000series", "2026-12-15", "leave");
+    expect(left.status).toBe(200);
+    expect(await readJson(left)).toEqual({ issues: [] });
+    // Answered once: a second answer finds no open question.
+    expect((await answerDay("matterEvent_issue0000series", "2026-12-15", "leave")).status).toBe(
+      404,
+    );
+    const audit = await firmDatabase
+      .prepare(
+        "SELECT event, metadata FROM audit_log WHERE subject_id = 'matterEvent_issue0000series' ORDER BY event",
+      )
+      .all<{ event: string; metadata: string }>();
+    expect(audit.results.map((row) => [row.event, JSON.parse(row.metadata).occurrenceOn])).toEqual([
+      ["calendar_sync.copy_left", "2026-12-15"],
+      ["calendar_sync.copy_put_back", "2026-12-08"],
+    ]);
+    await settleBackgroundWork();
+    expect(await dayStates()).toEqual([
+      { occurrence_on: "2026-12-08", state: "restoring" },
+      { occurrence_on: "2026-12-15", state: "left" },
+    ]);
   });
 });
 
@@ -930,7 +1043,7 @@ describe("disconnecting", () => {
     expect(response.status).toBe(200);
     const left = await firmDatabase
       .prepare(
-        "SELECT (SELECT COUNT(*) FROM calendar_sync_rule) + (SELECT COUNT(*) FROM calendar_sync_link) + (SELECT COUNT(*) FROM connection_sync_issue) + (SELECT COUNT(*) FROM calendar_sync_shown_calendar) + (SELECT COUNT(*) FROM external_calendar_event) AS count",
+        "SELECT (SELECT COUNT(*) FROM calendar_sync_rule) + (SELECT COUNT(*) FROM calendar_sync_link) + (SELECT COUNT(*) FROM connection_sync_issue) + (SELECT COUNT(*) FROM connection_sync_day_issue) + (SELECT COUNT(*) FROM calendar_sync_shown_calendar) + (SELECT COUNT(*) FROM external_calendar_event) AS count",
       )
       .first<{ count: number }>();
     expect(left?.count).toBe(0);

@@ -9,7 +9,7 @@ built: in-progress by="Claude"
 ui: in-progress by="Claude"
 load-profile: todo
 tested: todo
-next: The owner reviews the Exhibits screens; then the exhibit list document and cover sheets on the shared house-document framework, the stamped package, and in-text references.
+next: The owner reviews the exhibit list, cover sheets and Bates-stamped package; then in-text exhibit references.
 active-work:
 link-spec: docs/specs/2026-08-11-exhibits-and-exhibit-lists-design.md
 link-plan: docs/specs/2026-08-11-exhibits-and-exhibit-lists-implementation-plan.md

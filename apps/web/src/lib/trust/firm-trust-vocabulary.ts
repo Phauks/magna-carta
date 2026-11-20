@@ -27,13 +27,11 @@
  * NOTHING HERE READS A RECORD APART. These are words, not judgments about what a reader may do:
  * who can act on a request, and what a posture means, live in firm-trust-model.ts.
  */
-import { formatDate, formatDateRange, formatMoney } from "@magna-carta/design-system/formatters";
+import { formatDate, formatMoney } from "@magna-carta/design-system/formatters";
 import type { BadgeVariant } from "@magna-carta/design-system/badge";
 import type {
   TrustAccountListing,
-  TrustBankStatement,
   TrustFirmFundsMovementKind,
-  TrustReconciliation,
   TrustRequestKind,
 } from "./trust-api.ts";
 
@@ -103,46 +101,6 @@ export const QUEUE_EMPTY = "Nothing is waiting.";
  */
 export const REQUEST_NOT_A_MATTER_LEDGER =
   "This request stands against a ledger that belongs to no matter, so there is no matter to open.";
-
-// ---- statements and reconciliations ------------------------------------------------------------
-
-/** The period a statement covers, as one reading. */
-export function statementPeriodText(statement: TrustBankStatement): string {
-  return formatDateRange(statement.periodStart, statement.periodEnd);
-}
-
-/** How the statement reached the platform. */
-export function statementSourceLabel(source: TrustBankStatement["source"]): string {
-  return source === "entered" ? "Entered by hand" : "Imported";
-}
-
-/** What a reconciliation's standing is called. */
-export function reconciliationStandingLabel(status: TrustReconciliation["status"]): string {
-  return status === "open" ? "Open" : "Closed";
-}
-
-/** What a closed reconciliation attested to, in one word. */
-export function balancedLabel(balanced: boolean): string {
-  return balanced ? "Balanced" : "Did not balance";
-}
-
-/** What "balanced" meant at the moment of closing, which is not what is true now. */
-export const FROZEN_PROOF_MEANING =
-  "The three-way proof as it stood when the period was closed: what the firm attested to then, not what is true now.";
-
-/*
- * What the panel's two "recorded" lists say when the account has none.
- *
- * ONE GRAMMAR FOR BOTH, and the same one the queue's own empty line uses ("Nothing is waiting."):
- * the present tense states what the record HOLDS, where the perfect tense states something about
- * its history that these reads do not actually know.
- */
-
-/** What the reconciliations list says when the account has none. */
-export const NO_RECONCILIATIONS = "No reconciliation is recorded.";
-
-/** What the statements list says when the account has none. */
-export const NO_STATEMENTS = "No statement is recorded.";
 
 // ---- the firm's own money in a trust account ----------------------------------------------------
 

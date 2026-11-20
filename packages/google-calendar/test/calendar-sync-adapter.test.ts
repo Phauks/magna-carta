@@ -577,6 +577,76 @@ describe("reading events through the Google calendar adapter", () => {
     expect(sent[0]?.url.startsWith(`${API}/calendars/cal/events/s/instances?`)).toBe(true);
     expect(sent[0]?.url).toContain("timeMin=2026-10-13T12%3A00%3A00.000Z");
   });
+
+  it("answers the days deleted from a series, each with what puts it back", async () => {
+    const { http, sent } = google(() => ({
+      status: 200,
+      body: {
+        items: [
+          {
+            id: "s_20261208T153000Z",
+            status: "cancelled",
+            originalStartTime: { dateTime: "2026-12-08T09:30:00-06:00" },
+          },
+          { id: "s_20261215", status: "cancelled", originalStartTime: { date: "2026-12-15" } },
+          // A day that still stands is not a deleted day.
+          {
+            id: "s_20261222T153000Z",
+            originalStartTime: { dateTime: "2026-12-22T09:30:00-06:00" },
+            start: { dateTime: "2026-12-22T09:30:00-06:00" },
+            end: { dateTime: "2026-12-22T11:00:00-06:00" },
+          },
+          // Says nothing of which day it was, so it is left alone.
+          { id: "s_x", status: "cancelled" },
+        ],
+      },
+    }));
+    const port = portOver(http);
+    expect(await port.listSeriesDeletedDays(googleEventReference("s", "cal"))).toEqual({
+      ok: true,
+      value: [
+        {
+          originalStartsAtMilliseconds: Date.parse("2026-12-08T15:30:00.000Z"),
+          dayRemoteId: "s_20261208T153000Z/cal",
+        },
+        {
+          originalStartsAtMilliseconds: Date.parse("2026-12-15T12:00:00.000Z"),
+          dayRemoteId: "s_20261215/cal",
+        },
+      ],
+    });
+    expect(sent[0]?.url.startsWith(`${API}/calendars/cal/events/s/instances?`)).toBe(true);
+    expect(sent[0]?.url).toContain("showDeleted=true");
+    expect(await port.listSeriesDeletedDays("no-calendar")).toEqual({ ok: true, value: null });
+  });
+
+  it("puts a deleted day back by marking it as standing, and says when Google will not", async () => {
+    const day = googleEventReference("s_20261208T153000Z", "cal");
+    const taken = google(() => ({ status: 200, body: { id: "s_20261208T153000Z" } }));
+    expect(await portOver(taken.http).restoreSeriesDay(day)).toEqual({
+      ok: true,
+      value: { found: true, versionTag: null },
+    });
+    expect(taken.sent[0]?.method).toBe("PATCH");
+    expect(taken.sent[0]?.url.startsWith(`${API}/calendars/cal/events/s_20261208T153000Z?`)).toBe(
+      true,
+    );
+    expect(JSON.parse(taken.sent[0]?.body ?? "{}")).toEqual({ status: "confirmed" });
+
+    // Declined for this one day: the day's own answer, not a reason to stop.
+    const declined = google(() => ({ status: 403, body: {} }));
+    expect(await portOver(declined.http).restoreSeriesDay(day)).toEqual({
+      ok: true,
+      value: { found: false },
+    });
+    // A sign-in Google no longer takes is the account's, and stops the pass.
+    const signedOut = google(() => ({ status: 401, body: {} }));
+    expect((await portOver(signedOut.http).restoreSeriesDay(day)).ok).toBe(false);
+    expect(await portOver(taken.http).restoreSeriesDay("no-calendar")).toEqual({
+      ok: true,
+      value: { found: false },
+    });
+  });
 });
 
 describe("watching a Google account for changes", () => {

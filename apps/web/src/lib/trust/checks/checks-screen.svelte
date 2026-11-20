@@ -46,6 +46,7 @@
   import Ban from "@lucide/svelte/icons/ban";
   import Undo2 from "@lucide/svelte/icons/undo-2";
   import Settings2 from "@lucide/svelte/icons/settings-2";
+  import FileDown from "@lucide/svelte/icons/file-down";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import { withAccount, type BackDestination } from "$lib/screen/screen-header.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
@@ -81,6 +82,7 @@
   } from "./checks-model.ts";
   import CheckReturnDialog from "./check-return-dialog.svelte";
   import CheckVoidDialog from "./check-void-dialog.svelte";
+  import PositivePayDialog from "./positive-pay-dialog.svelte";
 
   let {
     trustAccountId,
@@ -379,6 +381,10 @@
     voidOpen = true;
   }
 
+  // ---- positive pay file -------------------------------------------------------------------------
+
+  let positivePayOpen = $state(false);
+
   const counts = $derived({ toPrint: toPrint.length, printed: printed.length, voided: voided.length });
 </script>
 
@@ -460,6 +466,10 @@
   >
     <Ban class="size-16 shrink-0" aria-hidden="true" />
     Void Next Number
+  </DropdownMenu.Item>
+  <DropdownMenu.Item disabled={data === null} onSelect={() => (positivePayOpen = true)}>
+    <FileDown class="size-16 shrink-0" aria-hidden="true" />
+    Positive Pay File
   </DropdownMenu.Item>
 {/snippet}
 
@@ -608,4 +618,11 @@
   checkNumber={voidingNumber}
   {service}
   onVoided={() => void load()}
+/>
+
+<PositivePayDialog
+  bind:open={positivePayOpen}
+  accountName={accountName ?? "Trust Account"}
+  register={data?.register ?? []}
+  {service}
 />
