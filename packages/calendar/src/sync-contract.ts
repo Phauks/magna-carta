@@ -125,6 +125,12 @@ export const CalendarSyncShownCalendar = z
     calendarName: z
       .string()
       .describe("The calendar's name when it was chosen, shown when the provider is unreachable."),
+    sharedAsBusy: z
+      .boolean()
+      .describe(
+        "Whether colleagues are told the hours this calendar's events take, as busy time with " +
+          "no title, place or calendar name.",
+      ),
   })
   .meta({ id: "CalendarSyncShownCalendar" });
 
@@ -258,6 +264,15 @@ export const CalendarSyncShownCalendarsReplace = z
         "The member's whole choice of calendars to be shown. A calendar absent from it is no " +
           "longer read, and what was read from it is removed.",
       ),
+    busyCalendarRemoteIds: z
+      .array(z.string().min(1).max(512))
+      .max(MAXIMUM_SHOWN_CALENDARS)
+      .optional()
+      .describe(
+        "Which of the chosen calendars tell colleagues the member is busy: the whole choice, so " +
+          "one absent from it stops being shared and an absent list shares none. Each must also " +
+          "be in calendarRemoteIds.",
+      ),
   })
   .meta({ id: "CalendarSyncShownCalendarsReplace" });
 
@@ -319,3 +334,35 @@ export const CalendarSyncAccountEventList = z
       .describe("True when the window held more events than one answer carries."),
   })
   .meta({ id: "CalendarSyncAccountEventList" });
+
+export const CalendarMemberBusyTime = z
+  .object({
+    wholeDay: z.boolean(),
+    startsOn: z
+      .string()
+      .nullable()
+      .describe("A whole-day stretch's first day, as YYYY-MM-DD. Null for a timed one."),
+    endsOn: z
+      .string()
+      .nullable()
+      .describe("A whole-day stretch's last day, inclusive. Null for a timed one."),
+    startsAt: z
+      .string()
+      .nullable()
+      .describe("A timed stretch's start, as an instant. Null for a whole-day one."),
+    endsAt: z.string().nullable().describe("A timed stretch's end, as an instant."),
+  })
+  .meta({ id: "CalendarMemberBusyTime" });
+
+export const CalendarMemberBusyTimeList = z
+  .object({
+    busy: z
+      .array(CalendarMemberBusyTime)
+      .describe(
+        "When the member is busy, from the calendars of their own accounts they chose to share " +
+          "as busy. Hours only. Empty when they shared none, and always empty for the session " +
+          "member's own, who reads their own events instead.",
+      ),
+    truncated: z.boolean().describe("True when the window held more than one answer carries."),
+  })
+  .meta({ id: "CalendarMemberBusyTimeList" });

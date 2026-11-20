@@ -23,7 +23,7 @@
  * count do. Converting would move half the records to the day before for a reader two zones east.
  */
 import { wallClockMinutes } from "@magna-carta/design-system/calendar-grid";
-import type { CalendarEntry } from "./calendar-entries.ts";
+import { BUSY_TIME_LABEL, type CalendarEntry } from "./calendar-entries.ts";
 import type { EventTimingDraft, ParticipantDraft } from "./event-draft.ts";
 import { scheduleConflicts, type ProposedOccurrence } from "./schedule-conflicts.ts";
 
@@ -94,7 +94,10 @@ export function busyLabels(
 export function availabilitySentence(availability: MemberAvailability): string | null {
   if (!availability.read) return null;
   if (availability.busy.length === 0) return "Free";
-  return `Busy: ${availability.busy.join(", ")}`;
+  // A stretch from their own Outlook or Google calendar says only that they are busy, which the
+  // sentence already says. It is named beside something else only by its absence.
+  const named = availability.busy.filter((label) => label !== BUSY_TIME_LABEL);
+  return named.length === 0 ? "Busy" : `Busy: ${named.join(", ")}`;
 }
 
 function minutesOf(time: string): number | undefined {

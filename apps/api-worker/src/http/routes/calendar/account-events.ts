@@ -103,8 +103,9 @@ const replaceShownRoute = defineOpenAPIRoute(replaceShownMeta, {
   path: "/api/v1/me/calendar-sync/shown-calendars",
   description:
     "Replaces the session member's choice of which of their own account's calendars are shown " +
-    "to them in the firm's calendar. Events from a calendar no longer chosen are removed at " +
-    "once. Nothing is shown to anybody else, and nothing is changed at the provider.",
+    "to them in the firm's calendar, and which of those tell colleagues they are busy. Events " +
+    "from a calendar no longer chosen are removed at once. Colleagues are told hours only, and " +
+    "only from a calendar named in busyCalendarRemoteIds. Nothing is changed at the provider.",
   request: {
     query: CalendarSyncAccountChoice,
     body: {
@@ -170,7 +171,7 @@ export function registerCalendarAccountEventRoutes(
     { ...replaceShownRoute, middleware: chokepointMiddleware(chokepoint, replaceShownRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const { calendarRemoteIds } = c.req.valid("json");
+      const { calendarRemoteIds, busyCalendarRemoteIds } = c.req.valid("json");
       const connection = await memberAccount(c, c.req.valid("query").provider);
       if (connection === null) {
         return problemJson(c, {
@@ -203,6 +204,7 @@ export function registerCalendarAccountEventRoutes(
           calendarRemoteIds,
           calendars.calendars,
           { clock, actorUserId: requireChokepointUserId(c) },
+          busyCalendarRemoteIds ?? [],
         ));
       } catch (caught) {
         if (!(caught instanceof SyncRuleRefusal)) throw caught;
@@ -210,8 +212,20 @@ export function registerCalendarAccountEventRoutes(
           type: "calendar-sync-setting-refused",
           title: "A calendar sync setting could not be saved",
           status: 422,
-          detail: "One of the calendars chosen is not in your account any more. Nothing was saved.",
-          errors: [{ path: "calendarRemoteIds", code: caught.code, detail: caught.message }],
+          detail:
+            caught.code === "calendar-sync-busy-calendar-not-shown"
+              ? "A calendar can be shared as busy only when it is also shown to you. Nothing was saved."
+              : "One of the calendars chosen is not in your account any more. Nothing was saved.",
+          errors: [
+            {
+              path:
+                caught.code === "calendar-sync-busy-calendar-not-shown"
+                  ? "busyCalendarRemoteIds"
+                  : "calendarRemoteIds",
+              code: caught.code,
+              detail: caught.message,
+            },
+          ],
         });
       }
       await commitEffectBatch(firm.firmDatabase, effect, clock);

@@ -184,10 +184,14 @@ export interface ShownCalendarChoice {
   readonly remoteId: string;
   readonly name: string;
   readonly shown: boolean;
+  /** Whether colleagues are told the hours this calendar's events take, as Busy and no more. */
+  readonly sharedAsBusy: boolean;
 }
 
 /** The column the switch sits in. */
 export const SHOWN_COLUMN_ID = "shown";
+/** The column the second switch sits in: whether colleagues see this calendar's hours as Busy. */
+export const BUSY_COLUMN_ID = "busy";
 
 /**
  * The account's calendars as the provider lists them, each with the member's choice. Where the
@@ -200,10 +204,14 @@ export function shownCalendarChoices(
   shown: readonly CalendarSyncShownCalendar[],
 ): ShownCalendarChoice[] {
   const shownIds = new Set(shown.map((calendar) => calendar.calendarRemoteId));
+  const busyIds = new Set(
+    shown.filter((calendar) => calendar.sharedAsBusy).map((calendar) => calendar.calendarRemoteId),
+  );
   const listed = (calendars ?? []).map((calendar) => ({
     remoteId: calendar.remoteId,
     name: calendar.isDefault ? `${calendar.name} (My Main One)` : calendar.name,
     shown: shownIds.has(calendar.remoteId),
+    sharedAsBusy: busyIds.has(calendar.remoteId),
   }));
   const listedIds = new Set(listed.map((choice) => choice.remoteId));
   const unlisted = shown
@@ -212,6 +220,7 @@ export function shownCalendarChoices(
       remoteId: calendar.calendarRemoteId,
       name: calendar.calendarName,
       shown: true,
+      sharedAsBusy: calendar.sharedAsBusy,
     }));
   return [...listed, ...unlisted];
 }
@@ -225,6 +234,11 @@ export function shownCalendarColumns(product = "Outlook"): GridColumn<ShownCalen
       id: SHOWN_COLUMN_ID,
       label: "Show in Magna Carta",
       value: (choice) => (choice.shown ? "Shown" : "Not Shown"),
+    },
+    {
+      id: BUSY_COLUMN_ID,
+      label: "Show Colleagues as Busy",
+      value: (choice) => (choice.sharedAsBusy ? "Busy Shown" : "Not Shown"),
     },
   ];
 }
@@ -247,6 +261,24 @@ export function shownIdsWithChange(
     .filter((id) => inAccount.has(id));
 }
 
+/**
+ * Which of the member's calendars tell colleagues they are busy, with one turned on or off, as the
+ * save sends it beside `shownIds`. Only a calendar in that list can be in this one: a calendar
+ * that is not read has no hours to tell, and the save refuses one.
+ */
+export function busyIdsWithChange(
+  choices: readonly ShownCalendarChoice[],
+  shownIds: readonly string[],
+  remoteId: string | null,
+  busy: boolean,
+): string[] {
+  const shown = new Set(shownIds);
+  return choices
+    .filter((choice) => (choice.remoteId === remoteId ? busy : choice.sharedAsBusy))
+    .map((choice) => choice.remoteId)
+    .filter((id) => shown.has(id));
+}
+
 /** How many calendars are shown, for the plate's one-line summary. */
 export function shownSummary(
   shown: readonly CalendarSyncShownCalendar[],
@@ -254,7 +286,13 @@ export function shownSummary(
 ): string {
   const kind = product.endsWith("Calendar") ? "Google" : product;
   if (shown.length === 0) return `None of your ${kind} calendars is shown in Magna Carta.`;
-  return shown.length === 1
-    ? `1 ${kind} calendar is shown in Magna Carta, to you only.`
-    : `${shown.length} ${kind} calendars are shown in Magna Carta, to you only.`;
+  const mine =
+    shown.length === 1
+      ? `1 ${kind} calendar is shown in Magna Carta, to you only.`
+      : `${shown.length} ${kind} calendars are shown in Magna Carta, to you only.`;
+  const busy = shown.filter((calendar) => calendar.sharedAsBusy).length;
+  if (busy === 0) return mine;
+  return busy === 1
+    ? `${mine} Colleagues see when you're busy from 1 of them, without titles or places.`
+    : `${mine} Colleagues see when you're busy from ${busy} of them, without titles or places.`;
 }

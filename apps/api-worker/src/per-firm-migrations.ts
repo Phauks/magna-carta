@@ -102,6 +102,7 @@ import theFrontDeskKeepsAnInOutLogSql from "@magna-carta/database/drizzle/per-fi
 import recordPresenceSql from "@magna-carta/database/drizzle/per-firm/20261120T201547_record-presence.sql";
 import batesLogsSql from "@magna-carta/database/drizzle/per-firm/20261120T203600_bates-logs.sql";
 import signersCanGetACodeByTextSql from "@magna-carta/database/drizzle/per-firm/20261120T205502_signers-can-get-a-code-by-text.sql";
+import aMemberSharesACalendarAsBusySql from "@magna-carta/database/drizzle/per-firm/20261120T211109_a-member-shares-a-calendar-as-busy.sql";
 import bankFeedsSql from "@magna-carta/database/drizzle/per-firm/20261120T211219_bank-feeds.sql";
 
 export function perFirmMigrations(): Migration[] {
@@ -209,6 +210,7 @@ export function perFirmMigrations(): Migration[] {
     "20261120T201547_record-presence": recordPresenceSql,
     "20261120T203600_bates-logs": batesLogsSql,
     "20261120T205502_signers-can-get-a-code-by-text": signersCanGetACodeByTextSql,
+    "20261120T211109_a-member-shares-a-calendar-as-busy": aMemberSharesACalendarAsBusySql,
     "20261120T211219_bank-feeds": bankFeedsSql,
   });
 }

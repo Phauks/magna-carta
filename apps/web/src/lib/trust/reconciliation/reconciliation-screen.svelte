@@ -96,7 +96,7 @@
     type TypeFilter,
   } from "./reconciliation-model.ts";
   import { reconciliationReport } from "./reconciliation-report.ts";
-  import { readLive } from "./live-read.ts";
+  import { readLive } from "$lib/screen/live-read.ts";
   import ReconciliationNotesSheet from "./reconciliation-notes-sheet.svelte";
   import ReconciliationHistoryDialog from "./reconciliation-history-dialog.svelte";
   import ReconciliationTransactionDialog from "./reconciliation-transaction-dialog.svelte";
