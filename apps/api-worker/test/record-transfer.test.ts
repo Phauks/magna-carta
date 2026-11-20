@@ -516,3 +516,138 @@ describe("finishing a transfer run", () => {
     expect(CONFLICTS_TRANSFER_ACCEPTED_TOPIC).toBe(TRANSFER_RUN_ACCEPTED_TOPIC);
   });
 });
+
+describe("a source file given in pieces", () => {
+  const headers = () => ({ cookie: ownerCookie, origin: "https://example.com" });
+  // The bucket takes pieces of five mebibytes or more, the last excepted.
+  const FIRST_PIECE_BYTES = 5 * 1024 * 1024;
+
+  function table(): Uint8Array {
+    const lines = ["Id,First,Last"];
+    let length = lines[0]!.length + 1;
+    for (let row = 1; length < FIRST_PIECE_BYTES + 2000; row += 1) {
+      const line = `p-${row},Given${row},Family${row}`;
+      lines.push(line);
+      length += line.length + 1;
+    }
+    return new TextEncoder().encode(`${lines.join("\n")}\n`);
+  }
+
+  async function start(runId: string): Promise<{ fileId: string; uploadId: string }> {
+    const response = await SELF.fetch(`${BASE}/${runId}/file-uploads`, {
+      method: "POST",
+      headers: headers(),
+    });
+    expect(response.status).toBe(201);
+    return response.json();
+  }
+
+  async function sendPart(
+    runId: string,
+    upload: { fileId: string; uploadId: string },
+    partNumber: number,
+    bytes: Uint8Array,
+  ): Promise<Response> {
+    return SELF.fetch(
+      `${BASE}/${runId}/file-uploads/${upload.fileId}/parts/${partNumber}?uploadId=${encodeURIComponent(upload.uploadId)}`,
+      {
+        method: "PUT",
+        headers: { ...headers(), "content-type": "application/octet-stream" },
+        body: bytes,
+      },
+    );
+  }
+
+  function complete(
+    runId: string,
+    upload: { fileId: string; uploadId: string },
+    parts: unknown[],
+  ): Promise<Response> {
+    return SELF.fetch(`${BASE}/${runId}/file-uploads/${upload.fileId}/complete`, {
+      method: "POST",
+      headers: { ...headers(), "content-type": "application/json" },
+      body: JSON.stringify({
+        uploadId: upload.uploadId,
+        fileName: "People.csv",
+        sourceKind: "card-list",
+        parts,
+      }),
+    });
+  }
+
+  async function give(runId: string, bytes: Uint8Array) {
+    const upload = await start(runId);
+    const parts = [];
+    for (const [index, piece] of [
+      bytes.subarray(0, FIRST_PIECE_BYTES),
+      bytes.subarray(FIRST_PIECE_BYTES),
+    ].entries()) {
+      const sent = await sendPart(runId, upload, index + 1, piece);
+      expect(sent.status).toBe(200);
+      parts.push((await sent.json<{ part: unknown }>()).part);
+    }
+    return { upload, parts };
+  }
+
+  it("joins the pieces into one file with the digest of the whole, and takes the same bytes once", async () => {
+    const runId = await startRun("Tables");
+    const bytes = table();
+    const { upload, parts } = await give(runId, bytes);
+    // No file is in the run until the upload is completed.
+    const before = await SELF.fetch(`${BASE}/${runId}`, { headers: headers() });
+    expect((await before.json<{ files: unknown[] }>()).files).toEqual([]);
+
+    const done = await complete(runId, upload, parts);
+    expect(done.status).toBe(201);
+    const { file } = await done.json<{
+      file: { id: string; byteLength: number; contentSha256: string; fileName: string };
+    }>();
+    const digest = await crypto.subtle.digest("SHA-256", bytes);
+    const expected = [...new Uint8Array(digest)]
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("");
+    expect(file).toMatchObject({
+      id: upload.fileId,
+      byteLength: bytes.byteLength,
+      contentSha256: expected,
+      fileName: "People.csv",
+    });
+    const stored = await env.R2.get(`transfers/${runId}/${upload.fileId}`);
+    expect(stored?.size).toBe(bytes.byteLength);
+    expect(stored?.customMetadata?.object_class).toBe("transfer-source-file");
+
+    // The completion delivered again answers the same file.
+    const again = await complete(runId, upload, parts);
+    expect(again.status).toBe(201);
+    expect((await again.json<{ file: { id: string } }>()).file.id).toBe(upload.fileId);
+
+    // The same bytes given again, in pieces, are refused and nothing is kept.
+    const second = await give(runId, bytes);
+    expect((await complete(runId, second.upload, second.parts)).status).toBe(409);
+    expect(await env.R2.get(`transfers/${runId}/${second.upload.fileId}`)).toBeNull();
+
+    const preview = await SELF.fetch(`${BASE}/${runId}/files/${upload.fileId}/preview`, {
+      headers: headers(),
+    });
+    expect((await preview.json<{ columns: string[] }>()).columns).toEqual(["Id", "First", "Last"]);
+  });
+
+  it("refuses a piece for an upload it does not know, and a member without the permission", async () => {
+    const runId = await startRun("Tables 2");
+    const upload = await start(runId);
+    const stray = await sendPart(
+      runId,
+      { fileId: upload.fileId, uploadId: "not-an-upload" },
+      1,
+      new Uint8Array([65]),
+    );
+    expect(stray.status).toBe(409);
+    expect((await complete(runId, upload, [{ partNumber: 1, etag: "nothing" }])).status).toBe(409);
+    const refused = await SELF.fetch(`${BASE}/${runId}/file-uploads`, {
+      method: "POST",
+      headers: { cookie: attorneyCookie, origin: "https://example.com" },
+    });
+    expect(refused.status).toBe(403);
+  });
+});
+

@@ -5,6 +5,8 @@ export const OPERATIONS: readonly string[] = [
   "recordTransfer.abandonRun",
   "recordTransfer.acceptRun",
   "recordTransfer.addSourceFile",
+  "recordTransfer.addSourceFileUploadPart",
+  "recordTransfer.completeSourceFileUpload",
   "recordTransfer.downloadRejectedRows",
   "recordTransfer.getPass",
   "recordTransfer.getPassReport",
@@ -17,4 +19,5 @@ export const OPERATIONS: readonly string[] = [
   "recordTransfer.requestPass",
   "recordTransfer.saveSourceFileMapping",
   "recordTransfer.startRun",
+  "recordTransfer.startSourceFileUpload",
 ];
