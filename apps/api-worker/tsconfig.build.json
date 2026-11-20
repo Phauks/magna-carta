@@ -219,6 +219,9 @@
       "path": "../../packages/timekeeping/tsconfig.build.json"
     },
     {
+      "path": "../../packages/translation/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/trust/tsconfig.build.json"
     },
     {

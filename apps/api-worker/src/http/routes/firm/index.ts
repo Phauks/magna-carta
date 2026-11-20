@@ -20,6 +20,7 @@ import { registerReleaseChannelRoute } from "./release-channel.ts";
 import { registerScanPolicyRoutes } from "./scan-policy.ts";
 import { registerFirmSearchSettingsRoutes } from "./search-settings.ts";
 import { registerFirmSearchStatusRoutes } from "./search-status.ts";
+import { registerFirmTranslationSettingsRoutes } from "./translation-settings.ts";
 
 // The firm's settings tier: profile, the per-domain policies, numbering, custom fields, the classification types, and the beta release-channel door.
 //
@@ -64,5 +65,7 @@ export function mountFirm(app: AppRouter, chokepoint: Chokepoint, _deps: DomainD
   // What the firm's indexes hold, counted when asked: the read behind the list of searchable places
   // on the same settings page.
   registerFirmSearchStatusRoutes(domain, chokepoint);
+  // The firm's translation switch: whether pasted text may be sent to Google to translate.
+  registerFirmTranslationSettingsRoutes(domain, chokepoint);
   app.route("/", domain);
 }

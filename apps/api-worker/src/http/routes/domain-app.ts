@@ -5,6 +5,7 @@ import type { HumanVerificationGateOptions } from "../human-verification/human-v
 import type { ConnectedAccountsRouteDeps } from "./calendar/connected-accounts.ts";
 import type { SafeBrowseRouteDeps } from "./tools/safe-browse.ts";
 import type { WhoisRouteDeps } from "./tools/whois.ts";
+import type { TranslationRouteDeps } from "./tools/translation.ts";
 import type { Bindings } from "../../bindings.ts";
 import type { SendEmail } from "../../email-port.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
@@ -40,6 +41,8 @@ export interface DomainDeps {
   /** The mail a signing request's signers are sent through; tests capture it. */
   readonly signingMail?: (env: Bindings) => SendEmail;
   readonly connectedAccounts?: ConnectedAccountsRouteDeps;
+  /** Which translation engine a request gets; tests inject a port. */
+  readonly translation?: TranslationRouteDeps;
 }
 
 // One entry of the manifest (src/http/routes/manifest.ts).
