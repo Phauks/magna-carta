@@ -42,7 +42,7 @@
       error:
         errorId === null
           ? null
-          : { message: CRASH_MESSAGE, errorId, ...(cause === null ? {} : { cause }) },
+          : { status: 500, message: CRASH_MESSAGE, errorId, ...(cause === null ? {} : { cause }) },
       url: page.url,
     }),
   );

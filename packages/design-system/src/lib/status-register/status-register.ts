@@ -466,8 +466,10 @@ export const STATUS_REGISTER: Readonly<Record<StatusKey, StatusEntry>> = {
       "Search isn't connected yet, so nothing here can be searched, whatever the firm's setting says.",
     presentation: "chip",
   },
+  // Not "New": the community board's New already means "not reviewed yet", and one word carries one
+  // meaning in this register.
   "reconciliation-new": {
-    label: "New",
+    label: "Added Later",
     tone: "neutral",
     meaning: "Recorded after this reconciliation was started, dated inside its period.",
     presentation: "chip",

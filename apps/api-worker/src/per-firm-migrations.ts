@@ -98,7 +98,8 @@ import problemReportsAreAnsweredSql from "@magna-carta/database/drizzle/per-firm
 import trustBankReconciliationSql from "@magna-carta/database/drizzle/per-firm/20261119T202327_trust-bank-reconciliation.sql";
 import batesNumbersSql from "@magna-carta/database/drizzle/per-firm/20261119T202542_bates-numbers.sql";
 import translationToolPermissionSql from "@magna-carta/database/drizzle/per-firm/20261119T202718_translation-tool-permission.sql";
-import paymentsRecordedByHandSql from "@magna-carta/database/drizzle/per-firm/20261120T193935_payments-recorded-by-hand.sql";
+import theFrontDeskKeepsAnInOutLogSql from "@magna-carta/database/drizzle/per-firm/20261119T203231_the-front-desk-keeps-an-in-out-log.sql";
+import paymentsRecordedByHandSql from "@magna-carta/database/drizzle/per-firm/20261120T201746_payments-recorded-by-hand.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -201,7 +202,8 @@ export function perFirmMigrations(): Migration[] {
     "20261119T202327_trust-bank-reconciliation": trustBankReconciliationSql,
     "20261119T202542_bates-numbers": batesNumbersSql,
     "20261119T202718_translation-tool-permission": translationToolPermissionSql,
-    "20261120T193935_payments-recorded-by-hand": paymentsRecordedByHandSql,
+    "20261119T203231_the-front-desk-keeps-an-in-out-log": theFrontDeskKeepsAnInOutLogSql,
+    "20261120T201746_payments-recorded-by-hand": paymentsRecordedByHandSql,
   });
 }
 

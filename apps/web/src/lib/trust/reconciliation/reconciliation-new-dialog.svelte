@@ -5,7 +5,9 @@
    * The first period asks for its start date and start balance, because nothing came before it.
    * Every later one carries both over from the period before it and says so. The end date and the
    * end balance are the statement's, and the end balance may wait: it can be typed on the
-   * reconciliation itself. Statement files chosen here are attached once the period exists.
+   * reconciliation itself. Statement files chosen here are attached once the period exists. A file
+   * the server refuses (the malware scan flagged it, or it is not a PDF or an image) keeps the dialog
+   * open saying so, and the commit then opens the period that was started.
    */
   import ActionDialog from "@magna-carta/design-system/action-dialog";
   import type { ActionOutcome } from "@magna-carta/design-system/action-dialog";
@@ -50,6 +52,9 @@
   let endBalanceText = $state("");
   let files = $state<FileList | undefined>(undefined);
   let failure = $state<StatedFailure | null>(null);
+  let failureTitle = $state("Nothing Was Started");
+  /** The period already started when one of its files was refused; committing again opens it. */
+  let startedId = $state<string | null>(null);
   let key = "";
 
   function reset(): void {
@@ -59,6 +64,8 @@
     endBalanceText = "";
     files = undefined;
     failure = null;
+    failureTitle = "Nothing Was Started";
+    startedId = null;
     key = crypto.randomUUID();
   }
 
@@ -83,6 +90,10 @@
   const started = $derived(startDate !== "" || startBalanceText !== "" || endBalanceText !== "");
 
   async function start(): Promise<ActionOutcome> {
+    if (startedId !== null) {
+      onStarted(startedId);
+      return "committed";
+    }
     if (refusal !== undefined) return "refused";
     failure = null;
     const outcome = await service.start(
@@ -106,8 +117,18 @@
     }
     const reconciliationId = outcome.value.trustBankReconciliationId;
     for (const file of Array.from(files ?? [])) {
-      await service.attachFile(reconciliationId, file, crypto.randomUUID());
+      const attached = await service.attachFile(reconciliationId, file, crypto.randomUUID());
+      if (attached.kind !== "ok") {
+        startedId = reconciliationId;
+        failureTitle = "File Not Kept";
+        failure = stated(
+          attached.failure,
+          `The reconciliation was started, but ${file.name} was not kept. You can attach a file on the reconciliation.`,
+          `Couldn't connect. The reconciliation was started, but ${file.name} was not kept.`,
+        );
+      }
     }
+    if (startedId !== null) return "refused";
     onStarted(reconciliationId);
     return "committed";
   }
@@ -117,7 +138,7 @@
   bind:open
   heading="New Reconciliation"
   subtitle={accountName === null ? undefined : { facts: [accountName] }}
-  commitLabel="Start Reconciliation"
+  commitLabel={startedId === null ? "Start Reconciliation" : "Open Reconciliation"}
   commitBusyLabel="Starting"
   commitRefusal={refusal}
   unsavedChanges={started}
@@ -128,7 +149,7 @@
     {#if failure !== null}
       <FailureNotice
         failure={failure.failure}
-        title="Nothing Was Started"
+        title={failureTitle}
         fallback={failure.fallback}
         whenSilent={failure.whenSilent}
       />

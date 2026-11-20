@@ -27,9 +27,7 @@ import type {
   TrustAccountListing,
   TrustAccountPosition,
   TrustAuthorizationPolicyVersion,
-  TrustBankStatement,
   TrustPendingRequest,
-  TrustReconciliation,
 } from "./trust-api.ts";
 import { trustMoneyText } from "./firm-trust-vocabulary.ts";
 import { matterNameText } from "./trust-vocabulary.ts";
@@ -147,43 +145,6 @@ export function positionReading(
  */
 export function requestMatterText(request: TrustPendingRequest): string {
   return matterNameText(request.matterNumber, request.matterTitle) ?? "The matter";
-}
-
-// ---- statements and reconciliations ---------------------------------------------------------------
-
-/** The statements a reader reads, most recent period first. */
-export function statementsInOrder(
-  statements: readonly TrustBankStatement[],
-): readonly TrustBankStatement[] {
-  return statements.toSorted((left, right) => right.periodEnd.localeCompare(left.periodEnd));
-}
-
-/** One reconciliation with the statement it was run against, where that statement was read. */
-export interface TrustReconciliationRow {
-  readonly reconciliation: TrustReconciliation;
-  /** The statement the period belongs to, or null where it is not among the ones read. */
-  readonly statement: TrustBankStatement | null;
-}
-
-/**
- * The reconciliations, most recently opened first, each carrying its statement.
- *
- * A reconciliation whose statement is absent is not an error: the two reads are independent, and a
- * statement superseded by a later one can leave a closed reconciliation pointing at a period the
- * current listing no longer carries. The row says so rather than printing the identifier as though
- * it were a period.
- */
-export function reconciliationRows(
-  reconciliations: readonly TrustReconciliation[],
-  statements: readonly TrustBankStatement[],
-): readonly TrustReconciliationRow[] {
-  const byIdentifier = new Map(statements.map((statement) => [statement.id, statement]));
-  return reconciliations
-    .toSorted((left, right) => right.openedAt.localeCompare(left.openedAt))
-    .map((reconciliation) => ({
-      reconciliation,
-      statement: byIdentifier.get(reconciliation.statementId) ?? null,
-    }));
 }
 
 // ---- narrowing the roster ---------------------------------------------------------------------

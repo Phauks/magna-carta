@@ -621,8 +621,15 @@
     {
       "idx": 88,
       "version": "6",
-      "when": 1795203575034,
-      "tag": "20261120T193935_payments-recorded-by-hand",
+      "when": 1795116100406,
+      "tag": "20261119T203231_the-front-desk-keeps-an-in-out-log",
+      "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "6",
+      "when": 1795205861343,
+      "tag": "20261120T201746_payments-recorded-by-hand",
       "breakpoints": true
     }
   ]

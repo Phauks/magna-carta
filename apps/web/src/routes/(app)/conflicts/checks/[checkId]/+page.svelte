@@ -217,8 +217,7 @@
   function selectRun(runId: string): void {
     tab = "report";
     void goto(`/conflicts/checks/${encodeURIComponent(checkId)}?run=${encodeURIComponent(runId)}`, {
-      keepFocus: true,
-      noScroll: true,
+      reset: false,
     });
   }
 
