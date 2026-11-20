@@ -123,7 +123,7 @@ const REBUILD_CASES: Record<string, RebuildCase> = {
    * to `ledger_account` are ALTERs, so the seeded account also proves those land on a populated
    * parent.
    */
-  "20261120T195426_operating-books-and-vendor-bills": {
+  "20261120T212524_operating-books-and-vendor-bills": {
     lineage: "per-firm",
     rebuilt: "firm_account_role",
     child: "ledger_account",

@@ -45,20 +45,27 @@
   }}
 />
 
-{#snippet optionalTemplate()}
-  <div class="flex items-center gap-3">
-    <Label for="matter-nickname" necessity="optional">Nickname</Label>
-    <input id="matter-nickname" type="text" class="mc-input max-w-xs" />
+{#snippet necessityTemplate()}
+  <div class="flex flex-col gap-3">
+    <div class="flex items-center gap-3">
+      <Label for="matter-title" necessity="required">Title</Label>
+      <input id="matter-title" type="text" class="mc-input max-w-xs" required />
+    </div>
+    <div class="flex items-center gap-3">
+      <Label for="matter-nickname" necessity="optional">Nickname</Label>
+      <input id="matter-nickname" type="text" class="mc-input max-w-xs" />
+    </div>
   </div>
 {/snippet}
 
 <Story
-  name="Optional"
-  template={optionalTemplate}
+  name="Required and Optional"
+  template={necessityTemplate}
   play={async ({ canvas, step }) => {
-    await step("Names the field with the Optional mark after it", async () => {
-      await expect(canvas.getByRole("textbox", { name: "Nickname Optional" })).toBeInTheDocument();
-      await expect(canvas.getByText("Optional")).toHaveClass("mc-label-necessity");
+    await step("Marks the required field with a star and leaves the optional one bare", async () => {
+      await expect(canvas.getByText("*")).toHaveClass("mc-label-necessity");
+      await expect(canvas.getByRole("textbox", { name: "Nickname" })).toBeInTheDocument();
+      await expect(canvas.queryByText("Optional")).toBeNull();
     });
   }}
 />

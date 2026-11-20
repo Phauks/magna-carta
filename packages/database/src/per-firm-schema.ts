@@ -7432,6 +7432,7 @@ export const paymentDeposit = sqliteTable(
   (table) => [
     uniqueIndex("payment_deposit_entry_unique_index").on(table.entryId),
     index("payment_deposit_deposited_on_index").on(table.depositedOn),
+    check("payment_deposit_deposited_on_shape_check", civilDateShape(table.depositedOn)),
     check(
       "payment_deposit_slip_number_nonempty_check",
       sql`${table.slipNumber} IS NULL OR length(trim(${table.slipNumber})) > 0`,

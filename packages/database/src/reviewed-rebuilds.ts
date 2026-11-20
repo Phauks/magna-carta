@@ -130,5 +130,5 @@ export const REVIEWED_REBUILDS: ReadonlySet<string> = new Set<string>([
   // over all four columns with no WHERE and no expression, and the CHECK cannot reject a copied row
   // because the change only ADDS values. The table has no index or trigger to recreate beyond its
   // primary key. The chart columns in the same file are ADDED to ledger_account, not rebuilt.
-  "20261120T195426_operating-books-and-vendor-bills",
+  "20261120T212524_operating-books-and-vendor-bills",
 ]);

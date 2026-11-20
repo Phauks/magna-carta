@@ -9,6 +9,7 @@ CREATE TABLE `payment_deposit` (
 	`recorded_at` text NOT NULL,
 	FOREIGN KEY (`deposit_to_account_id`) REFERENCES `ledger_account`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`entry_id`) REFERENCES `ledger_entry`(`id`) ON UPDATE no action ON DELETE no action,
+	CONSTRAINT "payment_deposit_deposited_on_shape_check" CHECK("payment_deposit"."deposited_on" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
 	CONSTRAINT "payment_deposit_slip_number_nonempty_check" CHECK("payment_deposit"."slip_number" IS NULL OR length(trim("payment_deposit"."slip_number")) > 0)
 );
 --> statement-breakpoint

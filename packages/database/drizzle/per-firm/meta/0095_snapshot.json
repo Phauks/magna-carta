@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "2f0a5321-413e-4eda-8016-830cc1d6f6ba",
+  "id": "c275d2a4-c43b-41c5-9968-b6644fd27bc3",
   "prevId": "02837e43-5de6-4add-91ba-42cae3f72705",
   "tables": {
     "account_balance": {
@@ -27421,6 +27421,10 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {
+        "payment_deposit_deposited_on_shape_check": {
+          "name": "payment_deposit_deposited_on_shape_check",
+          "value": "\"payment_deposit\".\"deposited_on\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
+        },
         "payment_deposit_slip_number_nonempty_check": {
           "name": "payment_deposit_slip_number_nonempty_check",
           "value": "\"payment_deposit\".\"slip_number\" IS NULL OR length(trim(\"payment_deposit\".\"slip_number\")) > 0"
