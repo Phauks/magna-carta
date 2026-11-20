@@ -401,7 +401,8 @@
   {/if}
 
   <main class="mc-scrollbar min-h-0 flex-1 overflow-auto p-16 sm:p-24" bind:this={reading} bind:clientWidth={readingOuterWidth}>
-    <LoadingRegion class="flex w-max min-w-full flex-col items-center" loading={phase.kind === "reading"} label="Reading the document to sign">
+    <!-- The pages may be wider than the screen and scroll sideways inside main; a card never is, so it takes the width there is. -->
+    <LoadingRegion class={walking ? "flex w-max min-w-full flex-col items-center" : "flex w-full flex-col items-center"} loading={phase.kind === "reading"} label="Reading the document to sign">
       {#snippet fixture()}
         <AuthPanel title={sampleMatter(0).title}>
           <p class="text-sm">{SAMPLE_SENTENCE}</p>
@@ -433,15 +434,20 @@
         </AuthPanel>
       {:else if view !== null && view.needsCode}
         <AuthPanel title="Confirm It Is You">
+          {@const texted = view.codeChannel === "text"}
           <div class="flex flex-col gap-16">
             <p class="text-sm">
-              {view.firmName} asked us to confirm it's you before you sign. We'll email a six-digit code to {view.codeSentTo ?? "your email address"}.
+              {#if texted}
+                {view.firmName} asked us to confirm it's you before you sign. We'll text a six-digit code to {view.codeSentTo ?? "your mobile number"}.
+              {:else}
+                {view.firmName} asked us to confirm it's you before you sign. We'll email a six-digit code to {view.codeSentTo ?? "your email address"}.
+              {/if}
             </p>
             {#if codeFailure !== null}
               <FailureNotice failure={codeFailure.failure} fallback={codeFailure.fallback} />
             {/if}
             {#if codeSentTo === null}
-              <Button variant="primary" disabled={codeBusy} onclick={() => void askForCode()}>Email Me a Code</Button>
+              <Button variant="primary" disabled={codeBusy} onclick={() => void askForCode()}>{texted ? "Text Me a Code" : "Email Me a Code"}</Button>
             {:else}
               <p class="text-sm text-text-muted">The code was sent to {codeSentTo}. It works for ten minutes.</p>
               <div class="flex flex-col gap-8">
@@ -450,12 +456,12 @@
               </div>
               {#if codeWrong}
                 <Alert.Root variant="warning">
-                  <Alert.Description>That code isn't right. Check the latest email and try again.</Alert.Description>
+                  <Alert.Description>That code isn't right. Check the latest {texted ? "text message" : "email"} and try again.</Alert.Description>
                 </Alert.Root>
               {/if}
-              <div class="flex gap-8">
+              <div class="flex flex-wrap gap-8">
                 <Button variant="primary" disabled={codeBusy || code.length !== 6} onclick={() => void enterCode()}>Continue</Button>
-                <Button variant="ghost" disabled={codeBusy} onclick={() => void askForCode()}>Send a New Code</Button>
+                <Button variant="ghost" disabled={codeBusy} onclick={() => void askForCode()}>{texted ? "Text Me a New Code" : "Send a New Code"}</Button>
               </div>
             {/if}
           </div>

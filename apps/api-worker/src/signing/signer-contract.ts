@@ -5,6 +5,7 @@ import {
   fieldsInReadingOrder,
   type SigningFieldKind,
 } from "@magna-carta/signing/request";
+import { maskedNumber } from "@magna-carta/signing/signer-checks";
 import { consentDisclosure } from "./consent-disclosure.ts";
 import { Rect } from "./request-contract.ts";
 import { needsCode, type SignerView } from "./signer-service.ts";
@@ -32,6 +33,8 @@ export const SignerRequestView = z
     signerName: z.string(),
     /** Where the code is sent, partly hidden ("j***@example.com"); null when no code is needed. */
     codeSentTo: z.string().nullable(),
+    // Where the code goes, so the page can say "email" or "text"; null when no code is needed.
+    codeChannel: z.enum(["email", "text"]).nullable(),
     needsCode: z.boolean(),
     consented: z.boolean(),
     adopted: z.boolean(),
@@ -100,6 +103,17 @@ export function maskedAddress(address: string): string {
   return `${address.slice(0, 1)}${"*".repeat(Math.max(1, at - 1))}${address.slice(at)}`;
 }
 
+/** Where a signer's code goes, shown back to them with most of it hidden; null when none is sent. */
+export function codeSentTo(
+  signer: Pick<SignerView["signer"], "attributionLevel" | "codeChannel" | "email" | "mobileNumber">,
+): string | null {
+  if (signer.attributionLevel !== "access-code") return null;
+  if (signer.codeChannel === "text") {
+    return signer.mobileNumber === null ? null : maskedNumber(signer.mobileNumber);
+  }
+  return maskedAddress(signer.email);
+}
+
 export function signerViewBody(
   view: SignerView,
   names: { readonly firmName: string; readonly senderName: string },
@@ -116,8 +130,9 @@ export function signerViewBody(
     message: request.message,
     expiresAt: request.expiresAt,
     signerName: view.signer.name,
-    codeSentTo:
-      view.signer.attributionLevel === "access-code" ? maskedAddress(view.signer.email) : null,
+    codeSentTo: codeSentTo(view.signer),
+    codeChannel:
+      view.signer.attributionLevel === "access-code" ? (view.signer.codeChannel ?? "email") : null,
     needsCode: needsCode(view),
     consented: view.signer.consentedAt !== null,
     adopted: view.signer.signatureObjectKey !== null,

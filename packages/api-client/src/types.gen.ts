@@ -4208,6 +4208,8 @@ export type SigningRequestDetail = {
         email: string;
         attribution: 'email-link' | 'access-code' | 'firm-authenticated';
         userId: string | null;
+        codeChannel: 'email' | 'text' | null;
+        mobileNumber: string | null;
         status: 'waiting' | 'notified' | 'opened' | 'signed' | 'declined';
         notifiedAt: string | null;
         openedAt: string | null;
@@ -4266,6 +4268,8 @@ export type SaveSigningDraftRequest = {
         email: string;
         attribution: 'email-link' | 'access-code' | 'firm-authenticated';
         userId?: string;
+        codeChannel?: 'email' | 'text';
+        mobileNumber?: string;
     }>;
     fields: Array<{
         signerKey: string;
@@ -4293,6 +4297,7 @@ export type SignerRequestView = {
     expiresAt: string;
     signerName: string;
     codeSentTo: string | null;
+    codeChannel: 'email' | 'text' | null;
     needsCode: boolean;
     consented: boolean;
     adopted: boolean;
@@ -4354,6 +4359,28 @@ export type SignedCopyView = {
     sealedAt: string;
     documentFileName: string;
     certificateFileName: string;
+};
+
+export type SigningSettingsResponse = {
+    emailCode: boolean;
+    textCode: boolean;
+    identityCheck: boolean;
+    startWith: 'email-link' | 'email-code' | 'text-code' | 'identity-check';
+    startingCheck: 'email-link' | 'email-code' | 'text-code' | 'identity-check';
+    offered: Array<'email-link' | 'email-code' | 'text-code' | 'identity-check'>;
+    textServiceReady: boolean;
+    outsideServices: Array<{
+        kind: 'identity-check' | 'online-notary';
+        connected: boolean;
+        vendor: string | null;
+    }>;
+};
+
+export type PatchSigningSettingsRequest = {
+    emailCode?: boolean;
+    textCode?: boolean;
+    identityCheck?: boolean;
+    startWith?: 'email-link' | 'email-code' | 'text-code' | 'identity-check';
 };
 
 export type SessionLaunchResponse = {
@@ -26379,6 +26406,95 @@ export type SignerReadSignedCopyCertificateResponses = {
 };
 
 export type SignerReadSignedCopyCertificateResponse = SignerReadSignedCopyCertificateResponses[keyof SignerReadSignedCopyCertificateResponses];
+
+export type SigningSettingsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/signing/settings';
+};
+
+export type SigningSettingsGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks esign:send
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningSettingsGetError = SigningSettingsGetErrors[keyof SigningSettingsGetErrors];
+
+export type SigningSettingsGetResponses = {
+    /**
+     * The firm's signing settings
+     */
+    200: SigningSettingsResponse;
+};
+
+export type SigningSettingsGetResponse = SigningSettingsGetResponses[keyof SigningSettingsGetResponses];
+
+export type SigningSettingsUpdateData = {
+    body: PatchSigningSettingsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/signing/settings';
+};
+
+export type SigningSettingsUpdateErrors = {
+    /**
+     * The Idempotency-Key header is missing
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks esign:manageSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SigningSettingsUpdateError = SigningSettingsUpdateErrors[keyof SigningSettingsUpdateErrors];
+
+export type SigningSettingsUpdateResponses = {
+    /**
+     * The firm's signing settings after the write
+     */
+    200: SigningSettingsResponse;
+};
+
+export type SigningSettingsUpdateResponse = SigningSettingsUpdateResponses[keyof SigningSettingsUpdateResponses];
 
 export type DocumentsEditSessionData = {
     body?: never;
