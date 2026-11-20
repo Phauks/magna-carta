@@ -1570,6 +1570,28 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "hard-delete",
     note: "the swept-unread shape exactly, one question over: a per-member per-category day tally of how many notifications a preference silenced, carrying a count, a civil date, whose choice did it, and an instant — and nothing about what was silenced. Hard-delete for the same reason its sibling is: it points at records that are registered and retained in their own right",
   },
+  // Sharing a matter's files with a person outside the firm. A share row says who could see which
+  // file, from whom, and when that stopped; a stopped share is revoked rather than deleted, so the
+  // row is the record of what left the firm. The person's own details live on the Directory entity,
+  // where the subject-side scrub happens, as with matter_party.
+  {
+    table: "share",
+    subjectKey: "recipient_entity_id",
+    action: "retain-under-matter",
+    note: "who was given access to a matter's files, and until when, is the record of what the firm disclosed",
+  },
+  {
+    table: "share",
+    subjectKey: "shared_by_user_id",
+    action: "retain-under-matter",
+    note: "which member disclosed the file is the provenance of the disclosure",
+  },
+  {
+    table: "share",
+    subjectKey: "revoked_by_user_id",
+    action: "retain-under-matter",
+    note: "who stopped the share, and when, closes the interval the row records",
+  },
 ];
 
 // Per-firm tables that hold NO personal data — the explicit non-PII half of the coverage fitness.

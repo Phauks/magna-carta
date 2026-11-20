@@ -9,7 +9,8 @@
     "./share-statements": "./src/share-statements.ts",
     "./share-service": "./src/share-service.ts",
     "./share-access": "./src/share-access.ts",
-    "./share-reads": "./src/share-reads.ts"
+    "./share-reads": "./src/share-reads.ts",
+    "./contract": "./src/contract.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -19,7 +20,8 @@
     "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
-    "@magna-carta/identifiers": "workspace:*"
+    "@magna-carta/identifiers": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",

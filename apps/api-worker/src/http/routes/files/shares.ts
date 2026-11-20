@@ -1,4 +1,3 @@
-import { CIVIL_DATE_PATTERN } from "@magna-carta/civil-time/civil-date";
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
@@ -21,9 +20,16 @@ import {
   revokeShare,
   shareItems,
   ShareValidationError,
-  MAXIMUM_SHARES_PER_WRITE,
 } from "@magna-carta/sharing/share-service";
-import { SHARE_ROLES, SHARE_SIGN_INS, type ShareTarget } from "@magna-carta/sharing/types";
+import {
+  ChangeShareRequest,
+  ShareAcknowledged,
+  SharedFilesResponse,
+  ShareFilesRequest,
+  ShareListResponse,
+  type ShareTargetBody,
+} from "@magna-carta/sharing/contract";
+import type { ShareTarget } from "@magna-carta/sharing/types";
 import type { Context } from "hono";
 import type { Bindings } from "../../../bindings.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
@@ -47,66 +53,6 @@ import { problemResponseForIdempotencyConflict } from "../../idempotency-conflic
 // so who could see what stays answerable; the person is refused on their next request.
 
 const FILES_SHARE = "files:share" as const;
-
-const ShareTargetBody = z.discriminatedUnion("scope", [
-  z.object({ scope: z.literal("matter") }),
-  z.object({ scope: z.literal("folder"), folderId: identifierField("folder") }),
-  z.object({
-    scope: z.literal("file"),
-    fileId: identifierField("file"),
-    // Hold this version still, so the person keeps seeing the copy that was sent.
-    fileVersionId: identifierField("fileVersion").nullable().optional(),
-  }),
-]);
-
-const ShareRequest = z
-  .object({
-    items: z.array(ShareTargetBody).min(1).max(MAXIMUM_SHARES_PER_WRITE),
-    people: z
-      .array(z.object({ entityId: identifierField("directoryPerson"), role: z.enum(SHARE_ROLES) }))
-      .min(1)
-      .max(50),
-    allowDownload: z.boolean().optional(),
-    signIn: z.enum(SHARE_SIGN_INS).optional(),
-    endsOn: z.string().regex(CIVIL_DATE_PATTERN).nullable().optional(),
-  })
-  .openapi("ShareFilesRequest");
-
-const ChangeShareRequest = z
-  .object({
-    role: z.enum(SHARE_ROLES).optional(),
-    allowDownload: z.boolean().optional(),
-    signIn: z.enum(SHARE_SIGN_INS).optional(),
-    endsOn: z.string().regex(CIVIL_DATE_PATTERN).nullable().optional(),
-  })
-  .openapi("ChangeShareRequest");
-
-const ShareSummary = z
-  .object({
-    id: z.string(),
-    matterId: z.string(),
-    scope: z.enum(["matter", "folder", "file"]),
-    folderId: z.string().nullable(),
-    fileId: z.string().nullable(),
-    fileVersionId: z.string().nullable(),
-    recipientEntityId: z.string(),
-    recipientName: z.string().nullable(),
-    role: z.enum(SHARE_ROLES),
-    allowDownload: z.boolean(),
-    signIn: z.enum(SHARE_SIGN_INS),
-    endsOn: z.string().nullable(),
-    sharedByUserId: z.string(),
-    createdAt: z.string(),
-    updatedAt: z.string(),
-    // Present when the share is still recorded but no longer opens: "ended" past its end date,
-    // "needsNewSharer" when the member who made it can no longer share. Changing it takes it over.
-    dormant: z.enum(["ended", "needsNewSharer"]).nullable(),
-  })
-  .openapi("ShareSummary");
-
-const ShareListResponse = z.object({ data: z.array(ShareSummary) }).openapi("ShareListResponse");
-const SharedResponse = z.object({ shareIds: z.array(z.string()) }).openapi("SharedFilesResponse");
-const ShareAcknowledged = z.object({ ok: z.literal(true) }).openapi("ShareAcknowledged");
 
 const matterIdParam = z.object({ matterId: identifierPathParam("matter", "matterId") });
 const shareIdParam = z.object({ shareId: identifierPathParam("share", "shareId") });
@@ -184,10 +130,13 @@ const shareRoute = defineOpenAPIRoute(writeMeta("share"), {
   request: {
     headers: idempotencyKeyHeader,
     params: matterIdParam,
-    body: { content: { "application/json": { schema: ShareRequest } }, required: true },
+    body: { content: { "application/json": { schema: ShareFilesRequest } }, required: true },
   },
   responses: {
-    201: { description: "Shared", content: { "application/json": { schema: SharedResponse } } },
+    201: {
+      description: "Shared",
+      content: { "application/json": { schema: SharedFilesResponse } },
+    },
     400: errors[400],
     401: errors[401],
     403: errors[403],
@@ -377,7 +326,7 @@ export function registerSharesRoutes(
       });
       if (!outcome.ok) return outcome.problem;
       if (outcome.replayed) c.header("Idempotency-Replayed", "true");
-      return c.json(outcome.body as z.infer<typeof SharedResponse>, 201);
+      return c.json(outcome.body as z.infer<typeof SharedFilesResponse>, 201);
     },
   );
 
