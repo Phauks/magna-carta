@@ -373,9 +373,10 @@ export type Bindings = {
   // character. Sent only in a request header, never a URL; never logged.
   GOOGLE_TRANSLATE_API_KEY?: string;
   // The Plaid keys behind the Banking screen's bank feed (banking/bank-feed-engine.ts). Optional:
-  // without both, Connect Bank says bank feeds are not set up. Per-Worker secrets today; a
-  // SECRETS_STORE_PLAID_* binding is added only once the store holds the secret, because a store
-  // binding naming a missing secret fails the deploy. Sent only in a request body to Plaid; never logged.
+  // without both, Connect Bank says bank feeds are not set up. Kept in the Secrets Store
+  // (stored-secrets.ts resolves SECRETS_STORE_PLAID_*, with per-Worker secrets as the fallback); the
+  // wrangler.jsonc binding is added only once the store holds the secret, because a store binding
+  // naming a missing secret fails the deploy. Sent only in a request body to Plaid; never logged.
   PLAID_CLIENT_ID?: string;
   PLAID_SECRET?: string;
   // Which Plaid host the keys belong to: "sandbox" for Plaid's test banks, anything else (or unset)

@@ -41,6 +41,7 @@ statements over `bank_connection`, `bank_feed_account` and `bank_feed_transactio
 - Depends on `@magna-carta/data-access`, `@magna-carta/identifiers` and `zod`.
 - Used by `apps/api-worker` (`src/banking/`, `src/http/routes/banking/`) and, for the contract types,
   `apps/web` through the generated client.
-- Secrets: `PLAID_CLIENT_ID`, `PLAID_SECRET`, optional `PLAID_ENVIRONMENT` (`sandbox`), as
-  per-Worker secrets on `magna-carta-api`. A `SECRETS_STORE_PLAID_*` binding in `wrangler.jsonc` is
-  added only after the store holds the secret: a binding to a missing store secret fails the deploy.
+- Secrets: `PLAID_CLIENT_ID`, `PLAID_SECRET`, optional `PLAID_ENVIRONMENT` (`sandbox`), in the
+  Secrets Store with a per-Worker fallback. The `SECRETS_STORE_PLAID_*` entries in `wrangler.jsonc`
+  are added only after the store holds the secret: a binding to a missing store secret fails the
+  deploy.

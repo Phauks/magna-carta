@@ -3,7 +3,7 @@ category: Added
 audience: public
 ---
 
-**Bank feeds and the Banking screen.** New `packages/bank-feeds` (the `BankFeedPort`, a Plaid adapter over its JSON API with no SDK, the In Books matching rule that never sums, the `/api/v1/banking/*` contract), three per-firm tables (`bank_connection`, `bank_feed_account`, `bank_feed_transaction`), six routes behind `banking:read` and `banking:manage`, and `apps/web` `/banking` with Plaid Link loaded on demand. The access token is sealed in the integration credential store and never leaves the Worker; `PLAID_CLIENT_ID`, `PLAID_SECRET` and optional `PLAID_ENVIRONMENT` are per-Worker secrets until the Secrets Store holds them. Read only: nothing is posted from the feed.
+**Bank feeds and the Banking screen.** New `packages/bank-feeds` (the `BankFeedPort`, a Plaid adapter over its JSON API with no SDK, the In Books matching rule that never sums, the `/api/v1/banking/*` contract), three per-firm tables (`bank_connection`, `bank_feed_account`, `bank_feed_transaction`), six routes behind `banking:read` and `banking:manage`, and `apps/web` `/banking` with Plaid Link loaded on demand. The access token is sealed in the integration credential store and never leaves the Worker; `PLAID_CLIENT_ID`, `PLAID_SECRET` and optional `PLAID_ENVIRONMENT` live in the Secrets Store, bound in a follow-up once the store holds them (a binding to a missing store secret fails the deploy). Read only: nothing is posted from the feed.
 
 ## Public
 

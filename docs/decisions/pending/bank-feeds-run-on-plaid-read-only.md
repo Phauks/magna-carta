@@ -3,7 +3,7 @@ slug: bank-feeds-run-on-plaid-read-only
 status: Accepted
 area: Banking
 date: 2026-11-20
-summary: "The bank feed runs on Plaid, Transactions product only (which carries balances), read only, as evidence beside the books and never over them. The owner picked the Banking screen (option B) on 2026-11-20. Plaid's access token is sealed in the integration credential store and never reaches the browser; the client id and secret are Worker secrets (the Secrets Store binding is added only once the store holds them, because a binding to a missing store secret fails the deploy). A bank line is marked In Books when the account's book holds an entry of the same signed amount within seven days that no other line has taken, and a match never adds entries together."
+summary: "The bank feed runs on Plaid, Transactions product only (which carries balances), read only, as evidence beside the books and never over them. The owner picked the Banking screen (option B) on 2026-11-20. Plaid's access token is sealed in the integration credential store and never reaches the browser; the client id and secret live in the Secrets Store with a Worker-secret fallback, and their store binding is added only once the store holds them, because a binding to a missing store secret fails the deploy. A bank line is marked In Books when the account's book holds an entry of the same signed amount within seven days that no other line has taken, and a match never adds entries together."
 ---
 
 **The owner asked on 2026-11-20 for the bank connected "so we have accurate bank information in the
