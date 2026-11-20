@@ -39,6 +39,7 @@
   import { pageRecordingSounds } from "./client/recording-sounds.ts";
   import MeetingGuestsPanel from "./meeting-guests-panel.svelte";
   import RecordingMark from "./screen/recording-mark.svelte";
+  import EncryptionMark from "./screen/encryption-mark.svelte";
   import { meetingIsBeingRecorded } from "./meeting-list.ts";
   import type { Failure } from "$lib/api/problem.ts";
   import type { MeetingMedium } from "./meeting-client.svelte.ts";
@@ -115,6 +116,19 @@
    * changes it from inside, and this control has nothing to say about a room that already exists.
    */
   let holdArrivals = $state(false);
+  /*
+   * Whether the meeting opens encrypted end to end. ON BY DEFAULT, the owner's ruling, and fixed for
+   * the meeting's life once it opens, like the medium.
+   *
+   * THE SWITCH IS DRAWN ONLY WHERE THE DEPLOYMENT HONOURS IT. A deployment with encryption off opens
+   * every meeting in the clear whatever Start asks, so a switch reading "on" there would promise a
+   * meeting the room never opens. The session says which, before any meeting exists to say it, and
+   * while the session is still being read the switch is not drawn.
+   */
+  let encrypted = $state(true);
+  const encryptionOffered = $derived(
+    sessionPermissions.session?.meetings?.endToEndEncryption === true,
+  );
 
   async function start(medium: MeetingMedium): Promise<void> {
     if (starting !== null) return;
@@ -126,7 +140,13 @@
     starting = medium;
     lastAttempt = medium;
     startFailure = null;
-    const outcome = await startMeeting(eventKind, eventId, medium, holdArrivals ? "on" : "off");
+    const outcome = await startMeeting(
+      eventKind,
+      eventId,
+      medium,
+      holdArrivals ? "on" : "off",
+      encryptionOffered && encrypted,
+    );
     starting = null;
     if (outcome.kind === "ok") {
       tab.open(outcome.value.id, outcome.value.joinCode);
@@ -203,6 +223,11 @@
          locked room too, because the people inside are being recorded whoever may come in. -->
     <RecordingMark />
   {/if}
+  {#if running !== null && running.encrypted}
+    <!-- Whether the meeting behind Join is encrypted end to end, answered before the press: the
+         room's own mark, in its settled state, because the meeting record fixed it at Start. -->
+    <EncryptionMark encryption={{ kind: "on" }} />
+  {/if}
   {#if locked}
     <Button variant="secondary" disabled title={lockedReason}>
       <Lock class="size-16" aria-hidden="true" />
@@ -257,6 +282,18 @@
            controls because it is true of whichever one is pressed. A host changes it from inside the
            meeting afterwards: who may come in is a standing decision of theirs and has no bearing on
            what the people already in the room agreed to. -->
+      {#if encryptionOffered}
+        <!-- Encryption is decided here too, and unlike the door it is never changed from inside:
+             everybody who joins agreed to the same meeting. -->
+        <div class="flex items-center gap-8">
+          <Switch
+            aria-labelledby="{eventId}-encrypted-label"
+            bind:checked={encrypted}
+            disabled={starting !== null}
+          />
+          <Label id="{eventId}-encrypted-label">End-to-end encrypted</Label>
+        </div>
+      {/if}
       <div class="flex items-center gap-8">
         <Switch
           aria-labelledby="{eventId}-hold-arrivals-label"

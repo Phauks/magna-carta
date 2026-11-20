@@ -188,6 +188,9 @@
           },
           "membership": {
             "$ref": "#/components/schemas/Membership"
+          },
+          "meetings": {
+            "$ref": "#/components/schemas/MeetingsDeployment"
           }
         },
         "required": [
@@ -266,6 +269,18 @@
         },
         "required": [
           "state"
+        ]
+      },
+      "MeetingsDeployment": {
+        "type": "object",
+        "properties": {
+          "endToEndEncryption": {
+            "type": "boolean",
+            "description": "Whether this deployment opens meetings end-to-end encrypted. False, every meeting opens in the clear whatever Start asks for."
+          }
+        },
+        "required": [
+          "endToEndEncryption"
         ]
       },
       "FirmMemberListResponse": {
