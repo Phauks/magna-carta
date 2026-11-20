@@ -84,7 +84,7 @@
   spec: docs/specs/2026-11-20-client-portal-design.md
   surface: internal
   adrs: ADR-0073
-  evidence: user.principal_kind and portal_membership (control-plane migration 20261120T193642_portal-client-kind); client invitations name a Directory person and provision no member row; the chokepoint refuses a portal client on every route without principals. Sign-in levels per grant not built.
+  evidence: user.principal_kind and portal_membership (control-plane migration 20261120T193642_portal-client-kind); client invitations name a Directory person and provision no member row; the chokepoint refuses a portal user on every route that is not a portal route. Sign-in levels per grant not built.
 
 - id: portal.lifecycle
   name: Grant lifecycle
@@ -96,10 +96,11 @@
 - id: portal.enforcement
   name: DAL enforcement and invariants
   scope: Per-firm isolation, ethical-wall/least-privilege bound (grant never exceeds sharer's access), enforced in the firm-scoped data-access layer.
-  status: designed
+  status: partial
   spec: docs/specs/2026-11-20-client-portal-design.md
+  surface: internal
   adrs: ADR-0003
-  evidence: The firm-scoped data-access layer exists (packages/data-access); no portal-grant enforcement in it.
+  evidence: The chokepoint's portal lane (apps/api-worker/src/http/chokepoint/chokepoint.ts) admits /api/portal/v1 routes only for a portal user with an active portal_membership in an active firm, stashes no user id, and keys the rate limit by the person (apps/api-worker/test/portal-lane.test.ts). Per-item checks (a share never exceeds the sharer's access) wait on the sharing read functions.
 
 - id: portal.ui
   name: Recipient-facing portal UI

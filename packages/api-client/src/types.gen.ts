@@ -12288,6 +12288,23 @@ export type RecordTransferPassFailure = {
     lineNumber: number | null;
 } | null;
 
+export type PortalAccount = {
+    name: string;
+    email: string;
+    firms: Array<PortalFirm>;
+};
+
+export type PortalFirm = {
+    firmId: string;
+    firmName: string;
+};
+
+export type PortalFirmDetail = {
+    firmId: string;
+    firmName: string;
+    personName: string;
+};
+
 export type ShippingConnectAck = {
     id: string;
     status: string;
@@ -55653,6 +55670,74 @@ export type RecordTransferDownloadRejectedRowsResponses = {
 };
 
 export type RecordTransferDownloadRejectedRowsResponse = RecordTransferDownloadRejectedRowsResponses[keyof RecordTransferDownloadRejectedRowsResponses];
+
+export type PortalAccountData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/portal/v1/account';
+};
+
+export type PortalAccountErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session is not a portal client's
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PortalAccountError = PortalAccountErrors[keyof PortalAccountErrors];
+
+export type PortalAccountResponses = {
+    /**
+     * The client and their firms
+     */
+    200: PortalAccount;
+};
+
+export type PortalAccountResponse = PortalAccountResponses[keyof PortalAccountResponses];
+
+export type PortalFirmData = {
+    body?: never;
+    path: {
+        firmId: string;
+    };
+    query?: never;
+    url: '/api/portal/v1/firms/{firmId}';
+};
+
+export type PortalFirmErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * No such firm, the client's access to it has ended, or the session is not a portal client's (one answer for all three)
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PortalFirmError = PortalFirmErrors[keyof PortalFirmErrors];
+
+export type PortalFirmResponses = {
+    /**
+     * The firm
+     */
+    200: PortalFirmDetail;
+};
+
+export type PortalFirmResponse = PortalFirmResponses[keyof PortalFirmResponses];
 
 export type ShippingDisconnectCarrierData = {
     body?: never;

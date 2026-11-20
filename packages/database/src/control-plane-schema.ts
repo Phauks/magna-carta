@@ -147,7 +147,7 @@ export const user = sqliteTable("user", {
   // WHAT KIND OF PERSON THIS ACCOUNT IS, which a firm-scoped surface must never have to work out.
   //   account      — signed up, belongs to no firm yet; firm_id is null.
   //   firmMember   — works at the firm named by firm_id, which is set.
-  //   portalClient — somebody a firm shares with; firm_id is NULL, always, and the firms that
+  //   portalUser — somebody a firm shares with; firm_id is NULL, always, and the firms that
   //                  share with them are rows in portal_membership.
   // The null firm_id is the point: every firm-scoped surface places a caller by firm_id, so a
   // client whose row named the inviting firm would be placed INSIDE it by any surface that forgot
@@ -156,7 +156,7 @@ export const user = sqliteTable("user", {
   // `account` may become either of the others, once; neither of the others ever changes. Both
   // rules, and the pairing with firm_id, are enforced by triggers in the migration that added this
   // column (SQLite cannot add a CHECK to a table holding rows), so a handler cannot get it wrong.
-  principalKind: text("principal_kind", { enum: ["account", "firmMember", "portalClient"] })
+  principalKind: text("principal_kind", { enum: ["account", "firmMember", "portalUser"] })
     .notNull()
     .default("account"),
 });

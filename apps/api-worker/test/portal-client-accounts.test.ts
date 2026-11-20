@@ -13,15 +13,15 @@ import {
 } from "./support/test-auth.ts";
 
 // A CLIENT OF A FIRM IS NOT SOMEBODY WHO WORKS THERE. Redeeming a client invitation makes an account
-// whose kind is `portalClient`, whose firm_id is NULL, and whose only tie to the firm is a portal
+// whose kind is `portalUser`, whose firm_id is NULL, and whose only tie to the firm is a portal
 // membership naming a Directory person. No member row is provisioned, so no role reaches it; and the
 // chokepoint answers it the reserved 404 on every route that did not list the kind. What is asserted
 // here is each of those, because each one alone is what a later change would quietly undo.
 
 let firmId: FirmId;
 let issuerCookie: string;
-const PERSON_ID = "directoryPerson_portalClientInvitee";
-const SECOND_PERSON_ID = "directoryPerson_portalClientSecond";
+const PERSON_ID = "directoryPerson_portalUserInvitee";
+const SECOND_PERSON_ID = "directoryPerson_portalUserSecond";
 
 let nextClientAddress = 0;
 function freshClientAddress(): string {
@@ -174,7 +174,7 @@ describe("redeeming a client invitation while signed in", () => {
 
   it("makes a portal client with no firm", async () => {
     const user = await readUser(email);
-    expect(user.principal_kind).toBe("portalClient");
+    expect(user.principal_kind).toBe("portalUser");
     expect(user.firm_id).toBeNull();
   });
 
@@ -233,7 +233,7 @@ describe("redeeming a client invitation anonymously", () => {
     expect(response.status, await response.clone().text()).toBe(200);
 
     const user = await readUser(email);
-    expect(user.principal_kind).toBe("portalClient");
+    expect(user.principal_kind).toBe("portalUser");
     expect(user.firm_id).toBeNull();
     const membership = await env.DB_CONTROL.prepare(
       "SELECT COUNT(*) AS n FROM portal_membership WHERE principal_id = ?1 AND firm_id = ?2",
@@ -266,7 +266,7 @@ describe("the kind on staff accounts", () => {
     expect(user.firm_id).toBe(firmId);
     expect(await memberProvisionCount(userId)).toBe(1);
     await expect(
-      env.DB_CONTROL.prepare("UPDATE \"user\" SET principal_kind = 'portalClient' WHERE id = ?1")
+      env.DB_CONTROL.prepare("UPDATE \"user\" SET principal_kind = 'portalUser' WHERE id = ?1")
         .bind(userId)
         .run(),
     ).rejects.toThrow(/principal_kind/);

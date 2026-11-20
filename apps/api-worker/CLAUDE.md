@@ -185,6 +185,16 @@ Worker.
   minted as its own kind of token (`signerLane: "signed-copy"`, `src/http/routes/documents/signed-copy.ts`):
   admitted only once the request is completed and sealed, for 30 days from the sealing, and it and a
   signing link never open each other's routes.
+- **A portal user (a client, or anyone else a firm shares with) reaches only `/api/portal/v1/`, through
+  the portal lane.** A portal route declares `surface: "portal"`, `principals: ["portalUser"]`,
+  `permission: null`, `resource: "portalShare"` and a `portalScope` (`account`, or `firm` with the
+  firm in the `{firmId}` path parameter); registration refuses any other shape, and refuses
+  `portalUser` or `portalScope` on any other surface. The lane admits a firm route only for an active
+  `portal_membership` in an active firm, answers everything else with the reserved 404, stashes
+  `chokepointPortalClient` and never `chokepointUserId`, and keys the rate limit `portal:<person>`.
+  Handlers read `requireChokepointPortalClient` / `requireChokepointPortalFirmClient`. The lane decides
+  the firm, never what is visible in it: that is the sharing read functions' answer. The routes are
+  `src/http/routes/portal/`.
 - **A colleague signs through the same handlers on a member lane.** The routes in
   `src/http/routes/documents/my-signing-routes.ts` are ordinary session routes (`esign:sign`); the
   member lane in `signer-lanes.ts` finds the session's user on the request as a firm-authenticated

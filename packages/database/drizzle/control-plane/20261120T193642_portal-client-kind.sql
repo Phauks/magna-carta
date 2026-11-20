@@ -23,7 +23,7 @@ UPDATE `user` SET `principal_kind` = 'firmMember' WHERE `firm_id` IS NOT NULL;--
 --    firm_id. It becomes a portal client with no firm. It gets no portal membership here, because
 --    those invitations named no Directory person and a membership must; the firm invites them again
 --    when the portal is ready. Until then the account reaches nothing, which is the safe direction.
-UPDATE `user` SET `principal_kind` = 'portalClient', `firm_id` = NULL
+UPDATE `user` SET `principal_kind` = 'portalUser', `firm_id` = NULL
 WHERE `id` IN (
 	SELECT `redeemed_user_id` FROM `invitation`
 	WHERE `kind` = 'clientOfFirm' AND `status` = 'redeemed' AND `redeemed_user_id` IS NOT NULL
@@ -33,16 +33,16 @@ WHERE `id` IN (
 --    other than `account` never changes. An `account` that gains a firm becomes a firm member in the
 --    same statement (the two AFTER triggers), so the paths that attach a firm need not name the kind.
 CREATE TRIGGER `user_principal_kind_shape_insert` BEFORE INSERT ON `user`
-WHEN (NEW.`principal_kind` = 'portalClient' AND NEW.`firm_id` IS NOT NULL)
+WHEN (NEW.`principal_kind` = 'portalUser' AND NEW.`firm_id` IS NOT NULL)
 	OR (NEW.`principal_kind` = 'firmMember' AND NEW.`firm_id` IS NULL)
-	OR NEW.`principal_kind` NOT IN ('account', 'firmMember', 'portalClient')
+	OR NEW.`principal_kind` NOT IN ('account', 'firmMember', 'portalUser')
 BEGIN
 	SELECT RAISE(ABORT, 'user principal_kind does not match firm_id');
 END;--> statement-breakpoint
 CREATE TRIGGER `user_principal_kind_shape_update` BEFORE UPDATE OF `principal_kind`, `firm_id` ON `user`
-WHEN (NEW.`principal_kind` = 'portalClient' AND NEW.`firm_id` IS NOT NULL)
+WHEN (NEW.`principal_kind` = 'portalUser' AND NEW.`firm_id` IS NOT NULL)
 	OR (NEW.`principal_kind` = 'firmMember' AND NEW.`firm_id` IS NULL)
-	OR NEW.`principal_kind` NOT IN ('account', 'firmMember', 'portalClient')
+	OR NEW.`principal_kind` NOT IN ('account', 'firmMember', 'portalUser')
 	OR (OLD.`principal_kind` <> 'account' AND NEW.`principal_kind` IS NOT OLD.`principal_kind`)
 BEGIN
 	SELECT RAISE(ABORT, 'user principal_kind does not match firm_id, or has already been settled');

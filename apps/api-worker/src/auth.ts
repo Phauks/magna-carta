@@ -281,7 +281,7 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
     user: {
       additionalFields: {
         firmId: { type: "string", required: false, input: false },
-        // What kind of person the account is (`account`, `firmMember` or `portalClient`). Written
+        // What kind of person the account is (`account`, `firmMember` or `portalUser`). Written
         // by the joining paths and the database's own triggers, never from a request body. It rides
         // the session so the chokepoint can refuse a portal client on every staff route before it
         // looks for a firm.

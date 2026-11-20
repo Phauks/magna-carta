@@ -8,7 +8,7 @@ import type { Context } from "hono";
 import { z } from "@hono/zod-openapi";
 import { assertPermission } from "@magna-carta/access-control/registry";
 import type { Permission } from "@magna-carta/access-control/registry";
-import type { FirmId, UserId } from "@magna-carta/identifiers/types";
+import type { DirectoryPersonId, FirmId, UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import {
   createChokepoint,
@@ -46,6 +46,9 @@ function buildChokepoint(
     firmContext?: FakeFirmContext | null;
     permissions?: ReadonlySet<Permission>;
     rateLimitAllowed?: boolean;
+    // The portal lane's answer for a (person, firm) pair: their membership's Directory person, or
+    // null for no active membership. Absent, the chokepoint is built with no portal lane at all.
+    portalMembership?: { readonly directoryEntityId: string } | null;
   } = {},
 ): {
   chokepoint: ReturnType<typeof createChokepoint>;
@@ -86,6 +89,22 @@ function buildChokepoint(
           : { allowed: false, retryAfterSeconds: 42, limit: 100, remaining: 0 };
       },
     },
+    ...(script.portalMembership === undefined
+      ? {}
+      : {
+          portalLane: {
+            resolvePortalFirm: async (_c, _principalId, firmId) => {
+              trace.steps.push(`resolvePortalFirm:${firmId}`);
+              const membership = script.portalMembership;
+              return membership === null || membership === undefined
+                ? null
+                : {
+                    firmContext: { firmId },
+                    directoryEntityId: membership.directoryEntityId as DirectoryPersonId,
+                  };
+            },
+          },
+        }),
   };
   return { chokepoint: createChokepoint(ports), trace, rateLimitKeys };
 }
@@ -517,44 +536,172 @@ describe("createChokepoint — registration-time permission validation (unregist
   });
 });
 
-describe("createChokepoint — portal surface runs the full chain (not public)", () => {
-  // isPublicSurface is `surface === "public"` exactly, so surface: "portal" is NOT public: it must
-  // run the full session/firm/RBAC chain (fail-closed), then the rate-limit gate and the handler.
-  const portalMeta: RouteMeta = {
-    operationId: "portal.viewShare",
+describe("createChokepoint — the portal lane", () => {
+  const portalUserSession: ResolvedSession = {
+    userId: USER_TWO,
+    firmId: null,
+    principalKind: "portalUser",
+  };
+  const portalFirmMeta: RouteMeta = {
+    operationId: "portal.firm",
     surface: "portal",
     authenticated: true,
-    permission: "firm:manageMembers",
+    permission: null,
     resource: "portalShare",
-    audited: true,
+    audited: false,
     idempotency: "optional",
     rateLimit: "default",
+    principals: ["portalUser"],
+    portalScope: "firm",
   };
+  const firmPath = "/api/portal/v1/firms/:firmId";
 
-  it("a portal route runs all gates in order — it is not treated as a public surface", async () => {
-    const { chokepoint, trace } = buildChokepoint();
-    const app = mountedApp(chokepoint, portalMeta, trace, { path: "/api/v1/portal/share" });
-    const response = await app.request("/api/v1/portal/share", { method: "POST" });
+  function portalApp(
+    chokepoint: ReturnType<typeof createChokepoint>,
+    meta: RouteMeta,
+    trace: Trace,
+    path: string,
+  ): Hono {
+    const app = new Hono();
+    app.get(path, chokepoint.forRoute(meta), (c: Context) => {
+      trace.steps.push("handler");
+      return c.json(
+        {
+          client: c.get("chokepointPortalClient") as unknown,
+          userId: (c.get("chokepointUserId") as unknown) ?? null,
+          firmId: (c.get("chokepointFirmId") as unknown) ?? null,
+        },
+        200,
+      );
+    });
+    return app;
+  }
+
+  it("admits a firm route through the person's own membership, never the member gates", async () => {
+    const { chokepoint, trace, rateLimitKeys } = buildChokepoint({
+      session: portalUserSession,
+      portalMembership: { directoryEntityId: "directoryPerson_one" },
+    });
+    const app = portalApp(chokepoint, portalFirmMeta, trace, firmPath);
+    const response = await app.request(`/api/portal/v1/firms/${FIRM_ALPHA}`);
     expect(response.status).toBe(200);
     expect(trace.steps).toEqual([
       "resolveSession",
-      "resolveFirmContext",
-      "loadPermissions",
+      `resolvePortalFirm:${FIRM_ALPHA}`,
       "rateLimiter",
       "handler",
     ]);
+    expect(await response.json()).toEqual({
+      client: {
+        principalId: USER_TWO,
+        firmId: FIRM_ALPHA,
+        directoryEntityId: "directoryPerson_one",
+      },
+      userId: null,
+      firmId: FIRM_ALPHA,
+    });
+    expect(rateLimitKeys).toEqual([`portal:${USER_TWO}`]);
+  });
+
+  it("answers the reserved 404 when the person holds no active membership in the firm", async () => {
+    const { chokepoint, trace } = buildChokepoint({
+      session: portalUserSession,
+      portalMembership: null,
+    });
+    const app = portalApp(chokepoint, portalFirmMeta, trace, firmPath);
+    const response = await app.request(`/api/portal/v1/firms/${FIRM_ALPHA}`);
+    expect(response.status).toBe(404);
+    expect(trace.steps).not.toContain("handler");
+  });
+
+  it("answers 404 when the deployment wires no portal lane", async () => {
+    const { chokepoint, trace } = buildChokepoint({ session: portalUserSession });
+    const app = portalApp(chokepoint, portalFirmMeta, trace, firmPath);
+    expect((await app.request(`/api/portal/v1/firms/${FIRM_ALPHA}`)).status).toBe(404);
+  });
+
+  it("admits an account route with the person alone and no firm", async () => {
+    const { chokepoint, trace } = buildChokepoint({
+      session: portalUserSession,
+      portalMembership: null,
+    });
+    const app = portalApp(
+      chokepoint,
+      { ...portalFirmMeta, operationId: "portal.account", portalScope: "account" },
+      trace,
+      "/api/portal/v1/account",
+    );
+    const response = await app.request("/api/portal/v1/account");
+    expect(response.status).toBe(200);
+    expect(trace.steps).toEqual(["resolveSession", "rateLimiter", "handler"]);
+    expect(((await response.json()) as { client: unknown }).client).toEqual({
+      principalId: USER_TWO,
+      firmId: null,
+      directoryEntityId: null,
+    });
+  });
+
+  it("refuses a member of staff before any firm is looked for", async () => {
+    const { chokepoint, trace } = buildChokepoint({
+      portalMembership: { directoryEntityId: "directoryPerson_one" },
+    });
+    const app = portalApp(chokepoint, portalFirmMeta, trace, firmPath);
+    expect((await app.request(`/api/portal/v1/firms/${FIRM_ALPHA}`)).status).toBe(404);
+    expect(trace.steps).toEqual(["resolveSession"]);
+  });
+
+  it("asks for a session first", async () => {
+    const { chokepoint, trace } = buildChokepoint({ session: null, portalMembership: null });
+    const app = portalApp(chokepoint, portalFirmMeta, trace, firmPath);
+    expect((await app.request(`/api/portal/v1/firms/${FIRM_ALPHA}`)).status).toBe(401);
+  });
+
+  const definition = {
+    method: "get" as const,
+    path: "/api/portal/v1/probe",
+    description: "x",
+    responses: { 200: { description: "ok" } },
+  };
+
+  it("refuses at registration a portal route that is not exactly the portal shape", () => {
+    const { portalScope: _scope, ...withoutScope } = portalFirmMeta;
+    expect(() => defineOpenAPIRoute(withoutScope, definition)).toThrow(/portal surface/);
+    expect(() =>
+      defineOpenAPIRoute({ ...portalFirmMeta, principals: ["firmMember"] }, definition),
+    ).toThrow(/portal surface/);
+    expect(() =>
+      defineOpenAPIRoute({ ...portalFirmMeta, permission: "firm:manageMembers" }, definition),
+    ).toThrow(/portal surface/);
+    expect(() => defineOpenAPIRoute({ ...portalFirmMeta, resource: "firm" }, definition)).toThrow(
+      /portal surface/,
+    );
+  });
+
+  it("refuses at registration a staff route that admits a portal user or names a scope", () => {
+    expect(() =>
+      defineOpenAPIRoute(
+        { ...authedMeta, operationId: "members.leak", principals: ["firmMember", "portalUser"] },
+        definition,
+      ),
+    ).toThrow(/portal surface/);
+    expect(() =>
+      defineOpenAPIRoute(
+        { ...authedMeta, operationId: "members.scoped", portalScope: "firm" },
+        definition,
+      ),
+    ).toThrow(/portal surface/);
   });
 });
 
-describe("createChokepoint — a portal client is refused by every route that did not list the kind", () => {
-  const portalClientSession: ResolvedSession = {
+describe("createChokepoint — a portal user is refused by every route that did not list the kind", () => {
+  const portalUserSession: ResolvedSession = {
     userId: USER_TWO,
     firmId: null,
-    principalKind: "portalClient",
+    principalKind: "portalUser",
   };
 
   it("answers the reserved 404 on a staff route before any firm is looked for", async () => {
-    const { chokepoint, trace } = buildChokepoint({ session: portalClientSession });
+    const { chokepoint, trace } = buildChokepoint({ session: portalUserSession });
     const app = mountedApp(chokepoint, authedMeta, trace);
     const response = await app.request("/api/v1/members", { method: "POST" });
     expect(response.status).toBe(404);
@@ -562,7 +709,7 @@ describe("createChokepoint — a portal client is refused by every route that di
   });
 
   it("answers 404 on a route that admits firmless accounts, since a client is not one", async () => {
-    const { chokepoint, trace } = buildChokepoint({ session: portalClientSession });
+    const { chokepoint, trace } = buildChokepoint({ session: portalUserSession });
     const app = mountedApp(
       chokepoint,
       { ...authedMeta, operationId: "me.get", permission: null, firmlessSession: "allow" },
@@ -574,30 +721,11 @@ describe("createChokepoint — a portal client is refused by every route that di
     expect(trace.steps).not.toContain("handler");
   });
 
-  it("admits the kind on a route that lists it", async () => {
-    const { chokepoint, trace } = buildChokepoint({ session: portalClientSession });
-    const app = mountedApp(
-      chokepoint,
-      {
-        ...authedMeta,
-        operationId: "portal.home",
-        surface: "portal",
-        permission: null,
-        firmlessSession: "only",
-        principals: ["portalClient"],
-      },
-      trace,
-      { method: "get" },
-    );
-    const response = await app.request("/api/v1/members");
-    expect(response.status).toBe(200);
-  });
-
-  it("refuses a firm member on a route that lists only portal clients", async () => {
+  it("refuses a firm member on a route that lists only portal users", async () => {
     const { chokepoint, trace } = buildChokepoint();
     const app = mountedApp(
       chokepoint,
-      { ...authedMeta, operationId: "portal.home", principals: ["portalClient"] },
+      { ...authedMeta, operationId: "portal.home", principals: ["portalUser"] },
       trace,
     );
     const response = await app.request("/api/v1/members", { method: "POST" });
@@ -622,7 +750,7 @@ describe("createChokepoint — a portal client is refused by every route that di
         {
           ...authedMeta,
           operationId: "portal.twice",
-          principals: ["portalClient", "portalClient"],
+          principals: ["account", "account"],
         },
         {
           method: "get",

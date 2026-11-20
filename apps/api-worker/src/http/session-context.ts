@@ -20,7 +20,7 @@ export interface SupportPrincipal {
 // What kind of person a session belongs to: an account with no firm yet, somebody who works at a
 // firm, or a client a firm shares with. The column and the rules that hold it are in
 // packages/database/src/control-plane-schema.ts (`user.principal_kind`).
-export type PrincipalKind = "account" | "firmMember" | "portalClient";
+export type PrincipalKind = "account" | "firmMember" | "portalUser";
 
 export interface SessionContext {
   readonly userId: UserId;
@@ -121,11 +121,11 @@ export async function resolveSession(
 // never opens them. An absent value can only come from a session cached before the column existed,
 // and the firm id beside it says what the column's backfill said.
 function principalKindFrom(raw: unknown, firmId: FirmId | null): PrincipalKind {
-  if (raw === "account" || raw === "firmMember" || raw === "portalClient") return raw;
+  if (raw === "account" || raw === "firmMember" || raw === "portalUser") return raw;
   if (raw === null || raw === undefined || raw === "") {
     return firmId === null ? "account" : "firmMember";
   }
-  return "portalClient";
+  return "portalUser";
 }
 
 // Absent and empty are the same fact; a firm handle is never "".

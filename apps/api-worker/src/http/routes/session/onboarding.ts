@@ -355,7 +355,7 @@ export function registerOnboardingRoutes(
               // client with no firm, tied to the firm by the membership row written beside it.
               joining.client
                 ? c.env.DB_CONTROL.prepare(
-                    "UPDATE \"user\" SET principal_kind = 'portalClient', updated_at = ?2 " +
+                    "UPDATE \"user\" SET principal_kind = 'portalUser', updated_at = ?2 " +
                       "WHERE id = ?1 AND principal_kind = 'account'",
                   ).bind(userId, Date.now())
                 : c.env.DB_CONTROL.prepare(

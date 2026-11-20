@@ -449,7 +449,7 @@ export function registerInvitationRoutes(
                 invitation.email,
                 nowEpochMilliseconds,
                 joining.client ? null : invitation.firm_id,
-                joining.client ? "portalClient" : "firmMember",
+                joining.client ? "portalUser" : "firmMember",
               ),
               ...joining.statements,
               insertAuthAuditStatement(c.env.DB_CONTROL, {

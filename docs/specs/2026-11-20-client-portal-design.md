@@ -41,11 +41,11 @@ ADR-0304 is Proposed and not built. The shipped invitation route writes a client
 
 ADR-0304 was written before account-first joining (`docs/specs/2026-08-29-account-first-joining-design.md`), and two of its details no longer fit. An account now exists before anyone knows whether it will join as staff or as a client, so its kind cannot be fixed at creation. And `firm_id` is already NULL for that unattached account, so the CHECK `(principal_kind = 'portalClient') = (firm_id IS NULL)` would be false for it. Step 1 builds the ADR with those two corrections, recorded as an amendment (`docs/decisions/pending/principal-kind-has-an-account-state.md`):
 
-- `user.principal_kind` is `account | firmMember | portalClient`, NOT NULL, default `account`. `account` may become either of the other two, once; the other two never change.
+- `user.principal_kind` is `account | firmMember | portalUser`, NOT NULL, default `account`. `account` may become either of the other two, once; the other two never change. The kind is `portalUser` rather than ADR-0304's `portalClient` because the same account serves anyone a firm shares with from outside it, not only clients (sharing is its own thread of work).
 - A firm member always has a `firm_id`; a portal client never has one. `user` is a parent table with rows, so SQLite cannot gain a CHECK in place. The rules are triggers in the migration instead (`20261120T193642_portal-client-kind`): a `BEFORE` pair refuses a mismatch or a settled kind changing, and an `AFTER` pair makes an `account` that gains a firm a `firmMember` in the same statement, so the staff joining paths need not name the kind.
 - `portal_membership(principal_id, firm_id, directory_entity_id, status, created_at, updated_at)` in the control-plane database, one row per firm, one account per Directory person per firm. `status` is `active | suspended`, and suspending is the firm's lever.
-- A `clientOfFirm` invitation must name a Directory person (`directory_entity_id`); the issuing route checks the person exists and is not merged, and a trigger refuses a client invitation with none. Redeeming it, signed in or not, writes `principal_kind = 'portalClient'`, no firm, and the membership row, and provisions **no** member row in the firm database. A staff invitation is unchanged.
-- The session carries the kind. `RouteMeta` gains `principals`, default `["account", "firmMember"]`. The chokepoint refuses an unlisted kind with the reserved 404 before it resolves a firm. No route lists `portalClient` yet, so a client reaches nothing until step 3, including the bootstrap.
+- A `clientOfFirm` invitation must name a Directory person (`directory_entity_id`); the issuing route checks the person exists and is not merged, and a trigger refuses a client invitation with none. Redeeming it, signed in or not, writes `principal_kind = 'portalUser'`, no firm, and the membership row, and provisions **no** member row in the firm database. A staff invitation is unchanged.
+- The session carries the kind. `RouteMeta` gains `principals`, default `["account", "firmMember"]`. The chokepoint refuses an unlisted kind with the reserved 404 before it resolves a firm. Only portal routes (step 3) list `portalUser`; registration refuses it on any other route.
 - The community board no longer counts invitations (that subquery is gone); the hand-off route it signs in through keeps the default list, so a portal client is refused there too.
 
 The migration converts any account made by redeeming a client invitation under the old code to a portal client with no firm. Those invitations named no Directory person, so no membership can be written for them and they reach nothing until the firm invites them again. The web app has no screen that issues a client invitation, so none are expected in production. A client invitation issued before the column existed is refused at redemption.
@@ -98,14 +98,16 @@ A **Share** button on a matter, folder or file in the File Manager opens the Sha
 
 ## 6. The portal lane (step 3)
 
-`route-meta.ts` already reserves `surface: "portal"` and `resource: "portalShare"`; nothing uses them. Portal routes are:
+Built. Portal routes are:
 
-- `surface: "portal"`, `principals: ["portalClient"]`, `permission: null`.
-- Mounted under `/api/portal/v1/`.
-- Admitted through a portal resolver that reads the grant index and the firm's grant row, stashes `{ principalId, firmId, grantId, capabilities }`, and **cannot read `member`**. A staff handler pointed at a portal route fails on its first line, as the guest lane already does.
-- Rate-limited per principal.
+- `surface: "portal"`, `principals: ["portalUser"]`, `permission: null`, `resource: "portalShare"`, and a `portalScope` of `account` (about the signed-in person only) or `firm` (one firm, named by the `{firmId}` path parameter). Registration refuses any other combination, and refuses `portalUser` or `portalScope` on a route that is not on the portal surface.
+- Mounted under `/api/portal/v1/` (`apps/api-worker/src/http/routes/portal/`).
+- Admitted, after the session and the kind check, through the portal lane in the chokepoint. A firm-scoped route is admitted only when the caller holds an **active** `portal_membership` in the firm the path names and the firm is active; anything else is the reserved 404, so the lane does not reveal which firms exist. The lane stashes `{ principalId, firmId, directoryEntityId }` and the firm context, **never `chokepointUserId`**, and never reads `member`. A staff handler pointed at a portal route fails on its first line.
+- Rate-limited per person (`portal:<principalId>`), across every firm they reach.
 
-The aggregated home is the one route that spans grants: it reads the caller's memberships, then each firm's active grants for that membership's entity, in parallel, and returns per-firm blocks. It never takes a firm id from the client.
+The lane admits a person to a firm; it does not decide what they see there. That is the share's question, answered by the sharing work's read functions (`listSharedItems`, `canAccess` from `@magna-carta/sharing`, taking the firm database and the membership's Directory person). This changes section 5.2: a request no longer names a grant, so no grant index is needed to find the firm.
+
+The aggregated home (step 4) is the one route that spans firms: it reads the caller's active memberships, then each firm's shares for that membership's person, in parallel, and returns per-firm blocks.
 
 ## 7. Screens (steps 4 to 7)
 

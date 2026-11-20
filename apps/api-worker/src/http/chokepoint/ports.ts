@@ -6,7 +6,7 @@ import type { Context } from "hono";
 import type { Permission } from "@magna-carta/access-control/registry";
 import type { IdempotencyContext } from "@magna-carta/data-access/hono-idempotency-middleware";
 import { selectMemberStatusStatement } from "@magna-carta/data-access/member-statements";
-import type { FirmId } from "@magna-carta/identifiers/types";
+import type { DirectoryPersonId, FirmId } from "@magna-carta/identifiers/types";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import type { Bindings } from "../../bindings.ts";
 import type { RouteMeta } from "../contracts/route-meta.ts";
@@ -22,8 +22,10 @@ import { loadEffectivePermissions } from "../../effective-permissions.ts";
 import type {
   ChokepointGuestGrant,
   ChokepointPorts,
+  ChokepointPortalClient,
   ChokepointSignerGrant,
   GuestLanePort,
+  PortalLanePort,
   ResolvedSession,
   SignerLanePort,
 } from "./chokepoint.ts";
@@ -122,6 +124,10 @@ export type AppVariables = ChokepointVariables & {
   // Set by the chokepoint's signer lane and on no other path: the signing link it verified, without
   // the secret. Like a guest, a signer is never given a chokepointUserId.
   chokepointSignerGrant?: ChokepointSignerGrant;
+  // Set by the chokepoint's portal lane and on no other path: the signed-in client, and on a
+  // firm-scoped portal route the firm and the Directory person their membership names. A portal
+  // route is never given a chokepointUserId either.
+  chokepointPortalClient?: ChokepointPortalClient;
   // Set by problemJson (and, first, by the error boundary): the problem this request answered, for
   // the telemetry middleware to keep in the error record once the response is out.
   answeredProblem?: import("../contracts/problem.ts").AnsweredProblem;
@@ -513,6 +519,28 @@ function makeSignerLane(): SignerLanePort<FirmContext> {
   };
 }
 
+// A CLIENT'S PORTAL LANE (chokepoint.ts step 0b): one control-plane read that answers both
+// questions at once, the caller's active membership in the firm and the firm being active, and then
+// the firm's database. Nothing here reads `member`.
+function makePortalLane(): PortalLanePort<FirmContext> {
+  return {
+    resolvePortalFirm: async (c, principalId, firmId) => {
+      const env = (c as Context<{ Bindings: Bindings }>).env;
+      const row = await env.DB_CONTROL.prepare(
+        "SELECT m.directory_entity_id AS directory_entity_id FROM portal_membership m " +
+          "JOIN firm f ON f.id = m.firm_id " +
+          "WHERE m.principal_id = ?1 AND m.firm_id = ?2 AND m.status = 'active' AND f.status = 'active'",
+      )
+        .bind(principalId, firmId)
+        .first<{ directory_entity_id: DirectoryPersonId }>();
+      if (row === null) return null;
+      const firmContext = await resolveFirmForLane(c, firmId);
+      if (firmContext === null) return null;
+      return { firmContext, directoryEntityId: row.directory_entity_id };
+    },
+  };
+}
+
 // Assembles the production ports MINUS the idempotency port (app.ts adds createChokepointIdempotency
 // — it lives in its own module to avoid a value-import cycle through this one). The rate limiter is
 // injected because app.ts owns its lifetime: one per worker isolate, never one per request.
@@ -527,5 +555,6 @@ export function createChokepointPorts(
     rateLimiter,
     guestLane: makeGuestLane(),
     signerLane: makeSignerLane(),
+    portalLane: makePortalLane(),
   };
 }
