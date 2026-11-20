@@ -46,6 +46,7 @@
     type BatesTypeface,
   } from "./bates.ts";
   import { fileMadeDocument, openEditorDocument, type Filed } from "./editor-document.ts";
+  import { matterSubject } from "./editor-subject.ts";
   import { describeOperationFailure, runPdfOperation } from "./pdf-operations.ts";
 
   let { file }: { file: MatterFile } = $props();
@@ -131,7 +132,7 @@
 
   async function open(): Promise<void> {
     const opened = await openEditorDocument(
-      file,
+      matterSubject(file),
       "This document has a password. Unlock it in the File Workbench, save the unlocked copy, and number that.",
     );
     if (gone) {
@@ -249,7 +250,7 @@
       return;
     }
     const filed = await fileMadeDocument(
-      file,
+      matterSubject(file),
       made,
       batesCopyName(file.name, stampedRange.first, stampedRange.last),
     );

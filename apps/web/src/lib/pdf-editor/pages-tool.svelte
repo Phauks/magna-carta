@@ -39,7 +39,7 @@
   } from "@magna-carta/design-system/item-drag";
   import { viewerHref } from "$lib/documents/editable-documents.ts";
   import { PdfDocumentSource, pageDisplaySize, renderDpiFor, type PdfPageSize } from "$lib/documents/pdf-pages.ts";
-  import type { MatterFile } from "$lib/file-manager/matter-file-api.ts";
+  import { matterOf, savesVersions, type EditorSubject } from "./editor-subject.ts";
   import { fileMadeDocument, openEditorDocument, type Filed } from "./editor-document.ts";
   import InsertPagesDialog from "./insert-pages-dialog.svelte";
   import type { OpenedInsertion } from "./inserted-file.ts";
@@ -62,7 +62,7 @@
   } from "./page-arrangement.ts";
   import { describeOperationFailure, runPdfOperation } from "./pdf-operations.ts";
 
-  let { file, onSaved }: { file: MatterFile; onSaved: () => void } = $props();
+  let { subject, onSaved }: { subject: EditorSubject; onSaved: () => void } = $props();
 
   /** How large a page is drawn in the grid, as a zoom on the reader's 100%. */
   const GRID_ZOOM = 0.2;
@@ -163,7 +163,7 @@
 
   async function open(): Promise<void> {
     const opened = await openEditorDocument(
-      file,
+      subject,
       "This document has a password. Unlock it in the File Workbench, save the unlocked copy, and arrange that.",
     );
     if (gone) {
@@ -304,7 +304,7 @@
     const made = await make([pages], "Saving");
     const document = made?.[0];
     if (document === undefined) return;
-    const filed = await fileMadeDocument(file, document, file.name, { asVersionOf: file.id });
+    const filed = await fileMadeDocument(subject, document, subject.name, { asNextVersion: true, benchChange: "Arranged" });
     if (gone) return;
     result = { kind: "filed", files: [filed], asVersion: true };
     if (filed.kind === "filed") onSaved();
@@ -315,8 +315,8 @@
     const made = await make([chosenInOrder], "Extracting");
     const document = made?.[0];
     if (document === undefined) return;
-    const name = extractedCopyName(file.name, chosenInOrder.map((page) => page.source));
-    const filed = await fileMadeDocument(file, document, name);
+    const name = extractedCopyName(subject.name, chosenInOrder.map((page) => page.source));
+    const filed = await fileMadeDocument(subject, document, name);
     if (gone) return;
     result = { kind: "filed", files: [filed], asVersion: false };
   }
@@ -328,7 +328,7 @@
     if (made === null) return;
     const files: Filed[] = [];
     for (const [index, document] of made.entries()) {
-      files.push(await fileMadeDocument(file, document, partName(file.name, index + 1, made.length)));
+      files.push(await fileMadeDocument(subject, document, partName(subject.name, index + 1, made.length)));
       if (gone) return;
     }
     result = { kind: "filed", files, asVersion: false };
@@ -393,7 +393,7 @@
         </Button>
         <Button size="sm" disabled={!changed || pages.length === 0 || busy} onclick={save}>
           <Save class="size-16" aria-hidden="true" />
-          {result.kind === "working" && result.what === "Saving" ? "Saving" : "Save as New Version"}
+          {result.kind === "working" && result.what === "Saving" ? "Saving" : savesVersions(subject) ? "Save as New Version" : "Save as New File"}
         </Button>
       </span>
     </div>
@@ -409,7 +409,16 @@
           </Alert.Root>
         {:else}
           {@const notFiled = result.files.filter((one) => one.kind === "notFiled")}
-          {#if notFiled.length === 0}
+          {@const benched = result.files.filter((one) => one.kind === "benched")}
+          {#if benched.length > 0}
+            <Alert.Root variant="success">
+              <Alert.Title>Added to the Bench</Alert.Title>
+              <Alert.Description>
+                {benched.map((one) => one.name).join(", ")}
+                {benched.length === 1 ? "is" : "are"} on the bench beside the original, which is unchanged.
+              </Alert.Description>
+            </Alert.Root>
+          {:else if notFiled.length === 0}
             <Alert.Root variant="success">
               <Alert.Title>
                 {result.asVersion ? "Saved as a New Version" : result.files.length === 1 ? "Saved a New File" : `Saved ${result.files.length} New Files`}
@@ -493,5 +502,5 @@
     </div>
   </div>
 
-  <InsertPagesDialog bind:open={inserting} {file} pageCount={pages.length} {suggestedPosition} onInsert={insert} />
+  <InsertPagesDialog bind:open={inserting} name={subject.name} matterId={matterOf(subject)?.matterId ?? null} pageCount={pages.length} {suggestedPosition} onInsert={insert} />
 {/if}

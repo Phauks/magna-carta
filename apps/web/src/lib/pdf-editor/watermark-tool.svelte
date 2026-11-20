@@ -21,7 +21,7 @@
   import Slider from "@magna-carta/design-system/slider";
   import { viewerHref } from "$lib/documents/editable-documents.ts";
   import { PdfDocumentSource, pageDisplaySize, renderDpiFor, type PdfPageSize } from "$lib/documents/pdf-pages.ts";
-  import type { MatterFile } from "$lib/file-manager/matter-file-api.ts";
+  import type { EditorSubject } from "./editor-subject.ts";
   import { BATES_TYPEFACES, type BatesTypeface } from "./bates.ts";
   import { fileMadeDocument, openEditorDocument, type Filed } from "./editor-document.ts";
   import { describeOperationFailure, runPdfOperation } from "./pdf-operations.ts";
@@ -38,7 +38,7 @@
     type WatermarkSettings,
   } from "./watermark.ts";
 
-  let { file }: { file: MatterFile } = $props();
+  let { subject }: { subject: EditorSubject } = $props();
 
   const PREVIEW_ZOOM = 0.7;
   const OTHER = "other";
@@ -112,7 +112,7 @@
 
   async function open(): Promise<void> {
     const opened = await openEditorDocument(
-      file,
+      subject,
       "This document has a password. Unlock it in the File Workbench, save the unlocked copy, and mark that.",
     );
     if (gone) {
@@ -214,7 +214,7 @@
       };
       return;
     }
-    const filed = await fileMadeDocument(file, made, watermarkedCopyName(file.name, settings));
+    const filed = await fileMadeDocument(subject, made, watermarkedCopyName(subject.name, settings));
     if (gone) return;
     result = { kind: "done", filed };
   }
@@ -410,6 +410,11 @@
             <Alert.Title>Saved {result.filed.name}</Alert.Title>
             <Alert.Description>The original is unchanged.</Alert.Description>
             <Button variant="secondary" size="sm" class="self-start" href={viewerHref(result.filed.fileId)}>Open the Marked Copy</Button>
+          </Alert.Root>
+        {:else if result.kind === "done" && result.filed.kind === "benched"}
+          <Alert.Root variant="success">
+            <Alert.Title>Added to the Bench</Alert.Title>
+            <Alert.Description>{result.filed.name} is on the bench beside the original, which is unchanged.</Alert.Description>
           </Alert.Root>
         {:else if result.kind === "done" && result.filed.kind === "notFiled"}
           <Alert.Root variant="warning">
