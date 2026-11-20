@@ -109,7 +109,9 @@ routes requests through the chokepoint into those packages.
   table agree, leaving out the copies the platform wrote; `http/routes/calendar/account-events.ts`
   answers that table to its owner and to nobody else, and never asks the provider.
   `http/routes/calendar/busy-time.ts` is the one read of it for a colleague: hours only, and only
-  from a calendar its owner shared as busy (`share_busy` on their shown-calendar row).
+  from a calendar its owner shared as busy (`share_busy` on their shown-calendar row). An own event put on a matter
+  (`fromAccountEvent` on the matter event create) becomes that event's copy through a
+  `calendar_sync_link` row with `adopted` set; a pass never deletes or moves an adopted copy.
   `request-sync.ts` asks every account with a rule or a shown calendar for a
   pass; the calendar domain's router calls it behind the response of any write that could change
   what belongs in somebody's calendar. `calendar-providers.ts` is the one place that knows there is

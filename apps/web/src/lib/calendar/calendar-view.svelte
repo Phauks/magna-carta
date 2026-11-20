@@ -72,6 +72,8 @@
     type CalendarView as CalendarViewKind,
   } from "./calendar-window.ts";
   import EntryWindow from "./entry-window.svelte";
+  import OwnEventWindow from "./own-event-window.svelte";
+  import type { OwnAccountEvent } from "./own-account-events.ts";
   import {
     entryReferenceFromIdentifier,
     entryReferenceOf,
@@ -267,12 +269,20 @@
 
   let windowOpen = $state(false);
   let reference = $state<EntryReference | null>(null);
+  let ownEventOpen = $state(false);
+  let ownEvent = $state<OwnAccountEvent | null>(null);
 
   function activate(gridEntry: CalendarGridEntry): void {
     // A day grid draws a record once per calendar it is on, so the row's key carries the column it
     // was drawn in; the record behind both copies is the same one.
     const entry = controller.entriesById.get(recordKeyOf(gridEntry.id));
     if (entry === undefined) return;
+    // One of the reader's own Outlook or Google events: its own small window.
+    if (entry.ownAccountEvent !== undefined) {
+      ownEvent = entry.ownAccountEvent;
+      ownEventOpen = true;
+      return;
+    }
     const next = entryReferenceOf(entry);
     if (next === null) {
       // A kind this window does not open (a custody due-back, when slice 2 turns it on) goes where
@@ -536,6 +546,13 @@
        tag, where nothing is cancelling the canvas. -->
   {@render calendar(`h-full ${className ?? ""}`)}
 {/if}
+
+<OwnEventWindow
+  bind:open={ownEventOpen}
+  event={ownEvent}
+  {context}
+  onAdded={() => void controller.reload(fetch)}
+/>
 
 <EntryWindow
   bind:open={windowOpen}

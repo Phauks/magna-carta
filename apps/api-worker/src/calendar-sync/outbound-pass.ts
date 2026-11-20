@@ -181,10 +181,16 @@ export async function runOutboundPass(input: OutboundPassInput): Promise<Outboun
     readCandidates(database, input.memberUserId, syncWindowAt(input.now())),
   ]);
   const limits = new Map(subjects.map((subject) => [subject.subject, subject]));
+  const adoptedCalendars = new Map(
+    links.results
+      .filter((link) => link.adopted === 1)
+      .map((link) => [`${link.local_kind}:${link.local_id}`, link.calendar_remote_id]),
+  );
   const desired = desiredCopies(
     rules,
     (subject) => limits.get(subject) ?? DEFAULT_FIRM_LIMIT,
     candidates,
+    (localKind, localId) => adoptedCalendars.get(`${localKind}:${localId}`) ?? null,
   );
   const { steps, digests } = await planOutbound(desired, links.results, digestOf);
 
@@ -221,7 +227,9 @@ export async function runOutboundPass(input: OutboundPassInput): Promise<Outboun
     const stamp = input.now().toISOString();
     if (step.action === "remove") {
       const key = keyOf(step.link.local_kind, step.link.local_id);
-      if (step.link.remote_event_id !== null) {
+      // An event the member made themselves is never deleted: it was theirs before it was a copy.
+      // The link goes, and their calendar shows it to them as their own event again.
+      if (step.link.remote_event_id !== null && step.link.adopted !== 1) {
         const removed = await port.deleteEvent(step.link.remote_event_id);
         if (!removed.ok) {
           const stop = stopFor(removed.problem);

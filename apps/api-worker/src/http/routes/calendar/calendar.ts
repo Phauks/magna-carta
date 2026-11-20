@@ -166,7 +166,15 @@ import type {
   MatterEventId,
   MatterId,
 } from "@magna-carta/identifiers/types";
+import { CALENDAR_PROVIDERS } from "@magna-carta/calendar/sync-contract";
+import { insertAdoptedSyncLinkStatement } from "@magna-carta/calendar/sync-link-statements";
+import {
+  deleteExternalEventStatement,
+  selectExternalEventCalendarStatement,
+} from "@magna-carta/calendar/sync-shown-statements";
+import type { IntegrationConnectionId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
+import { memberAccount } from "./member-account.ts";
 import type { Bindings } from "../../../bindings.ts";
 import type { Chokepoint } from "../../chokepoint/chokepoint.ts";
 import {
@@ -229,6 +237,23 @@ const MeetingRequest = z
 const CreateEventRequest = z
   .object({ ...matterEventRequestFields, meeting: MeetingRequest.nullable().optional() })
   .openapi("CreateMatterEventRequest");
+
+// One of the session member's own events, read from their Outlook or Google calendar, that the
+// event being recorded is made from.
+const FromAccountEvent = z
+  .object({
+    provider: z.enum(CALENDAR_PROVIDERS).describe("Which of the member's accounts holds it."),
+    id: z.string().min(1).max(1024).describe("The provider's own identifier for the event."),
+  })
+  .openapi("FromAccountEvent");
+
+const CreateEventFromAccountRequest = CreateEventRequest.extend({
+  fromAccountEvent: FromAccountEvent.optional().describe(
+    "Names one of the session member's own Outlook or Google events as the one this event is " +
+      "made from. The event in their account is kept and becomes this event's synced copy, so " +
+      "they never see two. It is never deleted or moved by a later sync.",
+  ),
+}).openapi("CreateMatterEventFromAccountRequest");
 
 const UpdateEventRequest = CreateEventRequest.partial().openapi("UpdateMatterEventRequest");
 
@@ -740,7 +765,10 @@ const createEventRoute = defineOpenAPIRoute(mutationMeta("createEvent", "matter"
   request: {
     headers: idempotencyKeyHeader,
     params: matterIdParam,
-    body: { content: { "application/json": { schema: CreateEventRequest } }, required: true },
+    body: {
+      content: { "application/json": { schema: CreateEventFromAccountRequest } },
+      required: true,
+    },
   },
   responses: {
     201: {
@@ -1771,6 +1799,9 @@ type RichCalendarEffectOutcome<Body> =
 // conflicts, a continuance's informational lists. The stored body IS the wire body, so a retried
 // request replays exactly what the original commit reported (its conflicts as they were then), not
 // a recomputation.
+// The event named as the one a new event is made from is not among the member's own.
+class AccountEventNotFound extends Error {}
+
 async function commitRichCalendarEffect<Body>(
   c: Context,
   database: BatchDatabase,
@@ -2471,34 +2502,100 @@ export function registerCalendarRoutes(app: CalendarApp, chokepoint: Chokepoint)
       const request = c.req.valid("json");
       const unhosted = refuseUnhostedMeeting(c, request.meeting);
       if (unhosted !== null) return unhosted;
+      const { fromAccountEvent, ...eventFields } = request;
       // The event and the room it carries commit together, and the stored body carries both — the
       // idempotency gate replays it verbatim without reaching this handler, so a meeting minted
       // outside the effect would be missing from every replayed answer.
-      const outcome = await commitRichCalendarEffect<{ id: string; meetingId: string | null }>(
-        c,
-        firm.firmDatabase,
-        idempotency,
-        201,
-        () => {
-          const created = createMatterEvent(
-            firm.firmDatabase,
-            { ...request, matterId, participants: request.participants },
-            serviceOptions(userId),
-          );
-          const scheduling = scheduleMeetingOnNewEvent(
-            firm.firmDatabase,
-            userId,
-            { kind: "matter", id: created.eventId, matterId },
-            request.meeting,
-            request.participants,
-            endToEndEncryptionEnabled(c.env),
-          );
-          return Promise.resolve({
-            body: { id: created.eventId, meetingId: scheduling.meetingId },
-            effect: withScheduling(created.effect, scheduling),
-          });
-        },
-      );
+      let outcome: RichCalendarEffectOutcome<{ id: string; meetingId: string | null }>;
+      try {
+        outcome = await commitRichCalendarEffect<{ id: string; meetingId: string | null }>(
+          c,
+          firm.firmDatabase,
+          idempotency,
+          201,
+          async () => {
+            // The member's own event this one is made from, found through their own account and
+            // nothing else: an identifier that is not one of theirs, as a pass last read them, is
+            // refused. Looked up here and not ahead of the idempotency gate, because the first
+            // attempt removes the row and a replay of it must still answer what the first did.
+            const account =
+              fromAccountEvent === undefined
+                ? null
+                : await memberAccount(c, fromAccountEvent.provider);
+            const accountEvent =
+              fromAccountEvent === undefined || account === null
+                ? null
+                : await selectExternalEventCalendarStatement(
+                    firm.firmDatabase,
+                    account.id as IntegrationConnectionId,
+                    fromAccountEvent.id,
+                  ).first<{ calendar_remote_id: string }>();
+            if (fromAccountEvent !== undefined && (account === null || accountEvent === null)) {
+              throw new AccountEventNotFound();
+            }
+            const created = createMatterEvent(
+              firm.firmDatabase,
+              { ...eventFields, matterId, participants: request.participants },
+              serviceOptions(userId),
+            );
+            const scheduling = scheduleMeetingOnNewEvent(
+              firm.firmDatabase,
+              userId,
+              { kind: "matter", id: created.eventId, matterId },
+              request.meeting,
+              request.participants,
+              endToEndEncryptionEnabled(c.env),
+            );
+            // In the same batch as the event: the member's own event becomes this event's copy and
+            // stops being listed as theirs alone, so no pass ever sees the event without its link
+            // and writes a second copy beside the first.
+            const adoption: EffectWrite =
+              fromAccountEvent === undefined || account === null || accountEvent === null
+                ? NO_CLOSING
+                : {
+                    statements: [
+                      insertAdoptedSyncLinkStatement(
+                        firm.firmDatabase,
+                        {
+                          connectionId: account.id as IntegrationConnectionId,
+                          localKind: "matter_event",
+                          localId: created.eventId,
+                        },
+                        {
+                          calendarRemoteId: accountEvent.calendar_remote_id,
+                          remoteEventId: fromAccountEvent.id,
+                          transactionId: crypto.randomUUID(),
+                        },
+                        new Date().toISOString(),
+                      ),
+                      deleteExternalEventStatement(
+                        firm.firmDatabase,
+                        account.id as IntegrationConnectionId,
+                        fromAccountEvent.id,
+                        accountEvent.calendar_remote_id,
+                      ),
+                    ],
+                    outboxMessages: [],
+                  };
+            return {
+              body: { id: created.eventId, meetingId: scheduling.meetingId },
+              effect: withScheduling(withScheduling(created.effect, scheduling), {
+                effect: adoption,
+              }),
+            };
+          },
+        );
+      } catch (caught) {
+        if (!(caught instanceof AccountEventNotFound)) throw caught;
+        return problemJson(c, {
+          type: "not-found",
+          title: "That event is not in your calendar",
+          status: 404,
+          detail:
+            "The event was not found among the ones read from your own calendar. It may have " +
+            "been deleted or moved there since this screen last read it.",
+        });
+      }
       if (!outcome.ok) return outcome.problem;
       if (outcome.replayed) c.header("Idempotency-Replayed", "true");
       return c.json(outcome.body, 201);
