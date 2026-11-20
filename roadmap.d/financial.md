@@ -74,8 +74,7 @@
   slices: 3-5-operating-general-ledger
   spec: docs/specs/2026-08-17-general-ledger-design.md
   evidence: designed; no vendor-bill tables on main
-  awaiting-owner: May accounts payable pay from anything but the resolved operating account — a firm with two operating banks has a legitimate need the single role cannot express, and the recommendation is a second role rather than a caller-supplied parameter. At what status a bill-originated cost enters the cost store, where draft respects the billability review and a firm whose lawyers never review costs would leave advanced costs unbilled forever. And whether vendor credits are in this pass or their own design, given they are the mirror of billing's credit note and need the same care about attribution. General ledger design, flags G7, G8 and G9.
-  notes: Closes the negative Client Costs Advanced position billing documents as open. Payment execution at a bank stays with the Phase 6 rails.
+  notes: Owner rulings 2026-11-20 on G7, G8 and G9: pay from any of several operating accounts (never trust), needed now; a bill's cost is a real cost billable on the next draft invoice; vendor credits later as their own design. Closes the negative Client Costs Advanced position billing documents as open. Payment execution at a bank stays with the Phase 6 rails.
 
 - id: financial.ledger.operating-gl.financial-statements
   name: Financial statements
