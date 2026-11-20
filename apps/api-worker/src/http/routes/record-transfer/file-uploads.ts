@@ -34,15 +34,7 @@ import { chokepointMiddleware } from "../../chokepoint/register.ts";
 import { problemJson } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute } from "../../contracts/route-meta.ts";
 import type { AppRouter } from "../domain-app.ts";
-import {
-  errors,
-  notFound,
-  readRun,
-  runEnded,
-  runIsOpen,
-  runParam,
-  writeMeta,
-} from "./shared.ts";
+import { errors, notFound, readRun, runEnded, runIsOpen, runParam, writeMeta } from "./shared.ts";
 
 // A source file given in pieces: a whole table of a database is larger than one request may carry.
 //
@@ -79,7 +71,10 @@ const partParam = uploadParam.extend({
 
 const partQuery = z.object({ uploadId: z.string().min(1).max(1024) });
 
-const meta = (operationId: string) => ({ ...writeMeta(operationId), idempotency: "optional" as const });
+const meta = (operationId: string) => ({
+  ...writeMeta(operationId),
+  idempotency: "optional" as const,
+});
 
 const startRoute = defineOpenAPIRoute(meta("recordTransfer.startSourceFileUpload"), {
   method: "post",
@@ -213,10 +208,7 @@ export function registerTransferFileUploadRoutes(app: AppRouter, chokepoint: Cho
         ),
         { now: () => now },
       );
-      return c.json(
-        { fileId, uploadId: upload.uploadId, partBytes: SOURCE_FILE_PART_BYTES },
-        201,
-      );
+      return c.json({ fileId, uploadId: upload.uploadId, partBytes: SOURCE_FILE_PART_BYTES }, 201);
     },
   );
 
