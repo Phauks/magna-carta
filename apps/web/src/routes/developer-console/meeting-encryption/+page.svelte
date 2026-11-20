@@ -66,7 +66,7 @@
   const inGroup = $derived(encryption.kind === "on" || encryption.kind === "paused");
 
   function show(next: string): void {
-    const url = new URL(page.url);
+    const url = new URL(page.url.href);
     url.searchParams.set("state", next);
     void goto(url, { replace: true, reset: false });
   }
