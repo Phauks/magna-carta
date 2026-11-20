@@ -405,7 +405,7 @@
     if (composingNew || selectedId !== null) return;
     // A link to one conversation opens that one, whether or not the rail has paged to it; a link
     // to a conversation the reader cannot see settles as the transcript's own failure notice.
-    const named = conversationFromAddress(page.url);
+    const named = conversationFromAddress(new URL(page.url.href));
     if (named !== null) {
       select(named);
       return;
@@ -475,7 +475,7 @@
    * and a history entry per click would make Back walk through every conversation looked at.
    */
   function mirrorAddress(conversationId: string | null): void {
-    if (conversationFromAddress(page.url) === conversationId) return;
+    if (conversationFromAddress(new URL(page.url.href)) === conversationId) return;
     const next = new URL(page.url.href);
     if (conversationId === null) next.searchParams.delete(CONVERSATION_PARAMETER);
     else next.searchParams.set(CONVERSATION_PARAMETER, conversationId);

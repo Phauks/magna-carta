@@ -812,13 +812,13 @@ describe("the fleet fold", () => {
 describe("the upstream-update notice", () => {
   const chip = stripComments(source("lib/versions/version-report.svelte"));
   const heading = stripComments(source("lib/versions/version-section-heading.svelte"));
-  const svelteConfig = repositoryFile("apps/web/svelte.config.js");
+  const viteConfig = repositoryFile("apps/web/vite.config.ts");
 
   it("names each build by its commit and polls for a newer one", () => {
     // The poll compares version names, so the name has to change exactly when the bytes do: the
     // commit, from the same shared resolution every Worker stamp uses.
-    expect(svelteConfig).toContain("resolveCommitIdentity");
-    expect(svelteConfig).toContain("pollInterval");
+    expect(viteConfig).toContain("resolveCommitIdentity");
+    expect(viteConfig).toContain("pollInterval");
   });
 
   it("watches the poll and answers it with the one gesture", () => {

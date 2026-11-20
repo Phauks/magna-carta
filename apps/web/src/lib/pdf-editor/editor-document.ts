@@ -1,10 +1,11 @@
 /*
  * What every PDF Editor tab does with the document before and after its own work: read the
- * document's bytes and open it for drawing, and file what the engine made back on the matter.
+ * document's bytes and open it for drawing, and keep what the engine made: on the matter for a
+ * matter file, on the File Workbench for a bench file (`editor-subject.ts`).
  *
  * Kept in one place so each tab refuses a document for the same reasons in the same words, and so
- * a document the engine made is never lost because filing it failed: the caller is handed the
- * bytes to offer as a download instead.
+ * a document the engine made is never lost because adding it to the matter failed: the caller is
+ * handed the bytes to offer as a download instead.
  */
 import { readDocumentBytes } from "$lib/documents/document-bytes.ts";
 import {
@@ -14,7 +15,7 @@ import {
   type PdfPageSize,
 } from "$lib/documents/pdf-pages.ts";
 import { uploadIntoFolder } from "$lib/file-manager/file-upload.ts";
-import type { MatterFile } from "$lib/file-manager/matter-file-api.ts";
+import { changedCopyName, putMadeOnBench, type EditorSubject } from "./editor-subject.ts";
 
 export type OpenedDocument =
   | {
@@ -27,12 +28,36 @@ export type OpenedDocument =
     }
   | { readonly kind: "refused"; readonly message: string };
 
+const TOO_LARGE = "This document is too large for the editor. Download it to work on it elsewhere.";
+
+/** The subject's bytes, or the sentence saying why they could not be had. */
+async function readSubjectBytes(
+  subject: EditorSubject,
+): Promise<{ readonly bytes: ArrayBuffer } | { readonly refused: string }> {
+  if (subject.kind === "matter") {
+    const { file } = subject;
+    const outcome = await readDocumentBytes(fetch, file.id, file.sizeBytes, PDF_VIEWER_MAX_BYTES);
+    if (outcome.kind === "ok") return { bytes: outcome.bytes };
+    return {
+      refused: outcome.kind === "too-large" ? TOO_LARGE : "Couldn't read the document. Try again.",
+    };
+  }
+  if (subject.sizeBytes > PDF_VIEWER_MAX_BYTES) return { refused: TOO_LARGE };
+  try {
+    // A copy, because the worker takes the buffer it is handed and the bench keeps its own.
+    const bytes = await subject.readBytes();
+    return { bytes: bytes.slice().buffer };
+  } catch {
+    return { refused: "This file is no longer on the bench." };
+  }
+}
+
 /**
- * Read and open a matter's PDF for a tab. `lockedAdvice` is the tab's own sentence for a document
- * locked with a password, because what to do next differs by tool.
+ * Read and open the subject's PDF for a tab. `lockedAdvice` is the tab's own sentence for a
+ * document locked with a password, because what to do next differs by tool.
  */
 export async function openEditorDocument(
-  file: MatterFile,
+  subject: EditorSubject,
   lockedAdvice: string,
 ): Promise<OpenedDocument> {
   if (!pdfWorkerAvailable()) {
@@ -41,19 +66,11 @@ export async function openEditorDocument(
       message: "This browser can't run the editor's background worker.",
     };
   }
-  const outcome = await readDocumentBytes(fetch, file.id, file.sizeBytes, PDF_VIEWER_MAX_BYTES);
-  if (outcome.kind !== "ok") {
-    return {
-      kind: "refused",
-      message:
-        outcome.kind === "too-large"
-          ? "This document is too large for the editor. Download it to work on it elsewhere."
-          : "Couldn't read the document. Try again.",
-    };
-  }
-  const original = outcome.bytes.slice(0);
+  const read = await readSubjectBytes(subject);
+  if ("refused" in read) return { kind: "refused", message: read.refused };
+  const original = read.bytes.slice(0);
   const source = new PdfDocumentSource();
-  const reason = await source.open(outcome.bytes);
+  const reason = await source.open(read.bytes);
   if (reason !== null) {
     source.close();
     return {
@@ -69,19 +86,32 @@ export async function openEditorDocument(
 
 export type Filed =
   | { readonly kind: "filed"; readonly fileId: string; readonly name: string }
+  /** Put on the File Workbench beside the bench file it was made from. Nothing reached a matter. */
+  | { readonly kind: "benched"; readonly name: string }
   /** The engine made the document but the matter did not take it. Offer the bytes; nothing was saved. */
   | { readonly kind: "notFiled"; readonly name: string; readonly url: string };
 
 /**
- * File a document the engine made: as a NEW FILE beside the original, or, given `asVersionOf`, as
+ * Keep a document the engine made: as a NEW FILE beside the original, or, given `asNextVersion`, as
  * the next version of the original, which keeps every earlier version in the file's history.
+ *
+ * A bench file has no versions, so there `asNextVersion` puts a changed copy on the bench instead,
+ * named for the change (`benchChange`) so the two are told apart on the bench.
  */
 export async function fileMadeDocument(
-  file: MatterFile,
+  subject: EditorSubject,
   bytes: Uint8Array,
   name: string,
-  options: { readonly asVersionOf?: string } = {},
+  options: { readonly asNextVersion?: boolean; readonly benchChange?: string } = {},
 ): Promise<Filed> {
+  if (subject.kind === "bench") {
+    const benchName =
+      options.asNextVersion !== true
+        ? name
+        : changedCopyName(name, options.benchChange ?? "Edited");
+    return { kind: "benched", name: putMadeOnBench(subject, bytes, benchName) };
+  }
+  const { file } = subject;
   const made = new File([new Uint8Array(bytes)], name, { type: "application/pdf" });
   const saved = await uploadIntoFolder({
     fetchImpl: fetch,
@@ -89,7 +119,7 @@ export async function fileMadeDocument(
     folderId: file.folderId,
     file: made,
     name,
-    ...(options.asVersionOf === undefined ? {} : { fileId: options.asVersionOf }),
+    ...(options.asNextVersion === true ? { fileId: file.id } : {}),
   });
   if (saved.kind === "committed" || saved.kind === "settling") {
     return { kind: "filed", fileId: saved.fileId, name };

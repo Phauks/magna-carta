@@ -198,7 +198,7 @@
    */
   $effect(() => {
     if (!seededFromAddress) return;
-    const url = new URL(page.url);
+    const url = new URL(page.url.href);
     if (selectedAccountId === null) url.searchParams.delete("account");
     else url.searchParams.set("account", selectedAccountId);
     if (url.href !== page.url.href) replaceState(url, page.state);

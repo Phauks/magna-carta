@@ -23,6 +23,7 @@ Some of this is read the moment a file lands, without being asked, because it is
 The rest wait until you ask, because each one either writes a new file, costs money, or sends something outside the firm:
 
 - **Convert** — turn the file into another format. The original is never replaced.
+- **PDF** — for a PDF, how many pages it has and their size, its form and how much of it is filled, whether it needs a password, and any Bates numbers already on its pages. Below that are the PDF Editor's tools, each with **Open**.
 - **Repair** — read what can still be read out of a damaged file, working on a copy.
 - **Text Recognition** — get selectable text out of a scan or a photograph of a page.
 - **Unlock** — open a protected document you have the password for.
@@ -81,6 +82,16 @@ The settings shown are the ones the chosen format can use for every selected fil
 3. Choose **Save a Disarmed Copy**, or **Put the Copy on the Bench** to look at it on the other tabs first. The copy keeps the text, formatting, pictures and web links and loses everything in the list. A Word file with macros (`.docm`) comes back as a plain `.docx`.
 
 Disarming works on PDF files, Word, Excel and PowerPoint documents, RTF documents and pictures. A password-protected file has to be unlocked first, and older Office files (`.doc`, `.xls`, `.ppt`) are not disarmed. The original is never changed, so it stays the evidence of what arrived.
+
+**Work on a PDF that is not on a matter**
+
+1. Drop the PDF on the workbench and open the **PDF** tab. **This PDF** lists its pages, form, password and any Bates numbers it already carries.
+2. Under **Tools**, press **Open** beside the one you want: **Pages**, **Redact**, **Forms**, **Watermark** or **Secure**. **Open in PDF Editor** at the foot opens the editor on **Pages**.
+3. The PDF Editor opens over the workbench with the file's name at the top. It is the same editor a matter's PDFs use, with the same tabs.
+4. Whatever the editor makes goes back on the workbench as a new file beside the original: a redacted copy, a watermarked copy, a protected copy, the pages you extracted or split, and, where a matter file would take a new version, a copy named for the change, such as `Lease (Arranged).pdf` or `Lease (Filled).pdf`. The original is never changed, and nothing is added to a matter.
+5. Choose **File Workbench** above the title, or your browser's Back, to return to the workbench as you left it, with the new files on the list.
+
+**Bates** numbers come from a matter's Bates register, so they cannot be stamped on a file that belongs to no matter: the tab says so. Add the file to a matter and number it there. A PDF that needs a password to open has to be unlocked first; the **Unlock** button on the **PDF** tab takes you there.
 
 **Get what you can out of a damaged file**
 
