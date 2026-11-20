@@ -279,6 +279,8 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   esign: "firm",
   shipping: "firm",
   tools: "firm",
+  // The firm's own bank connections and their accounts; nothing here belongs to one matter.
+  banking: "firm",
   // incidents:* governs reading and answering the problem reports a firm's members send; a report
   // belongs to the firm that received it and to no matter.
   incidents: "firm",
