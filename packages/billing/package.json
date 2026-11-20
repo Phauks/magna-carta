@@ -33,6 +33,7 @@
     "test": "vp test run"
   },
   "dependencies": {
+    "@magna-carta/account-roles": "workspace:*",
     "@magna-carta/billing-core": "workspace:*",
     "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/data-access": "workspace:*",

@@ -13,6 +13,9 @@
       "path": "./tsconfig.build.json"
     },
     {
+      "path": "../account-roles/tsconfig.build.json"
+    },
+    {
       "path": "../billing-core/tsconfig.build.json"
     },
     {

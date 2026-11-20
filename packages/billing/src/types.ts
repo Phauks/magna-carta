@@ -82,19 +82,9 @@ export type InvoiceDeliveryOutcome = (typeof INVOICE_DELIVERY_OUTCOMES)[number];
 // The closed set of roles a billing posting resolves. The product chart of accounts does not exist
 // yet; until it does, this map is how a firm says which of its ledger accounts plays each part, and
 // an unmapped role refuses finalization rather than posting somewhere plausible.
-export const ACCOUNT_ROLES = [
-  "accounts_receivable",
-  "fee_income",
-  "client_costs_advanced",
-  "cost_recovery_income",
-  "tax_payable",
-  "fee_adjustments",
-  "fee_write_off",
-  "operating_bank",
-  "client_credit_liability",
-] as const;
-
-export type AccountRole = (typeof ACCOUNT_ROLES)[number];
+// The role vocabulary lives in @magna-carta/account-roles, which billing and the operating books
+// both read; re-exported here so billing callers keep one import.
+export { ACCOUNT_ROLES, type AccountRole } from "@magna-carta/account-roles/account-roles";
 
 // The shipped service shape: nothing here reads a clock, generates randomness, or holds a D1
 // binding ambiently. All three are injected.

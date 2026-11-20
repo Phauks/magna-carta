@@ -246,6 +246,15 @@ export const ENTITY_PREFIXES = {
   trustCheck: "trustCheck",
   trustCheckEvent: "trustCheckEvent",
   trustCheckStock: "trustCheckStock",
+  // The operating books. An `operatingBankAccount` is one of the firm's own bank accounts; a
+  // `vendorBill` is a bill the firm owes a vendor, with its `vendorBillLine`s; a `vendorBillPayment`
+  // is one payment against it from an operating account; a `vendorBillReversal` records a bill
+  // entered in error, reversed with a reason.
+  operatingBankAccount: "operatingBankAccount",
+  vendorBill: "vendorBill",
+  vendorBillLine: "vendorBillLine",
+  vendorBillPayment: "vendorBillPayment",
+  vendorBillReversal: "vendorBillReversal",
   // Bank reconciliation, the tick-to-clear way. A `trustBankReconciliation` is one period of one
   // account checked against the bank's statement; a `trustBankReconciliationChange` is one tick,
   // untick, end date or end balance, kept in order so History, Undo and restore points read it; a

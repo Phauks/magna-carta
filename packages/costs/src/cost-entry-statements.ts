@@ -33,9 +33,13 @@ export interface InsertCostEntryRow {
   readonly recoveryRef: string | null;
   readonly createdAt: string;
   readonly createdBy: string | null;
+  // Where the entry starts. A cost captured by hand starts as a draft; a cost from a vendor bill
+  // the firm has entered starts approved, because it is a real cost already owed and goes on the
+  // matter's next draft bill, where the review happens.
+  readonly status?: "draft" | "approved";
 }
 
-// A captured cost entry always enters as draft; invoice_id stays null until billing locks the row;
+// A captured cost entry enters as draft unless the caller says approved (a vendor bill's cost); invoice_id stays null until billing locks the row;
 // kick_back_reason starts null and is set only on reviewer rejection.
 export function insertCostEntryStatement(
   database: SqlDatabase,
@@ -43,7 +47,7 @@ export function insertCostEntryStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${COST_ENTRY_TABLE} (id, matter_id, vendor_id, incurred_date, amount_minor, currency, disbursement_class, billable, utbms_expense_code_id, description, receipt_file_id, status, kick_back_reason, source, recovery_category, recovery_ref, invoice_id, created_at, updated_at, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, 'draft', NULL, ?12, ?13, ?14, NULL, ?15, ?15, ?16)`,
+      `INSERT INTO ${COST_ENTRY_TABLE} (id, matter_id, vendor_id, incurred_date, amount_minor, currency, disbursement_class, billable, utbms_expense_code_id, description, receipt_file_id, status, kick_back_reason, source, recovery_category, recovery_ref, invoice_id, created_at, updated_at, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?17, NULL, ?12, ?13, ?14, NULL, ?15, ?15, ?16)`,
     )
     .bind(
       row.id,
@@ -62,6 +66,7 @@ export function insertCostEntryStatement(
       row.recoveryRef,
       row.createdAt,
       row.createdBy,
+      row.status ?? "draft",
     );
 }
 

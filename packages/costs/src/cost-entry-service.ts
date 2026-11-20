@@ -73,6 +73,9 @@ export interface CaptureCostInput {
   readonly source: CostEntrySource;
   readonly recoveryCategory?: string;
   readonly recoveryRef?: string;
+  // A cost from a vendor bill enters approved: the firm has confirmed it owes the money, and the
+  // review happens on the matter's draft bill. Every other capture starts as a draft.
+  readonly initialStatus?: "draft" | "approved";
 }
 
 function audit(
@@ -180,6 +183,7 @@ export async function captureCost(
           recoveryRef: input.recoveryRef ?? null,
           createdAt,
           createdBy: options.actorUserId,
+          status: input.initialStatus ?? "draft",
         }),
         audit(database, options, "cost_entry.captured", costEntryId),
       ],
