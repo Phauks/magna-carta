@@ -913,14 +913,14 @@ With `TELNYX_API_KEY` (already set for caller lookup) and `TELNYX_TEXT_FROM` bot
 
 1. In the Telnyx portal, buy or choose a number and create a **Messaging Profile** under Messaging; assign the number to it.
 2. **Register the number for business texting.** US carriers block unregistered business texts. A regular (long code) number needs 10DLC registration: a brand for the firm and a campaign (use case "2FA" or "Account Notification", sample message "123456 is your code to sign the document Example Law sent you. It works for 10 minutes."). A toll-free number needs toll-free verification instead, which is usually quicker. Telnyx answers 403 until it is done, counted as `number-not-allowed` on `signing.text_codes_undelivered`. Reference: https://developers.telnyx.com/docs/messaging/messages/phone-number-configuration
-3. Set `TELNYX_TEXT_FROM` on `magna-carta-api` as a per-Worker secret (Settings, Variables and Secrets) with the number in E.164, for example `+17025550100`. To keep it in the Secrets Store instead, create the store secret FIRST and only then add a `SECRETS_STORE_TELNYX_TEXT_FROM` entry to `apps/api-worker/wrangler.jsonc`: a store binding that names a secret the store does not hold fails the deploy.
+3. Create `TELNYX_TEXT_FROM` in the Secrets Store (store `9ce4ac3e…`, scope _Workers_) with the number in E.164, for example `+17025550100`. THEN, in a pull request, add its `SECRETS_STORE_TELNYX_TEXT_FROM` entry to `apps/api-worker/wrangler.jsonc`, beside the other store entries. The order matters: a store binding that names a secret the store does not hold fails the deploy, which is why the entry is not committed ahead of the secret.
 4. A firm administrator turns **Text Code** on under Settings, Signing.
 
 **What is sent** is the code, the firm's name and how long the code works, to the signer's number. No document title, matter or signer name. The number and the code are never logged; a failure is logged by its reason under an Error ID the signer's page shows.
 
 **What it costs.** Telnyx bills each outbound message segment plus a carrier pass-through fee, and 10DLC carries a one-time brand fee and a monthly campaign fee. Prices: [`docs/operating-costs.md`](../operating-costs.md).
 
-**Switching it off.** Delete the `TELNYX_TEXT_FROM` secret. Text Code drops out of every firm's choices at once; a signer already given a text code is asked to have the sender choose another way.
+**Switching it off.** Remove the `SECRETS_STORE_TELNYX_TEXT_FROM` entry from `wrangler.jsonc` and deploy, then delete the store secret. Text Code drops out of every firm's choices at once; a signer already given a text code is asked to have the sender choose another way.
 
 ## 20. Address autocomplete — the retired own index and Smarty
 
