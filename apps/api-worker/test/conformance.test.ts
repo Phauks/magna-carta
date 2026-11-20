@@ -82,6 +82,8 @@ const MONEY_SUBSYSTEM_KEYWORDS = new Set([
 // — no route is silently public.
 const PUBLIC_ALLOW_LIST: Record<string, string> = {
   "health.read": "Liveness/readiness probe — platform plumbing, no firm data, no session.",
+  "humanVerification.settings":
+    "Read by the sign-in and registration screens before anybody has a session. Answers only the public Turnstile site key (which Cloudflare puts in every page that draws the widget) or null; no firm data, and never the secret.",
   "registrations.start":
     "The front door: a visitor with no account asks to join, so no session can exist. Writes one control-plane registration row and sends one email — no firm, no bucket, no key. Every outcome answers identically so the endpoint cannot be used to test which addresses have accounts; IP-keyed rate limiting is the enforcement the chokepoint still applies.",
   "registrations.confirm":

@@ -268,14 +268,13 @@ export const FEATURE_WORDS: Record<string, FeatureWords> = {
     deployQueueHeading: null,
   },
   signUpBotCheck: {
-    name: "Sign-up bot check",
+    name: "Bot check",
     group: "platform",
     steps: [
-      "Create the Turnstile widget first.",
-      "Then, on the magna-carta Worker, set the secret TURNSTILE_SECRET_KEY.",
+      "In the Cloudflare dashboard, open Turnstile and add a Managed widget for magnacarta.esq.",
+      "In the Secrets Store, create TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY from its two keys.",
     ],
-    deployQueueHeading:
-      "Turnstile activation — the order matters, and the widget comes before the secret",
+    deployQueueHeading: "Turnstile activation",
   },
   communitySignIn: {
     name: "Community board sign-in",

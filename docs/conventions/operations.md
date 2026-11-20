@@ -194,12 +194,12 @@ These are free on every plan and easy to miss. A legal SaaS should have them on 
 - [ ] **HSTS** — enable with a long max-age + `includeSubDomains`; only after confirming every hostname (incl. future custom hostnames, §8.4) is HTTPS-only, since HSTS is hard to walk back.
 - [ ] **Modern Rules engine, not legacy Page Rules** — author **Cache Rules** (per-path cache control), **Configuration Rules** (scope zone settings per-route), **Transform Rules** (request/response header rewrites), and **Compression Rules** as needed. Migrate any legacy Page Rules onto these — Page Rules are being sunset.
 - [ ] **Tiered Cache + Smart Tiered Cache** — **Caching → Tiered Cache**: enable both (free on all plans). Modest benefit for a Workers app, but free and harmless; set a cloud-region hint only if an external origin appears.
-- **Turnstile** — **no longer a checkbox here.** Server-side verification is built and shipped
-  dormant (`apps/api-worker/src/http/human-verification/`), gating `POST /api/v1/registrations` and `POST
-  /api/v1/invitations/redemptions`; with no secret provisioned it serves those endpoints unprotected
-  and counts every unprotected pass as `human_verification.decided` / `unenforced`. Switching it on
-  is an ordered activation with a UI prerequisite, not a dashboard toggle — the steps are in the
-  [deploy queue](../deploy-queue.md). Free, and complements Super Bot Fight Mode (§8.2).
+- **Turnstile** — **no longer a checkbox here.** The bot check is built and ships off
+  (`apps/api-worker/src/http/human-verification/`, the widget in `apps/web/src/lib/auth/human-check.svelte`),
+  gating registration, invitation redemption, sign-in and the reset-email request. It switches on when
+  both `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` are set; the steps are in the
+  [deploy queue](../deploy-queue.md) under _Turnstile activation_. Free, and complements Super Bot
+  Fight Mode (§8.2).
 
 ### 8.2 Phase 1 — the Pro security layer, enable now (the actual reason for Pro)
 

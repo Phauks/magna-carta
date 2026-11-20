@@ -233,6 +233,13 @@ export type CommunityHandoff = {
     url: string;
 };
 
+export type HumanVerificationSettings = {
+    /**
+     * The Cloudflare Turnstile site key the browser renders the widget with, or null when the bot check is not set up and no widget should be shown.
+     */
+    siteKey: string | null;
+};
+
 export type StartRegistrationResponse = {
     next: 'checkEmail' | 'redeemInvitation';
 };
@@ -12568,6 +12575,31 @@ export type MeCommunityHandoffResponses = {
 };
 
 export type MeCommunityHandoffResponse = MeCommunityHandoffResponses[keyof MeCommunityHandoffResponses];
+
+export type HumanVerificationSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/human-verification';
+};
+
+export type HumanVerificationSettingsErrors = {
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type HumanVerificationSettingsError = HumanVerificationSettingsErrors[keyof HumanVerificationSettingsErrors];
+
+export type HumanVerificationSettingsResponses = {
+    /**
+     * The site key, or null
+     */
+    200: HumanVerificationSettings;
+};
+
+export type HumanVerificationSettingsResponse = HumanVerificationSettingsResponses[keyof HumanVerificationSettingsResponses];
 
 export type RegistrationsStartData = {
     body: StartRegistrationRequest;
