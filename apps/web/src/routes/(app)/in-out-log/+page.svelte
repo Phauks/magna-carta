@@ -20,6 +20,7 @@
   import HandHelping from "@lucide/svelte/icons/hand-helping";
   import IdCard from "@lucide/svelte/icons/id-card";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
+  import { opensBeside } from "$lib/navigation/open-beside.ts";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { permissionRefusal } from "$lib/access/refusal.ts";
@@ -286,8 +287,7 @@
           variant="ghost"
           size="sm"
           href={identityScanHref(row.id)}
-          target="_blank"
-          rel="noopener"
+          {...opensBeside("file")}
           aria-label="View ID for {row.number}"
         >
           <IdCard class="size-16" aria-hidden="true" />
