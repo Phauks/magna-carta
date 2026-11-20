@@ -571,42 +571,24 @@ export type ErrorRecord = {
     correlationId: string | null;
 } | null;
 
-export type ReportIncidentResponse = {
-    id: string;
-    status: string;
+export type SharedProblemReportList = {
+    reports: Array<SharedProblemReportSummary>;
 };
 
-export type ReportIncidentRequest = {
-    errorIds: Array<string>;
-    breadcrumbs: Array<{
-        at: string;
-        action: string;
-        route: string;
-    }>;
-    description: string;
-    context: {
-        route: string;
-        appVersion: string;
-        clientAt: string;
-        deployment?: string;
-    };
-};
-
-export type IncidentList = {
-    incidents: Array<IncidentSummary>;
-};
-
-export type IncidentSummary = {
-    id: string;
-    createdAt: string;
-    status: 'open' | 'investigating' | 'fixed' | 'closed';
-    statusChangedAt: string | null;
-    reportedBy: string;
-    reporterName: string | null;
-    summary: string | null;
+export type SharedProblemReportSummary = {
+    incidentId: string;
+    firmId: string;
+    firmName: string;
+    sentAt: string;
     route: string | null;
     errorIdCount: number;
-    hasScreenshot: boolean;
+    status: 'open' | 'investigating' | 'fixed' | 'closed';
+};
+
+export type SharedProblemReportDetail = {
+    firmId: string;
+    firmName: string;
+    report: IncidentDetail;
 };
 
 export type IncidentDetail = {
@@ -628,6 +610,48 @@ export type IncidentDetail = {
     route: string | null;
     appVersion: string | null;
     deployment: string | null;
+    hasScreenshot: boolean;
+};
+
+export type ReportIncidentResponse = {
+    id: string;
+    status: string;
+};
+
+export type ReportIncidentRequest = {
+    errorIds: Array<string>;
+    breadcrumbs: Array<{
+        at: string;
+        action: string;
+        route: string;
+    }>;
+    description: string;
+    context: {
+        route: string;
+        appVersion: string;
+        clientAt: string;
+        deployment?: string;
+    };
+};
+
+export type ProblemReportSharing = {
+    sharesWithMagnaCarta: boolean;
+};
+
+export type IncidentList = {
+    incidents: Array<IncidentSummary>;
+};
+
+export type IncidentSummary = {
+    id: string;
+    createdAt: string;
+    status: 'open' | 'investigating' | 'fixed' | 'closed';
+    statusChangedAt: string | null;
+    reportedBy: string;
+    reporterName: string | null;
+    summary: string | null;
+    route: string | null;
+    errorIdCount: number;
     hasScreenshot: boolean;
 };
 
@@ -13769,6 +13793,119 @@ export type PlatformErrorLookupResponses = {
 
 export type PlatformErrorLookupResponse = PlatformErrorLookupResponses[keyof PlatformErrorLookupResponses];
 
+export type PlatformSharedProblemReportsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/platform/problem-reports';
+};
+
+export type PlatformSharedProblemReportsErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformSharedProblemReportsError = PlatformSharedProblemReportsErrors[keyof PlatformSharedProblemReportsErrors];
+
+export type PlatformSharedProblemReportsResponses = {
+    /**
+     * The shared reports
+     */
+    200: SharedProblemReportList;
+};
+
+export type PlatformSharedProblemReportsResponse = PlatformSharedProblemReportsResponses[keyof PlatformSharedProblemReportsResponses];
+
+export type PlatformSharedProblemReportData = {
+    body?: never;
+    path: {
+        firmId: string;
+        incidentId: string;
+    };
+    query?: never;
+    url: '/api/v1/platform/problem-reports/{firmId}/{incidentId}';
+};
+
+export type PlatformSharedProblemReportErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * No such report, or its firm does not share it
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformSharedProblemReportError = PlatformSharedProblemReportErrors[keyof PlatformSharedProblemReportErrors];
+
+export type PlatformSharedProblemReportResponses = {
+    /**
+     * The report
+     */
+    200: SharedProblemReportDetail;
+};
+
+export type PlatformSharedProblemReportResponse = PlatformSharedProblemReportResponses[keyof PlatformSharedProblemReportResponses];
+
+export type PlatformSharedProblemReportScreenshotData = {
+    body?: never;
+    path: {
+        firmId: string;
+        incidentId: string;
+    };
+    query?: never;
+    url: '/api/v1/platform/problem-reports/{firmId}/{incidentId}/screenshot';
+};
+
+export type PlatformSharedProblemReportScreenshotErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * No such report, or its firm does not share it
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformSharedProblemReportScreenshotError = PlatformSharedProblemReportScreenshotErrors[keyof PlatformSharedProblemReportScreenshotErrors];
+
+export type PlatformSharedProblemReportScreenshotResponses = {
+    /**
+     * The image bytes
+     */
+    200: string;
+};
+
+export type PlatformSharedProblemReportScreenshotResponse = PlatformSharedProblemReportScreenshotResponses[keyof PlatformSharedProblemReportScreenshotResponses];
+
 export type IncidentsListData = {
     body?: never;
     path?: never;
@@ -13846,6 +13983,76 @@ export type IncidentsReportResponses = {
 };
 
 export type IncidentsReportResponse = IncidentsReportResponses[keyof IncidentsReportResponses];
+
+export type IncidentsGetSharingData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/incidents/sharing';
+};
+
+export type IncidentsGetSharingErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the route's permission
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type IncidentsGetSharingError = IncidentsGetSharingErrors[keyof IncidentsGetSharingErrors];
+
+export type IncidentsGetSharingResponses = {
+    /**
+     * The firm's switch
+     */
+    200: ProblemReportSharing;
+};
+
+export type IncidentsGetSharingResponse = IncidentsGetSharingResponses[keyof IncidentsGetSharingResponses];
+
+export type IncidentsSetSharingData = {
+    body: ProblemReportSharing;
+    path?: never;
+    query?: never;
+    url: '/api/v1/incidents/sharing';
+};
+
+export type IncidentsSetSharingErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the route's permission
+     */
+    403: Problem;
+    /**
+     * The body failed validation
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type IncidentsSetSharingError = IncidentsSetSharingErrors[keyof IncidentsSetSharingErrors];
+
+export type IncidentsSetSharingResponses = {
+    /**
+     * The firm's switch, as set
+     */
+    200: ProblemReportSharing;
+};
+
+export type IncidentsSetSharingResponse = IncidentsSetSharingResponses[keyof IncidentsSetSharingResponses];
 
 export type IncidentsListMineData = {
     body?: never;

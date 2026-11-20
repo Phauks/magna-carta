@@ -11,6 +11,7 @@
     "./incident-contract": "./src/incident-contract.ts",
     "./incident-statements": "./src/incident-statements.ts",
     "./incident-views": "./src/incident-views.ts",
+    "./shared-problem-report-statements": "./src/shared-problem-report-statements.ts",
     "./member-statements": "./src/member-statements.ts",
     "./member-photo-statements": "./src/member-photo-statements.ts",
     "./email-filing-statements": "./src/email-filing-statements.ts",
