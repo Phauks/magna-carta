@@ -13,7 +13,9 @@ describe("the chart of accounts", () => {
       ["Operating", "cash"],
       ["Payroll", "cash"],
     ]);
-    const trustBank = chart.find((account) => account.ledgerAccountId === fixture.trustBankLedgerAccountId);
+    const trustBank = chart.find(
+      (account) => account.ledgerAccountId === fixture.trustBankLedgerAccountId,
+    );
     expect(trustBank?.statementSection).toBe("trustAssets");
     expect(trustBank?.trustRegistration).toBe("bank");
     expect(chart.find((account) => account.code === "2000")?.roles).toEqual(["accounts_payable"]);
@@ -25,17 +27,27 @@ describe("the chart of accounts", () => {
       code: "chart-already-started",
     });
     await expect(
-      createChartAccount(fixture.database, { name: "Copier Lease", type: "expense", code: "6100" }, options),
+      createChartAccount(
+        fixture.database,
+        { name: "Copier Lease", type: "expense", code: "6100" },
+        options,
+      ),
     ).rejects.toMatchObject({ code: "account-code-taken" });
     await expect(
-      updateChartAccount(fixture.database, { ledgerAccountId: accountId(fixture, "6100"), type: "asset" }),
+      updateChartAccount(fixture.database, {
+        ledgerAccountId: accountId(fixture, "6100"),
+        type: "asset",
+      }),
     ).rejects.toMatchObject({ code: "account-is-a-system-account" });
   });
 
   it("never lets a trust account be renamed here or carry one of the app's roles", async () => {
     const fixture = await booksFixture();
     await expect(
-      updateChartAccount(fixture.database, { ledgerAccountId: fixture.trustBankLedgerAccountId, name: "Mine" }),
+      updateChartAccount(fixture.database, {
+        ledgerAccountId: fixture.trustBankLedgerAccountId,
+        name: "Mine",
+      }),
     ).rejects.toMatchObject({ code: "account-is-trust-registered" });
     await expect(
       configureAccountRoles(
@@ -61,7 +73,12 @@ describe("the chart of accounts", () => {
     const fixture = await booksFixture();
     const created = await createChartAccount(
       fixture.database,
-      { name: "Copier Lease", type: "expense", code: "6260", statementSection: "operatingExpenses" },
+      {
+        name: "Copier Lease",
+        type: "expense",
+        code: "6260",
+        statementSection: "operatingExpenses",
+      },
       options,
     );
     await commit(fixture.database, created.effect);

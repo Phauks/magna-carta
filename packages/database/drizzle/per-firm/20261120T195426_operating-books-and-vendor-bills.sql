@@ -234,4 +234,8 @@ END;
 --> statement-breakpoint
 CREATE TRIGGER `operating_bank_account_no_delete` BEFORE DELETE ON `operating_bank_account` BEGIN
   SELECT RAISE(ABORT, 'an operating bank account is closed, never deleted');
-END;
+END;--> statement-breakpoint
+-- Entering and paying vendor bills spends the firm's money: seeded onto Admin and Billing, the two
+-- roles that already hold billing:apply and billing:configure between them.
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_payablesManageAdmin00', 'role_Gw-zKO8hOHQuNv2bWokMp', 'payables:manage');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_payablesManageBilling', 'role_hwwC1D98d8Lazc_asL6vO', 'payables:manage');

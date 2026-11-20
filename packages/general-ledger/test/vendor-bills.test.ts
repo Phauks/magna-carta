@@ -6,7 +6,11 @@ import {
   readOperatingBankAccounts,
   setDefaultOperatingBankAccount,
 } from "../src/operating-accounts.ts";
-import { readVendorBill, readVendorBillBoard, readVendorDefaultAccount } from "../src/vendor-bill-reads.ts";
+import {
+  readVendorBill,
+  readVendorBillBoard,
+  readVendorDefaultAccount,
+} from "../src/vendor-bill-reads.ts";
 import {
   payVendorBills,
   recordVendorBill,
@@ -46,7 +50,12 @@ async function recordCourtReporterBill(fixture: BooksFixture) {
       billDate: "2026-10-01",
       dueDate: "2026-10-31",
       lines: [
-        { description: "Deposition transcript", amountMinor: 45_000, matterId, disbursementClass: "hard" },
+        {
+          description: "Deposition transcript",
+          amountMinor: 45_000,
+          matterId,
+          disbursementClass: "hard",
+        },
         {
           description: "In-house copies",
           amountMinor: 2_500,
@@ -54,7 +63,11 @@ async function recordCourtReporterBill(fixture: BooksFixture) {
           disbursementClass: "soft",
           ledgerAccountId: accountId(fixture, POSTAGE),
         },
-        { description: "Research database", amountMinor: 10_000, ledgerAccountId: accountId(fixture, LEGAL_RESEARCH) },
+        {
+          description: "Research database",
+          amountMinor: 10_000,
+          ledgerAccountId: accountId(fixture, LEGAL_RESEARCH),
+        },
       ],
     },
     options,
@@ -91,7 +104,9 @@ describe("recording a vendor bill", () => {
     expect(await balanceOf(fixture, accountId(fixture, LEGAL_RESEARCH))).toBe(10_000);
 
     const { results: costs } = await fixture.database
-      .prepare("SELECT matter_id, amount_minor, disbursement_class, status FROM cost_entry ORDER BY amount_minor")
+      .prepare(
+        "SELECT matter_id, amount_minor, disbursement_class, status FROM cost_entry ORDER BY amount_minor",
+      )
       .all();
     expect(costs).toEqual([
       { matter_id: matterId, amount_minor: 2_500, disbursement_class: "soft", status: "approved" },
@@ -125,7 +140,13 @@ describe("recording a vendor bill", () => {
         {
           vendorId: "organization_vendor",
           billDate: "2026-10-01",
-          lines: [{ description: "Rent", amountMinor: 100_000, ledgerAccountId: fixture.trustBankLedgerAccountId }],
+          lines: [
+            {
+              description: "Rent",
+              amountMinor: 100_000,
+              ledgerAccountId: fixture.trustBankLedgerAccountId,
+            },
+          ],
         },
         options,
       ),
@@ -158,7 +179,12 @@ describe("paying vendor bills", () => {
     const detail = await readVendorBill(fixture.database, vendorBillId, "2026-11-20");
     expect(detail.state).toBe("partPaid");
     expect(detail.payments).toMatchObject([
-      { operatingBankAccountName: "Payroll", method: "check", checkNumber: null, amountMinor: 20_000 },
+      {
+        operatingBankAccountName: "Payroll",
+        method: "check",
+        checkNumber: null,
+        amountMinor: 20_000,
+      },
     ]);
     await expectFitness(fixture);
   });
@@ -199,12 +225,22 @@ describe("paying vendor bills", () => {
     // Two payments composed against the same open balance: the second commit must abort.
     const first = await payVendorBills(
       fixture.database,
-      { operatingBankAccountId: fixture.mainOperatingId, paidOn: "2026-11-02", method: "cash", payments: [{ vendorBillId, amountMinor: 50_000 }] },
+      {
+        operatingBankAccountId: fixture.mainOperatingId,
+        paidOn: "2026-11-02",
+        method: "cash",
+        payments: [{ vendorBillId, amountMinor: 50_000 }],
+      },
       options,
     );
     const second = await payVendorBills(
       fixture.database,
-      { operatingBankAccountId: fixture.mainOperatingId, paidOn: "2026-11-02", method: "cash", payments: [{ vendorBillId, amountMinor: 50_000 }] },
+      {
+        operatingBankAccountId: fixture.mainOperatingId,
+        paidOn: "2026-11-02",
+        method: "cash",
+        payments: [{ vendorBillId, amountMinor: 50_000 }],
+      },
       options,
     );
     await commit(fixture.database, first.effect);
@@ -248,7 +284,9 @@ describe("reversing a vendor bill", () => {
       .prepare("SELECT DISTINCT status FROM cost_entry")
       .all<{ status: string }>();
     expect(results).toEqual([{ status: "void" }]);
-    expect((await readVendorBill(fixture.database, vendorBillId, "2026-11-20")).state).toBe("reversed");
+    expect((await readVendorBill(fixture.database, vendorBillId, "2026-11-20")).state).toBe(
+      "reversed",
+    );
   });
 
   it("refuses a bill with payments, and the trigger holds it too", async () => {
@@ -261,12 +299,21 @@ describe("reversing a vendor bill", () => {
     );
     const paid = await payVendorBills(
       fixture.database,
-      { operatingBankAccountId: fixture.mainOperatingId, paidOn: "2026-11-02", method: "check", payments: [{ vendorBillId, amountMinor: 1_000 }] },
+      {
+        operatingBankAccountId: fixture.mainOperatingId,
+        paidOn: "2026-11-02",
+        method: "check",
+        payments: [{ vendorBillId, amountMinor: 1_000 }],
+      },
       options,
     );
     await commit(fixture.database, paid.effect);
     await expect(
-      reverseVendorBill(fixture.database, { vendorBillId, reason: "Wrong vendor", reversedOn: "2026-11-03" }, options),
+      reverseVendorBill(
+        fixture.database,
+        { vendorBillId, reason: "Wrong vendor", reversedOn: "2026-11-03" },
+        options,
+      ),
     ).rejects.toBeInstanceOf(GeneralLedgerValidationError);
     await expect(expectRefusal(() => commit(fixture.database, reversal))).rejects.toThrow();
   });
@@ -276,7 +323,10 @@ describe("reversing a vendor bill", () => {
     const { vendorBillId } = await recordCourtReporterBill(fixture);
     await expect(
       expectRefusal(() =>
-        fixture.database.prepare("UPDATE vendor_bill SET memo = 'changed' WHERE id = ?1").bind(vendorBillId).run(),
+        fixture.database
+          .prepare("UPDATE vendor_bill SET memo = 'changed' WHERE id = ?1")
+          .bind(vendorBillId)
+          .run(),
       ),
     ).rejects.toThrow();
   });
@@ -292,25 +342,39 @@ describe("the Vendor Bills board", () => {
         vendorId: "organization_landlord",
         billDate: "2026-11-15",
         dueDate: "2026-11-25",
-        lines: [{ description: "December rent", amountMinor: 300_000, ledgerAccountId: accountId(fixture, "6100") }],
+        lines: [
+          {
+            description: "December rent",
+            amountMinor: 300_000,
+            ledgerAccountId: accountId(fixture, "6100"),
+          },
+        ],
       },
       options,
     );
     await commit(fixture.database, second.effect);
 
-    const board = await readVendorBillBoard(fixture.database, { asOf: "2026-11-20", filter: "unpaid" });
+    const board = await readVendorBillBoard(fixture.database, {
+      asOf: "2026-11-20",
+      filter: "unpaid",
+    });
     expect(board.totals).toEqual({
       openMinor: 357_500,
       overdueMinor: 57_500,
       dueThisWeekMinor: 300_000,
       openBillCount: 2,
     });
-    const reporter = board.vendors.find((vendor) => vendor.vendorId === "organization_courtReporter");
+    const reporter = board.vendors.find(
+      (vendor) => vendor.vendorId === "organization_courtReporter",
+    );
     expect(reporter?.aging.days1To30).toBe(57_500);
     const landlord = board.vendors.find((vendor) => vendor.vendorId === "organization_landlord");
     expect(landlord?.aging.current).toBe(300_000);
 
-    const paidOnly = await readVendorBillBoard(fixture.database, { asOf: "2026-11-20", filter: "paid" });
+    const paidOnly = await readVendorBillBoard(fixture.database, {
+      asOf: "2026-11-20",
+      filter: "paid",
+    });
     expect(paidOnly.vendors).toEqual([]);
   });
 });
@@ -338,7 +402,11 @@ describe("a vendor's default account", () => {
     ).rejects.toMatchObject({ code: "vendor-bill-line-account-not-expense" });
     await commit(
       fixture.database,
-      await setVendorDefaultAccount(fixture.database, { vendorId: "organization_westlaw", ledgerAccountId: null }, options),
+      await setVendorDefaultAccount(
+        fixture.database,
+        { vendorId: "organization_westlaw", ledgerAccountId: null },
+        options,
+      ),
     );
     expect(await readVendorDefaultAccount(fixture.database, "organization_westlaw")).toBeNull();
   });

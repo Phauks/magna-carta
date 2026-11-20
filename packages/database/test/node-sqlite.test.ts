@@ -421,6 +421,9 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         // is absent — the pair matches the read/log split exactly.
         "meetings:join",
         "notifications:read",
+        // A bookkeeper enters the firm's vendor bills and pays them; opening a bank account or
+        // editing the chart stays with billing:configure, which this seat does not carry.
+        "payables:manage",
         "search:matter",
         "support:request",
         // Billing carries read and write but NOT assign. "Chase the Henderson retainer

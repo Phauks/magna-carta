@@ -188,8 +188,7 @@ export async function editOperatingBankAccount(
   if (name.length === 0) {
     throw new GeneralLedgerValidationError("empty-name", "an account needs a name");
   }
-  const bankName =
-    input.bankName === undefined ? current.bankName : input.bankName?.trim() || null;
+  const bankName = input.bankName === undefined ? current.bankName : input.bankName?.trim() || null;
   const lastFour =
     input.accountNumberLastFour === undefined
       ? current.accountNumberLastFour
@@ -225,7 +224,12 @@ export async function setDefaultOperatingBankAccount(
   }
   return {
     statements: [
-      setAccountRoleStatement(database, "operating_bank", account.ledgerAccountId, options.clock.now()),
+      setAccountRoleStatement(
+        database,
+        "operating_bank",
+        account.ledgerAccountId,
+        options.clock.now(),
+      ),
     ],
     outboxMessages: [],
   };

@@ -18,15 +18,24 @@ function sources(): Array<{ path: string; text: string }> {
     });
 }
 
-const LEDGER_WRITE = /\b(INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+`?(ledger_entry|ledger_line|account_balance)\b/i;
+const LEDGER_WRITE =
+  /\b(INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+`?(ledger_entry|ledger_line|account_balance)\b/i;
 const TRUST_WRITE = /\b(INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+`?trust_\w+/i;
 
 describe("the operating books write through the ledger and never into trust", () => {
   it("composes no ledger entry, line or balance statement of its own", () => {
-    expect(sources().filter(({ text }) => LEDGER_WRITE.test(text)).map(({ path }) => path)).toEqual([]);
+    expect(
+      sources()
+        .filter(({ text }) => LEDGER_WRITE.test(text))
+        .map(({ path }) => path),
+    ).toEqual([]);
   });
 
   it("writes no trust table", () => {
-    expect(sources().filter(({ text }) => TRUST_WRITE.test(text)).map(({ path }) => path)).toEqual([]);
+    expect(
+      sources()
+        .filter(({ text }) => TRUST_WRITE.test(text))
+        .map(({ path }) => path),
+    ).toEqual([]);
   });
 });

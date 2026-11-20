@@ -164,7 +164,12 @@ export async function readVendorBillBoard(
   let openBillCount = 0;
   const groups = new Map<
     string,
-    { vendorName: string | null; openMinor: number; aging: Record<AgingBucket, number>; bills: VendorBillSummary[] }
+    {
+      vendorName: string | null;
+      openMinor: number;
+      aging: Record<AgingBucket, number>;
+      bills: VendorBillSummary[];
+    }
   >();
   for (const row of results) {
     const bill = summaryOf(row, input.asOf);

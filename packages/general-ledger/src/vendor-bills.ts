@@ -1,6 +1,8 @@
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+
+type EffectStatement = EffectWrite["statements"][number];
 import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
@@ -252,7 +254,7 @@ export async function recordVendorBill(
 
   const vendorBillId = newIdentifier("vendorBill", options.randomSource);
   const now = options.clock.now();
-  const costStatements: SqlStatement[] = [];
+  const costStatements: EffectStatement[] = [];
   const costOutbox: OutboxMessage[] = [];
   const costEntryIds: CostEntryId[] = [];
   const lineStatements: SqlStatement[] = [];
@@ -477,7 +479,7 @@ export async function payVendorBills(
 
   const now = options.clock.now();
   const reference = input.reference?.trim() || null;
-  const statements: SqlStatement[] = [];
+  const statements: EffectStatement[] = [];
   const outboxMessages: OutboxMessage[] = [];
   const paymentIds: VendorBillPaymentId[] = [];
   for (const [vendorBillId, amountMinor] of amounts) {
@@ -491,7 +493,11 @@ export async function payVendorBills(
         effectiveDate: input.paidOn,
         lines: [
           { accountId: payableAccountId, direction: "debit", amount: money(amountMinor, USD) },
-          { accountId: paying.ledgerAccountId, direction: "credit", amount: money(amountMinor, USD) },
+          {
+            accountId: paying.ledgerAccountId,
+            direction: "credit",
+            amount: money(amountMinor, USD),
+          },
         ],
       },
       { clock: options.clock, randomSource: options.randomSource },
@@ -607,7 +613,7 @@ export async function reverseVendorBill(
     },
     { clock: options.clock, randomSource: options.randomSource },
   );
-  const voidStatements: SqlStatement[] = [];
+  const voidStatements: EffectStatement[] = [];
   for (const cost of costs) {
     if (cost.status === "void") continue;
     const voided = await voidCost(

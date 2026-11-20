@@ -13,9 +13,8 @@ export const STATEMENT_SECTIONS = {
 
 export type StatementSection = (typeof STATEMENT_SECTIONS)[AccountType][number];
 
-export const ALL_STATEMENT_SECTIONS: readonly StatementSection[] = Object.values(
-  STATEMENT_SECTIONS,
-).flat();
+export const ALL_STATEMENT_SECTIONS: readonly StatementSection[] =
+  Object.values(STATEMENT_SECTIONS).flat();
 
 // The two sections trust's own accounts are placed in. They are derived from trust's
 // registration, never chosen: a firm cannot move its client trust liability into "other income".

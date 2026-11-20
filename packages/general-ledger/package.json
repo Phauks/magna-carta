@@ -15,7 +15,8 @@
     "./vendor-bills": "./src/vendor-bills.ts",
     "./vendor-bill-reads": "./src/vendor-bill-reads.ts",
     "./fitness": "./src/fitness.ts",
-    "./types": "./src/types.ts"
+    "./types": "./src/types.ts",
+    "./contract": "./src/contract.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -28,7 +29,8 @@
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/ledger": "workspace:*",
     "@magna-carta/money": "workspace:*",
-    "@magna-carta/trust": "workspace:*"
+    "@magna-carta/trust": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@magna-carta/database": "workspace:*",

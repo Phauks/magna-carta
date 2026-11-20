@@ -35,7 +35,10 @@ export async function configureAccountRoles(
   for (const { role, ledgerAccountId } of assignments) {
     const snapshot = snapshots.get(ledgerAccountId);
     if (!snapshot) {
-      throw new GeneralLedgerValidationError("unknown-account", `no such account: ${ledgerAccountId}`);
+      throw new GeneralLedgerValidationError(
+        "unknown-account",
+        `no such account: ${ledgerAccountId}`,
+      );
     }
     if (registrations.has(ledgerAccountId)) {
       throw new GeneralLedgerValidationError(

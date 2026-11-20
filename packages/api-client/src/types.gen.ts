@@ -1487,6 +1487,220 @@ export type AttachReceiptRequest = {
     fileId: string;
 };
 
+export type LedgerChartResponse = {
+    accounts: Array<LedgerChartAccount>;
+    operatingAccounts: Array<OperatingBankAccount>;
+    roles: Array<{
+        role: 'accounts_receivable' | 'fee_income' | 'client_costs_advanced' | 'cost_recovery_income' | 'tax_payable' | 'fee_adjustments' | 'fee_write_off' | 'operating_bank' | 'client_credit_liability' | 'accounts_payable' | 'owners_equity';
+        ledgerAccountId: string;
+    }>;
+    suggestedRoles: Array<{
+        role: 'accounts_receivable' | 'fee_income' | 'client_costs_advanced' | 'cost_recovery_income' | 'tax_payable' | 'fee_adjustments' | 'fee_write_off' | 'operating_bank' | 'client_credit_liability' | 'accounts_payable' | 'owners_equity';
+        ledgerAccountId: string;
+    }>;
+    hasStandardChart: boolean;
+};
+
+export type LedgerChartAccount = {
+    ledgerAccountId: string;
+    code: string | null;
+    name: string;
+    type: 'asset' | 'liability' | 'equity' | 'income' | 'expense';
+    statementSection: string | null;
+    description: string | null;
+    systemAccount: boolean;
+    active: boolean;
+    parentAccountId: string | null;
+    hasChildren: boolean;
+    balanceMinor: number;
+    trustRegistration: 'bank' | 'liabilityRoot' | 'client' | 'matter' | 'firmFunds' | null;
+    operatingBankAccountId: string | null;
+    roles: Array<'accounts_receivable' | 'fee_income' | 'client_costs_advanced' | 'cost_recovery_income' | 'tax_payable' | 'fee_adjustments' | 'fee_write_off' | 'operating_bank' | 'client_credit_liability' | 'accounts_payable' | 'owners_equity'>;
+};
+
+export type OperatingBankAccount = {
+    operatingBankAccountId: string;
+    name: string;
+    bankName: string | null;
+    accountNumberLastFour: string | null;
+    ledgerAccountId: string;
+    code: string | null;
+    openedOn: string;
+    closedAt: string | null;
+    balanceMinor: number;
+    isDefault: boolean;
+};
+
+export type LedgerCreatedResponse = {
+    id: string;
+};
+
+export type LedgerCreateAccountRequest = {
+    name: string;
+    type: 'asset' | 'liability' | 'equity' | 'income' | 'expense';
+    code?: string | null;
+    statementSection?: 'cash' | 'currentAssets' | 'fixedAssets' | 'otherAssets' | 'trustAssets' | 'currentLiabilities' | 'longTermLiabilities' | 'clientTrustLiability' | 'equity' | 'feeIncome' | 'otherIncome' | 'costOfServices' | 'operatingExpenses' | 'otherExpenses' | null;
+    description?: string | null;
+    parentAccountId?: string;
+};
+
+export type LedgerUpdateAccountRequest = {
+    name?: string;
+    code?: string | null;
+    statementSection?: 'cash' | 'currentAssets' | 'fixedAssets' | 'otherAssets' | 'trustAssets' | 'currentLiabilities' | 'longTermLiabilities' | 'clientTrustLiability' | 'equity' | 'feeIncome' | 'otherIncome' | 'costOfServices' | 'operatingExpenses' | 'otherExpenses' | null;
+    description?: string | null;
+};
+
+export type LedgerCountResponse = {
+    count: number;
+};
+
+export type LedgerRoleAssignmentsRequest = {
+    assignments: Array<{
+        role: 'accounts_receivable' | 'fee_income' | 'client_costs_advanced' | 'cost_recovery_income' | 'tax_payable' | 'fee_adjustments' | 'fee_write_off' | 'operating_bank' | 'client_credit_liability' | 'accounts_payable' | 'owners_equity';
+        ledgerAccountId: string;
+    }>;
+};
+
+export type OpenOperatingBankAccountRequest = {
+    name: string;
+    bankName?: string | null;
+    accountNumberLastFour?: string | null;
+    code?: string | null;
+    openedOn: string;
+    makeDefault?: boolean;
+};
+
+export type EditOperatingBankAccountRequest = {
+    name?: string;
+    bankName?: string | null;
+    accountNumberLastFour?: string | null;
+};
+
+export type VendorBillBoard = {
+    totals: {
+        openMinor: number;
+        overdueMinor: number;
+        dueThisWeekMinor: number;
+        openBillCount: number;
+    };
+    vendors: Array<{
+        vendorId: string;
+        vendorName: string | null;
+        openMinor: number;
+        aging: {
+            current: number;
+            days1To30: number;
+            days31To60: number;
+            days61To90: number;
+            over90: number;
+        };
+        bills: Array<VendorBillSummary>;
+    }>;
+};
+
+export type VendorBillSummary = {
+    vendorBillId: string;
+    vendorId: string;
+    billReference: string | null;
+    billDate: string;
+    dueDate: string | null;
+    amountMinor: number;
+    paidMinor: number;
+    openMinor: number;
+    state: 'unpaid' | 'partPaid' | 'paid' | 'reversed';
+    agingBucket: 'current' | 'days1To30' | 'days31To60' | 'days61To90' | 'over90' | null;
+    memo: string | null;
+    matterIds: Array<string>;
+};
+
+export type VendorBillDetail = {
+    vendorBillId: string;
+    vendorId: string;
+    billReference: string | null;
+    billDate: string;
+    dueDate: string | null;
+    amountMinor: number;
+    paidMinor: number;
+    openMinor: number;
+    state: 'unpaid' | 'partPaid' | 'paid' | 'reversed';
+    agingBucket: 'current' | 'days1To30' | 'days31To60' | 'days61To90' | 'over90' | null;
+    memo: string | null;
+    matterIds: Array<string>;
+    vendorName: string | null;
+    lines: Array<{
+        lineIndex: number;
+        description: string;
+        amountMinor: number;
+        matterId: string | null;
+        matterTitle: string | null;
+        disbursementClass: 'hard' | 'soft' | null;
+        costEntryId: string | null;
+        ledgerAccountId: string;
+        ledgerAccountName: string;
+    }>;
+    payments: Array<{
+        vendorBillPaymentId: string;
+        operatingBankAccountId: string;
+        operatingBankAccountName: string;
+        amountMinor: number;
+        paidOn: string;
+        method: 'check' | 'bank_transfer' | 'card' | 'cash';
+        checkNumber: number | null;
+        reference: string | null;
+    }>;
+    reversal: {
+        reason: string;
+        reversedAt: string;
+    } | null;
+};
+
+export type RecordVendorBillRequest = {
+    vendorId: string;
+    billReference?: string | null;
+    billDate: string;
+    dueDate?: string | null;
+    memo?: string | null;
+    lines: Array<{
+        description: string;
+        amountMinor: number;
+        matterId?: string | null;
+        disbursementClass?: 'hard' | 'soft' | null;
+        ledgerAccountId?: string | null;
+        billable?: boolean;
+        utbmsExpenseCodeId?: string | null;
+    }>;
+};
+
+export type VendorBillPaymentsResponse = {
+    paymentIds: Array<string>;
+};
+
+export type PayVendorBillsRequest = {
+    operatingBankAccountId: string;
+    paidOn: string;
+    method: 'check' | 'bank_transfer' | 'card' | 'cash';
+    reference?: string | null;
+    payments: Array<{
+        vendorBillId: string;
+        amountMinor: number;
+        checkNumber?: number | null;
+    }>;
+};
+
+export type ReverseVendorBillRequest = {
+    reason: string;
+    reversedOn: string;
+};
+
+export type VendorDefaultAccountResponse = {
+    ledgerAccountId: string | null;
+};
+
+export type SetVendorDefaultAccountRequest = {
+    ledgerAccountId: string | null;
+};
+
 export type TrustCompliancePack = {
     cover: TrustComplianceCover;
     reconciliations: Array<TrustComplianceReconciliation>;
@@ -2741,7 +2955,7 @@ export type BillingAccountRoleMapResponse = {
 };
 
 export type BillingAccountRoleAssignment = {
-    role: 'accounts_receivable' | 'fee_income' | 'client_costs_advanced' | 'cost_recovery_income' | 'tax_payable' | 'fee_adjustments' | 'fee_write_off' | 'operating_bank' | 'client_credit_liability';
+    role: 'accounts_receivable' | 'fee_income' | 'client_costs_advanced' | 'cost_recovery_income' | 'tax_payable' | 'fee_adjustments' | 'fee_write_off' | 'operating_bank' | 'client_credit_liability' | 'accounts_payable' | 'owners_equity';
     ledgerAccountId: string;
 };
 
@@ -17881,6 +18095,747 @@ export type CostsAttachReceiptResponses = {
 };
 
 export type CostsAttachReceiptResponse = CostsAttachReceiptResponses[keyof CostsAttachReceiptResponses];
+
+export type LedgerChartData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ledger/accounts';
+};
+
+export type LedgerChartErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The account or bill is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LedgerChartError = LedgerChartErrors[keyof LedgerChartErrors];
+
+export type LedgerChartResponses = {
+    /**
+     * The chart
+     */
+    200: LedgerChartResponse;
+};
+
+export type LedgerChartResponse2 = LedgerChartResponses[keyof LedgerChartResponses];
+
+export type LedgerCreateAccountData = {
+    body: LedgerCreateAccountRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/ledger/accounts';
+};
+
+export type LedgerCreateAccountErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The account or bill is unknown
+     */
+    404: Problem;
+    /**
+     * Someone else changed this first, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The books refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LedgerCreateAccountError = LedgerCreateAccountErrors[keyof LedgerCreateAccountErrors];
+
+export type LedgerCreateAccountResponses = {
+    /**
+     * Added
+     */
+    201: LedgerCreatedResponse;
+};
+
+export type LedgerCreateAccountResponse = LedgerCreateAccountResponses[keyof LedgerCreateAccountResponses];
+
+export type LedgerUpdateAccountData = {
+    body: LedgerUpdateAccountRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        ledgerAccountId: string;
+    };
+    query?: never;
+    url: '/api/v1/ledger/accounts/{ledgerAccountId}';
+};
+
+export type LedgerUpdateAccountErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The account or bill is unknown
+     */
+    404: Problem;
+    /**
+     * Someone else changed this first, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The books refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LedgerUpdateAccountError = LedgerUpdateAccountErrors[keyof LedgerUpdateAccountErrors];
+
+export type LedgerUpdateAccountResponses = {
+    /**
+     * Saved
+     */
+    201: LedgerCreatedResponse;
+};
+
+export type LedgerUpdateAccountResponse = LedgerUpdateAccountResponses[keyof LedgerUpdateAccountResponses];
+
+export type LedgerAdoptStandardChartData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/ledger/standard-chart';
+};
+
+export type LedgerAdoptStandardChartErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The account or bill is unknown
+     */
+    404: Problem;
+    /**
+     * Someone else changed this first, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The books refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LedgerAdoptStandardChartError = LedgerAdoptStandardChartErrors[keyof LedgerAdoptStandardChartErrors];
+
+export type LedgerAdoptStandardChartResponses = {
+    /**
+     * Added
+     */
+    201: LedgerCountResponse;
+};
+
+export type LedgerAdoptStandardChartResponse = LedgerAdoptStandardChartResponses[keyof LedgerAdoptStandardChartResponses];
+
+export type LedgerSetAccountRolesData = {
+    body: LedgerRoleAssignmentsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/ledger/account-roles';
+};
+
+export type LedgerSetAccountRolesErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The account or bill is unknown
+     */
+    404: Problem;
+    /**
+     * Someone else changed this first, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The books refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LedgerSetAccountRolesError = LedgerSetAccountRolesErrors[keyof LedgerSetAccountRolesErrors];
+
+export type LedgerSetAccountRolesResponses = {
+    /**
+     * Saved
+     */
+    201: LedgerCountResponse;
+};
+
+export type LedgerSetAccountRolesResponse = LedgerSetAccountRolesResponses[keyof LedgerSetAccountRolesResponses];
+
+export type LedgerOpenOperatingAccountData = {
+    body: OpenOperatingBankAccountRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/ledger/operating-accounts';
+};
+
+export type LedgerOpenOperatingAccountErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The account or bill is unknown
+     */
+    404: Problem;
+    /**
+     * Someone else changed this first, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The books refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LedgerOpenOperatingAccountError = LedgerOpenOperatingAccountErrors[keyof LedgerOpenOperatingAccountErrors];
+
+export type LedgerOpenOperatingAccountResponses = {
+    /**
+     * Added
+     */
+    201: LedgerCreatedResponse;
+};
+
+export type LedgerOpenOperatingAccountResponse = LedgerOpenOperatingAccountResponses[keyof LedgerOpenOperatingAccountResponses];
+
+export type LedgerEditOperatingAccountData = {
+    body: EditOperatingBankAccountRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        operatingBankAccountId: string;
+    };
+    query?: never;
+    url: '/api/v1/ledger/operating-accounts/{operatingBankAccountId}';
+};
+
+export type LedgerEditOperatingAccountErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The account or bill is unknown
+     */
+    404: Problem;
+    /**
+     * Someone else changed this first, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The books refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LedgerEditOperatingAccountError = LedgerEditOperatingAccountErrors[keyof LedgerEditOperatingAccountErrors];
+
+export type LedgerEditOperatingAccountResponses = {
+    /**
+     * Saved
+     */
+    201: LedgerCreatedResponse;
+};
+
+export type LedgerEditOperatingAccountResponse = LedgerEditOperatingAccountResponses[keyof LedgerEditOperatingAccountResponses];
+
+export type LedgerSetDefaultOperatingAccountData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        operatingBankAccountId: string;
+    };
+    query?: never;
+    url: '/api/v1/ledger/operating-accounts/{operatingBankAccountId}/default';
+};
+
+export type LedgerSetDefaultOperatingAccountErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The account or bill is unknown
+     */
+    404: Problem;
+    /**
+     * Someone else changed this first, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The books refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LedgerSetDefaultOperatingAccountError = LedgerSetDefaultOperatingAccountErrors[keyof LedgerSetDefaultOperatingAccountErrors];
+
+export type LedgerSetDefaultOperatingAccountResponses = {
+    /**
+     * Saved
+     */
+    201: LedgerCreatedResponse;
+};
+
+export type LedgerSetDefaultOperatingAccountResponse = LedgerSetDefaultOperatingAccountResponses[keyof LedgerSetDefaultOperatingAccountResponses];
+
+export type PayablesBoardData = {
+    body?: never;
+    path?: never;
+    query?: {
+        filter?: 'unpaid' | 'paid' | 'all';
+        vendorId?: string;
+        matterId?: string;
+        asOf?: string;
+    };
+    url: '/api/v1/payables/bills';
+};
+
+export type PayablesBoardErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The account or bill is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PayablesBoardError = PayablesBoardErrors[keyof PayablesBoardErrors];
+
+export type PayablesBoardResponses = {
+    /**
+     * The board
+     */
+    200: VendorBillBoard;
+};
+
+export type PayablesBoardResponse = PayablesBoardResponses[keyof PayablesBoardResponses];
+
+export type PayablesRecordBillData = {
+    body: RecordVendorBillRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/payables/bills';
+};
+
+export type PayablesRecordBillErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The account or bill is unknown
+     */
+    404: Problem;
+    /**
+     * Someone else changed this first, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The books refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PayablesRecordBillError = PayablesRecordBillErrors[keyof PayablesRecordBillErrors];
+
+export type PayablesRecordBillResponses = {
+    /**
+     * Entered
+     */
+    201: LedgerCreatedResponse;
+};
+
+export type PayablesRecordBillResponse = PayablesRecordBillResponses[keyof PayablesRecordBillResponses];
+
+export type PayablesBillData = {
+    body?: never;
+    path: {
+        vendorBillId: string;
+    };
+    query?: {
+        asOf?: string;
+    };
+    url: '/api/v1/payables/bills/{vendorBillId}';
+};
+
+export type PayablesBillErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The account or bill is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PayablesBillError = PayablesBillErrors[keyof PayablesBillErrors];
+
+export type PayablesBillResponses = {
+    /**
+     * The bill
+     */
+    200: VendorBillDetail;
+};
+
+export type PayablesBillResponse = PayablesBillResponses[keyof PayablesBillResponses];
+
+export type PayablesPayBillsData = {
+    body: PayVendorBillsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/payables/payments';
+};
+
+export type PayablesPayBillsErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The account or bill is unknown
+     */
+    404: Problem;
+    /**
+     * Someone else changed this first, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The books refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PayablesPayBillsError = PayablesPayBillsErrors[keyof PayablesPayBillsErrors];
+
+export type PayablesPayBillsResponses = {
+    /**
+     * Paid
+     */
+    201: VendorBillPaymentsResponse;
+};
+
+export type PayablesPayBillsResponse = PayablesPayBillsResponses[keyof PayablesPayBillsResponses];
+
+export type PayablesReverseBillData = {
+    body: ReverseVendorBillRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        vendorBillId: string;
+    };
+    query?: never;
+    url: '/api/v1/payables/bills/{vendorBillId}/reverse';
+};
+
+export type PayablesReverseBillErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The account or bill is unknown
+     */
+    404: Problem;
+    /**
+     * Someone else changed this first, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The books refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PayablesReverseBillError = PayablesReverseBillErrors[keyof PayablesReverseBillErrors];
+
+export type PayablesReverseBillResponses = {
+    /**
+     * Reversed
+     */
+    201: LedgerCreatedResponse;
+};
+
+export type PayablesReverseBillResponse = PayablesReverseBillResponses[keyof PayablesReverseBillResponses];
+
+export type PayablesVendorDefaultAccountData = {
+    body?: never;
+    path: {
+        vendorId: string;
+    };
+    query?: never;
+    url: '/api/v1/payables/vendors/{vendorId}/default-account';
+};
+
+export type PayablesVendorDefaultAccountErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The account or bill is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PayablesVendorDefaultAccountError = PayablesVendorDefaultAccountErrors[keyof PayablesVendorDefaultAccountErrors];
+
+export type PayablesVendorDefaultAccountResponses = {
+    /**
+     * The account
+     */
+    200: VendorDefaultAccountResponse;
+};
+
+export type PayablesVendorDefaultAccountResponse = PayablesVendorDefaultAccountResponses[keyof PayablesVendorDefaultAccountResponses];
+
+export type PayablesSetVendorDefaultAccountData = {
+    body: SetVendorDefaultAccountRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        vendorId: string;
+    };
+    query?: never;
+    url: '/api/v1/payables/vendors/{vendorId}/default-account';
+};
+
+export type PayablesSetVendorDefaultAccountErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the capability
+     */
+    403: Problem;
+    /**
+     * The account or bill is unknown
+     */
+    404: Problem;
+    /**
+     * Someone else changed this first, or the Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The books refuse this
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PayablesSetVendorDefaultAccountError = PayablesSetVendorDefaultAccountErrors[keyof PayablesSetVendorDefaultAccountErrors];
+
+export type PayablesSetVendorDefaultAccountResponses = {
+    /**
+     * Saved
+     */
+    201: LedgerCreatedResponse;
+};
+
+export type PayablesSetVendorDefaultAccountResponse = PayablesSetVendorDefaultAccountResponses[keyof PayablesSetVendorDefaultAccountResponses];
 
 export type ReportsTrustCompliancePackData = {
     body?: never;

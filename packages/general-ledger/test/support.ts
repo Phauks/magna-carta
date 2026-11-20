@@ -72,7 +72,13 @@ export async function booksFixture(): Promise<BooksFixture> {
   );
   const main = await openOperatingBankAccount(
     database,
-    { name: "Operating", bankName: "First Bank", accountNumberLastFour: "1234", code: "1000", openedOn: "2026-01-02" },
+    {
+      name: "Operating",
+      bankName: "First Bank",
+      accountNumberLastFour: "1234",
+      code: "1000",
+      openedOn: "2026-01-02",
+    },
     options,
   );
   await commit(database, main.effect);
@@ -108,7 +114,10 @@ export function accountId(fixture: BooksFixture, code: string): LedgerAccountId 
   return id;
 }
 
-export async function balanceOf(fixture: BooksFixture, ledgerAccountId: LedgerAccountId): Promise<number> {
+export async function balanceOf(
+  fixture: BooksFixture,
+  ledgerAccountId: LedgerAccountId,
+): Promise<number> {
   const { results } = await fixture.database
     .prepare("SELECT balance_minor FROM account_balance WHERE account_id = ?1")
     .bind(ledgerAccountId)
