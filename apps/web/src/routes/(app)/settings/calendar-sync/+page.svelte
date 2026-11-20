@@ -29,6 +29,8 @@
    * back to them is a switch per calendar, applied at once. It is theirs alone to choose (the firm's
    * limits are about what leaves, and nothing leaves here) and what is read is shown to them alone,
    * which the plate says in so many words. A calendar they can only read is offered like any other.
+   * A second switch on a shown calendar lets colleagues see the hours its events take, as the word
+   * Busy and nothing more. It is off until the member turns it on, and waits on the first switch.
    *
    * A MEMBER WITH AN ACCOUNT AT BOTH PROVIDERS CHOOSES WHICH ONE THE PAGE IS ABOUT, at the top.
    * Each account has its own rules, its own shown calendars and its own questions, and every plate
@@ -75,6 +77,8 @@
     shownCalendarChoices,
     shownCalendarColumns,
     shownIdsWithChange,
+    busyIdsWithChange,
+    BUSY_COLUMN_ID,
     shownSummary,
     subjectName,
     SYNC_ACTIONS_COLUMN_ID,
@@ -163,12 +167,19 @@
   let showing = $state<string | null>(null);
   let shownRefusal = $state<string | null>(null);
 
-  async function setShown(choice: ShownCalendarChoice, shown: boolean): Promise<void> {
+  // One save carries both choices. `busy` is null when the press was on Show in Magna Carta.
+  async function setShown(
+    choice: ShownCalendarChoice,
+    shown: boolean,
+    busy: boolean | null = null,
+  ): Promise<void> {
     if (calendars === null) return;
     showing = choice.remoteId;
     shownRefusal = null;
+    const shownIds = shownIdsWithChange(shownChoices, calendars, choice.remoteId, shown);
     const outcome = await saveMyShownCalendars(
-      shownIdsWithChange(shownChoices, calendars, choice.remoteId, shown),
+      shownIds,
+      busyIdsWithChange(shownChoices, shownIds, busy === null ? null : choice.remoteId, busy ?? false),
       accountChoice,
     );
     showing = null;
@@ -286,7 +297,14 @@
       disabled={showing !== null}
       aria-label="Show {row.name} in Magna Carta"
     />
-  {:else if column.id === SHOWN_COLUMN_ID && !row.shown}
+  {:else if column.id === BUSY_COLUMN_ID && canChange}
+    <!-- Only a calendar that is read has hours to tell, so the switch waits on the first one. -->
+    <Switch
+      bind:checked={() => row.sharedAsBusy, (next) => void setShown(row, true, next)}
+      disabled={showing !== null || !row.shown}
+      aria-label="Show colleagues when {row.name} has you busy"
+    />
+  {:else if (column.id === SHOWN_COLUMN_ID && !row.shown) || (column.id === BUSY_COLUMN_ID && !row.sharedAsBusy)}
     <span class="text-text-muted">{text}</span>
   {:else}
     {text}
@@ -422,7 +440,7 @@
   {#if account !== null && shownChoices.length > 0}
     <SettingsPlate heading="From {product} to Magna Carta">
       <SettingsDescription>
-        Events from the calendars you turn on below appear on your Magna Carta calendar under {ownCalendar}. Only you see them. Nothing changes in {product}, and they aren't added to any matter.
+        Events from the calendars you turn on below appear on your Magna Carta calendar under {ownCalendar}. Only you see them. Nothing changes in {product}, and they aren't added to any matter. Turn on Show Colleagues as Busy to let colleagues see the times you're busy. They see the word Busy and the times, never the title or place.
       </SettingsDescription>
       {#if shownRefusal !== null}
         <Alert.Root variant="danger">

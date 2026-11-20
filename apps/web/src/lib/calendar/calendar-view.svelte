@@ -50,6 +50,7 @@
   import NavigationLayout from "@magna-carta/design-system/navigation-layout";
   import type { CalendarGridEntry } from "@magna-carta/design-system/calendar-grid";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
+  import { CALENDAR_LIVE_READ_MILLISECONDS, readLive } from "$lib/screen/live-read.ts";
   import { calendarContext } from "./calendar-context.svelte.ts";
   import { CalendarController } from "./calendar-controller.svelte.ts";
   import { entryId, recordKeyOf } from "./calendar-entries.ts";
@@ -227,6 +228,15 @@
     seenToken = token;
     untrack(() => void controller.read(fetch, "refresh"));
   });
+
+  // The same window again while the calendar is in view and whenever the reader comes back to it,
+  // so a change made elsewhere (a colleague, or the reader's own Outlook or Google calendar) shows
+  // without a reload. Not before the first read has answered: there is nothing on screen to keep.
+  $effect(() =>
+    readLive(() => {
+      if (controller.entries !== null) void controller.read(fetch, "refresh");
+    }, CALENDAR_LIVE_READ_MILLISECONDS),
+  );
 
   /*
    * The address is mirrored only once the router has finished its first navigation. SvelteKit's

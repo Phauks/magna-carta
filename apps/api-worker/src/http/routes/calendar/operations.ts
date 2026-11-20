@@ -33,6 +33,7 @@ export const OPERATIONS: readonly string[] = [
   "calendar.listResources",
   "calendar.listSeries",
   "calendar.matterTimeline",
+  "calendar.memberBusyTime",
   "calendar.resourceAvailability",
   "calendar.satisfyDeadline",
   "calendar.supersedeDeadline",

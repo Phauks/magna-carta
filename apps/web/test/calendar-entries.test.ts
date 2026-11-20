@@ -19,6 +19,7 @@ import {
   recordKeyOf,
   taggedWith,
   type CalendarEntry,
+  entryFromBusyTime,
   entryFromOwnAccountEvent,
   type EntryContext,
 } from "$lib/calendar/calendar-entries.ts";
@@ -535,5 +536,53 @@ describe("one of the reader's own events from their connected account", () => {
 
   it("is left out when it cannot be placed", () => {
     expect(entryFromOwnAccountEvent({ ...own, startsAt: null }, context)).toBeNull();
+  });
+});
+
+describe("a stretch a colleague shared as busy", () => {
+  const stretch = {
+    wholeDay: false,
+    startsOn: null,
+    endsOn: null,
+    startsAt: "2026-11-12T15:00:00.000Z",
+    endsAt: "2026-11-12T16:30:00.000Z",
+  };
+
+  it("paints the word Busy at the reader's hour, with no detail, and opens nowhere", () => {
+    const entry = entryFromBusyTime(stretch, "user_ada", context);
+    expect(entry).toMatchObject({
+      id: "other:busyTime:user_ada:2026-11-12T15:00:00.000Z:2026-11-12T16:30:00.000Z",
+      kind: "other",
+      label: "Busy",
+      date: "2026-11-12",
+      time: "10:00 AM",
+      startMinute: 600,
+      endMinute: 690,
+      link: null,
+      matterId: null,
+    });
+    expect(entry?.detail).toBeUndefined();
+  });
+
+  it("keeps two colleagues busy at the same hour as two entries", () => {
+    expect(entryFromBusyTime(stretch, "user_ada", context)?.id).not.toBe(
+      entryFromBusyTime(stretch, "user_ben", context)?.id,
+    );
+  });
+
+  it("draws a whole-day one on its civil days, and leaves out one it cannot place", () => {
+    const away = {
+      wholeDay: true,
+      startsOn: "2026-11-26",
+      endsOn: "2026-11-27",
+      startsAt: null,
+      endsAt: null,
+    };
+    expect(entryFromBusyTime(away, "user_ada", context)).toMatchObject({
+      date: "2026-11-26",
+      endDate: "2026-11-27",
+      label: "Busy",
+    });
+    expect(entryFromBusyTime({ ...stretch, endsAt: null }, "user_ada", context)).toBeNull();
   });
 });
