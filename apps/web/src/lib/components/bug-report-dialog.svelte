@@ -26,6 +26,10 @@
    * accidental dismiss must not eat a half-written report — which is why the shell is told there
    * is nothing to lose: nothing is.
    *
+   * TWO STEPS: the words, then the screenshot, as on every report dialog
+   * ($lib/diagnostics/report-screenshot.svelte.ts). The picture is retaken on every opening, since
+   * it is of whatever screen the member is on now.
+   *
    * The profile menu owns the trigger state (`bind:open`); this component renders no trigger.
    */
   import { page } from "$app/state";
@@ -48,6 +52,9 @@
   import { firmRoster } from "$lib/members/firm-roster.svelte.ts";
   import { currentTrace } from "$lib/diagnostics/current-trace.ts";
   import { reportProblem } from "$lib/diagnostics/report.ts";
+  import ReportReaders from "$lib/diagnostics/report-readers.svelte";
+  import ReportScreenshotStep from "$lib/diagnostics/report-screenshot-step.svelte";
+  import { ReportScreenshot } from "$lib/diagnostics/report-screenshot.svelte.ts";
 
   let {
     open = $bindable(false),
@@ -68,6 +75,7 @@
   let copied = $state<"copied" | "failed" | null>(null);
   let sendFailure = $state<StatedFailure | null>(null);
   let filedIdentifier = $state<string | null>(null);
+  const screenshot = new ReportScreenshot();
 
   // OPTIONAL in-office recipients (any colleague — the whole roster, not a permission slice)
   // and the email-me-a-copy flag. Zero recipients is fine: the report still files to the
@@ -89,6 +97,7 @@
    */
   function startAfresh(): void {
     sendFailure = null;
+    screenshot.start();
     if (filedIdentifier === null) return;
     filedIdentifier = null;
     description = "";
@@ -129,6 +138,11 @@
   async function submitReport(): Promise<ActionOutcome> {
     if (descriptionEmpty) return "refused";
     sendFailure = null;
+    // The first step's commit moves on to the picture; only the second sends.
+    if (screenshot.step === "describe") {
+      screenshot.step = "screenshot";
+      return "refused";
+    }
     const outcome = await reportProblem(fetch, {
       description: description.trim(),
       // Nothing here was a caught failure, so there is no platform handle to correlate it to.
@@ -138,6 +152,7 @@
     });
     if (outcome.kind === "ok") {
       filedIdentifier = outcome.value.id;
+      await screenshot.attachTo(outcome.value.id);
       return "done";
     }
     sendFailure = stated(
@@ -152,7 +167,7 @@
   bind:open
   kind="form"
   heading="Report an Issue"
-  commitLabel="Submit Issue"
+  commitLabel={screenshot.step === "describe" ? "Next" : "Submit Issue"}
   commitBusyLabel="Submitting"
   commitRefusal={descriptionEmpty
     ? "Say what happened: the report is read by a person, and the diagnostics alone say nothing about what went wrong."
@@ -167,12 +182,14 @@
         <Alert.Title>Report Filed</Alert.Title>
         <Alert.Description>
           It was recorded as {filedIdentifier}. Quoting that reference gets support to it directly.
+          {#if screenshot.attachFailed}
+            The screenshot couldn't be attached, so the report was sent without it.
+          {/if}
         </Alert.Description>
       </Alert.Root>
+    {:else if screenshot.step === "screenshot"}
+      <ReportScreenshotStep {screenshot} {busy} />
     {:else}
-      <p class="text-xs text-text-muted">
-        This goes to the firm's own reporting pipeline, not to a third party.
-      </p>
 
       <LabelledField necessity="required"
         label="What happened?"
@@ -253,9 +270,7 @@
         <Switch id="issue-report-email-me" disabled={busy} bind:checked={emailMeCopy} />
       </div>
 
-      <p class="text-xs text-text-muted">
-        No document, file name, client name or matter content leaves the firm.
-      </p>
+      <ReportReaders />
     {/if}
   {/snippet}
 
