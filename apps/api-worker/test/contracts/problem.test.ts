@@ -106,6 +106,7 @@ describe("problem-type URI registry", () => {
         "trust-check-already-answered",
         "trust-check-number-taken",
         "trust-check-refused",
+        "books-refused",
         "trust-disbursement-authorization-refused",
         "trust-authorization-policy-conflict",
         "trust-reconciliation-closed",

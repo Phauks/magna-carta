@@ -72,6 +72,7 @@ const OPERATION_ID_SHAPE = /^[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*$/;
 const MONEY_SUBSYSTEM_KEYWORDS = new Set([
   "trust",
   "billing",
+  "payables",
   "payments",
   "disbursements",
   "communications",
@@ -154,7 +155,7 @@ const PUBLIC_ALLOW_LIST: Record<string, string> = {
 // Subsystems whose every MUTATING route must be idempotency: required (money/trust/payment/
 // outbound-comms). Each such slice adds its operationId namespace here as it builds; the payments
 // and comms rows land with their slices.
-const MONEY_NAMESPACES = new Set<string>(["trust", "billing", "communications"]);
+const MONEY_NAMESPACES = new Set<string>(["trust", "billing", "payables", "communications"]);
 
 // x-mc-operationId is a string in every emitted operation; read it defensively (the value is typed
 // unknown off the document record) so the fitness functions never stringify a non-string.
@@ -375,6 +376,10 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string | readonly string[
   // firm's chart of accounts. Every line names a matter, but the matter is what is billed, not the
   // resource the capability governs.
   billing: "firm",
+  // payables:* governs the firm's own vendor bills and paying them from its operating accounts. It
+  // binds the FIRM on billing's reasoning: a bill may carry costs for several matters, and the money
+  // that pays it is the firm's.
+  payables: "firm",
   // calendar:* governs litigation events, deadlines, and the matter timeline that federates them
   // with everything else the firm recorded. It binds BOTH resources, on the emails:* reasoning: an
   // event and a deadline always name a matter, so those routes carry the matter resource, while the

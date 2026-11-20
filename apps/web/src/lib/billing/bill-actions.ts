@@ -90,7 +90,6 @@ export interface BillActionContext {
 
 /** What each not-yet-served act waits on, as the noun phrase the Soon composition completes. */
 export const BILL_DEPENDENCIES = {
-  payment: "recording payments",
   print: "printing bills",
   ledes: "LEDES export",
   adjustment: "bill adjustments",
@@ -258,9 +257,24 @@ export function billActions(
   actions.push({
     kind: "action",
     identifier: "recordPayment",
-    label: "Record Payment",
+    label: "Record Payment…",
     icon: Receipt,
-    soonDependency: BILL_DEPENDENCIES.payment,
+    ...(noMatterHere !== null
+      ? { disabledReason: noMatterHere }
+      : !isFinal
+        ? { disabledReason: "Only a finalized bill can be paid." }
+        : unpaid <= 0
+          ? { disabledReason: "This bill is paid in full." }
+          : matterUnpaid <= 0
+            ? { disabledReason: "This matter owes nothing on this bill." }
+            : lacks(context, BILLING_PERMISSIONS.apply)
+              ? {
+                  disabledReason: permissionRefusal(
+                    "Recording a payment",
+                    BILLING_PERMISSIONS.apply,
+                  ),
+                }
+              : {}),
   });
 
   const openCredit = context.openClientCreditMinor;

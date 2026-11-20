@@ -54,6 +54,23 @@ ADR-0072, ADR-0079.) **Invariants:**
 - `src/credit-note.ts` — the four corrections after finalization: `issueCreditNote` (the split
   against what the bill can still absorb, and the `client_credit` for what it cannot),
   `composeInvoiceWriteOff`, `applyClientCreditToInvoice`, `composeApplicationReversal`
+- `src/deposit.ts` — `recordPaymentDeposit`: payments the firm received by hand, entered as one
+  bank deposit with many lines (each its own matter, bill, method, date received and amount) plus
+  bank fee lines. Booked through Undeposited Funds, as QuickBooks does: each line posts Dr
+  Undeposited Funds / Cr Accounts Receivable on its date received, with its `payment_receipt` row
+  and `payment` application; the deposit posts Dr the bank (net) and Dr Bank Fees / Cr Undeposited
+  Funds on the date deposited, so Undeposited Funds nets to zero per deposit. Refuses a line paying more than its bill still owes (counting the other
+  lines on that bill), mixed currencies, and fees as large as the payments. Also the append-only
+  notes and files on a deposit or one of its lines (`composeDepositNote`, `composeDepositFile`,
+  `composeDepositFileRemoval`). A processor payment is not a receipt and never lands here.
+- `src/deposit-reads.ts` — `readPaymentDeposit` (the deposit as its page reads it back, with
+  reversed lines flagged), its files, and `readOpenBillShares` (what each open bill still owes, for
+  the Record a Payment picker)
+- `src/payment-methods.ts` — the method catalog and `checkPaymentDetails`, the field-by-field
+  authority over each method's details and the cash count. The web copy in
+  `apps/web/src/lib/payments/payment-methods.ts` must match it key for key
+- `src/contract.ts` — the deposit routes' request and response shapes, as plain zod named with
+  `.meta({ id })`; the route module in `apps/api-worker` declares its routes over these
 - `src/delivery.ts` — `recordInvoiceDelivery`: one append-only attempt at getting a bill to its
   client, and the `billing.invoice.delivered` topic. The delivery-state reads live in
   `src/statements.ts` (`readInvoiceDeliveries`, `readInvoiceDeliveryState`, and the batched

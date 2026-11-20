@@ -143,6 +143,10 @@ export type FirmScopedObjectClass =
   // to the trust account's period, not to any matter.
   | "trust-reconciliation-file"
 
+  // A file kept with a deposit of payments recorded by hand: a check scan, the deposit slip. A deposit
+  // may pay several matters' bills, so it belongs to the firm rather than to one matter.
+  | "payment-deposit-file"
+
   // A file a firm gave a record transfer, kept unchanged, the report of a pass over one, and the
   // mapping a person is still working on for one. All three belong to the firm and to no matter: a
   // source file is a list of many matters or of none, and a report and a mapping describe such a file.
@@ -193,6 +197,7 @@ export const FIRM_SCOPED_OBJECT_CLASSES: readonly FirmScopedObjectClass[] = [
   "directory-photo",
   "check-stock-scan",
   "trust-reconciliation-file",
+  "payment-deposit-file",
   "transfer-source-file",
   "transfer-pass-report",
   "transfer-file-mapping",

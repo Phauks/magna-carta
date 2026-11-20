@@ -58,6 +58,12 @@ export type BillingValidationCode =
   | "credit-note-matter-not-billed"
   | "write-off-invalid"
   | "write-off-exceeds-unpaid-balance"
+  // A payment recorded by hand
+  | "payment-receipt-invalid"
+  | "payment-exceeds-unpaid-balance"
+  | "deposit-account-not-operating"
+  | "unknown-deposit"
+  | "unknown-deposit-file"
   | "unknown-client-credit"
   | "client-credit-exhausted"
   | "client-credit-client-mismatch"
@@ -67,6 +73,19 @@ export type BillingValidationCode =
   // The delivery record. A delivery is recorded rather than performed, so the only refusals possible
   // are about whether the row describes something that could have happened.
   | "invoice-delivery-invalid";
+
+/** The refusals that mean the thing named does not exist: a route answers each with a 404. */
+export const BILLING_NOT_FOUND_CODES: ReadonlySet<BillingValidationCode> =
+  new Set<BillingValidationCode>([
+    "unknown-invoice",
+    "unknown-invoice-line",
+    "unknown-invoice-claim",
+    "unknown-matter-recovery",
+    "unknown-client-credit",
+    "unknown-invoice-application",
+    "unknown-deposit",
+    "unknown-deposit-file",
+  ]);
 
 export class BillingValidationError extends Error {
   constructor(

@@ -272,6 +272,8 @@ describe("GET /api/v1/me", () => {
         "notes:read",
         "notes:write",
         "notifications:read",
+        // Entering and paying the firm's vendor bills: Admin and Billing.
+        "payables:manage",
         // Every reports key is Admin alone — narrower than the trust and billing reads a firm
         // grants more widely, because an aggregate across every matter and client is a different
         // exposure from a per-matter read. reports:productivity is narrower still in kind: a report

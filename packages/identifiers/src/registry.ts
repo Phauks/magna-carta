@@ -246,6 +246,15 @@ export const ENTITY_PREFIXES = {
   trustCheck: "trustCheck",
   trustCheckEvent: "trustCheckEvent",
   trustCheckStock: "trustCheckStock",
+  // The operating books. An `operatingBankAccount` is one of the firm's own bank accounts; a
+  // `vendorBill` is a bill the firm owes a vendor, with its `vendorBillLine`s; a `vendorBillPayment`
+  // is one payment against it from an operating account; a `vendorBillReversal` records a bill
+  // entered in error, reversed with a reason.
+  operatingBankAccount: "operatingBankAccount",
+  vendorBill: "vendorBill",
+  vendorBillLine: "vendorBillLine",
+  vendorBillPayment: "vendorBillPayment",
+  vendorBillReversal: "vendorBillReversal",
   // Bank reconciliation, the tick-to-clear way. A `trustBankReconciliation` is one period of one
   // account checked against the bank's statement; a `trustBankReconciliationChange` is one tick,
   // untick, end date or end balance, kept in order so History, Undo and restore points read it; a
@@ -281,6 +290,17 @@ export const ENTITY_PREFIXES = {
   creditNoteLine: "creditNoteLine",
   clientCredit: "clientCredit",
   invoiceDelivery: "invoiceDelivery",
+  // A `paymentDeposit` is payments the firm received by hand and took to the bank together on one
+  // deposit slip. Each of its lines is a `paymentReceipt`: one item (a check, cash, a money order, a
+  // transfer, a card run on the firm's terminal) paying one matter's share of one bill, standing
+  // beside the `payment` application it produced. A `paymentDepositFee` is a bank fee taken out of the
+  // deposit; a `paymentDepositNote` and a `paymentDepositFile` are a note and a file kept with the
+  // deposit or one of its lines.
+  paymentDeposit: "paymentDeposit",
+  paymentReceipt: "paymentReceipt",
+  paymentDepositFee: "paymentDepositFee",
+  paymentDepositNote: "paymentDepositNote",
+  paymentDepositFile: "paymentDepositFile",
   billingArrangement: "billingArrangement",
   taxRate: "taxRate",
   // A `matterRecovery` is one recorded recovery on a matter — a settlement, judgment, or award — the

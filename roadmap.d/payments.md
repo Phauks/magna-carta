@@ -7,14 +7,14 @@
 - id: payments
   name: Payments
   scope: Payment acceptance as a swappable-adapter port, ACH-default with card fallback, structured so processor fees never touch trust.
-  status: designed
+  status: partial
   adrs: ADR-0032
   spec: docs/specs/2026-08-15-payments-design.md
-  evidence: Design spec and implementation plan exist; no payments package, adapter, or rail code, and the invoicing substrate on main processes no money. Seven build-gating owner flags stand between the plan and a first commit.
+  evidence: A firm can record a payment it received by hand against a bill (payments.manual-receipt). No payments package, port, adapter or electronic rail yet; the processor was rechecked on 2026-11-19 (docs/research/2026-11-19-payment-processor-recheck.md).
   audience: public
   public-name: Client payments
   public-summary: Let a client pay a bill by bank transfer or card, with card fees kept away from trust money.
-  awaiting-owner: The order the area is built in, which is the one question every other payments flag hangs off. The design's sequence is the manually recorded receipt first with no processor involved at all, then the operating electronic rail, then the trust rail once a returned-deposit movement kind exists — and it says so out loud rather than letting the trust rail slip in beside the operating one, because the trust rail additionally needs a merchant configuration confirmed with the processor. Confirm or reorder; the per-node lines below carry what each step is separately blocked on. Payments design flags K1 and K2.
+  awaiting-owner: The manually recorded receipt shipped first, as the design recommended. What is left to confirm is the order of the electronic rails: the operating rail next, then the trust rail once a returned-deposit movement kind exists and the processor has confirmed in writing that the trust account is outside its debit rights and lien. Payments design flag K2.
 
 - id: payments.port
   name: Payments port
@@ -28,15 +28,16 @@
 
 - id: payments.manual-receipt
   name: Manually recorded receipt
-  scope: Record a cheque, cash, wire or in-person terminal payment against a finalized invoice, with no processor, port or adapter involved.
-  status: designed
+  scope: Record payments the firm received by hand (check, cashier's check, money order, cash, ACH, wire, card on its own terminal, payment app) as one deposit of many lines, each against its own matter and bill, with no processor, port or adapter involved.
+  status: shipped
+  surface: screen
   slices: 3-4-billing-and-invoicing
   spec: docs/specs/2026-08-15-payments-design.md
-  evidence: The invoice_application kind, its CHECK constraint, the entry-pairing trigger and the billing:apply capability all exist; composeInvoiceApplication refuses the payment kind for every rail, so a firm cannot record a cheque.
+  evidence: packages/billing/src/deposit.ts (recordPaymentDeposit: each line Dr Undeposited Funds / Cr Accounts Receivable on its date received, the deposit Dr the bank account and Bank Fees / Cr Undeposited Funds on its date deposited), the append-only payment_deposit, payment_receipt, payment_deposit_fee, payment_deposit_note and payment_deposit_file tables, POST /api/v1/billing/deposits, and the Record a Payment page (apps/web/src/lib/payments/record-payment-screen.svelte) with the deposit's own page (apps/web/src/lib/payments/deposit-view.svelte).
   audience: public
   public-name: Record a payment
-  public-summary: Mark a bill as paid when a client sends a cheque, cash or a bank transfer.
-  awaiting-owner: Does this ship as the first payments slice, ahead of any processor work? Payments design flag K1.
+  public-summary: Record the checks, cash and transfers you deposit together, each line against its own matter and bill, with scans and notes.
+  notes: An over-payment is refused rather than held as unapplied cash (design flag K4 still open); the firm records what the bill is owed and returns or credits the rest.
 
 - id: payments.ach
   name: ACH rail (default)
@@ -77,7 +78,8 @@
   scope: Launch adapter covering both rails — interchange-plus cards and capped-fee ACH.
   status: not-started
   adrs: ADR-0032
-  evidence: Vendor decided; no adapter code. The adapter must declare gross per-transaction trust settlement and a separate fee account before the trust rail dispatches at all.
+  evidence: Vendor decided; no adapter code. Rechecked 2026-11-19 against LawPay, Stripe and Confido in docs/research/2026-11-19-payment-processor-recheck.md; Helcim stays cheapest and offers lawyer split deposits, but its standard US merchant terms put a lien and debit rights on the deposit account without excluding trust. Helcim webhooks cover card transactions only, so bank-payment status must be polled.
+  awaiting-owner: Keep Helcim, and obtain Helcim's written carve-out of the trust account from its debit rights, reserve and security interest before the trust rail ships; or route the trust rail to the Confido Legal fallback.
 
 - id: payments.pci-scope
   name: PCI scope minimization

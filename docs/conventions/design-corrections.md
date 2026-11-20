@@ -3738,3 +3738,25 @@ for centralizing tentative number formats and frameworks".
   after fifteen minutes.
 - **Invoices are the exception, and stay numbered at finalize.** An invoice run must be in issue
   order as well as gapless, which giving a number back would break.
+
+### 2026-11-20 — Record a Payment is a deposit, entered like a register
+
+The owner, over three rounds: "record a payment needs a much more verbose screen", "date received
+and date deposited can be two separate dates", "record a payment should log the matter per item",
+then "don't need it to say operating, wells fargo. We should include bank logos if possible, these
+accounts may have names anyways. deposit slip total should not be written at the top, it should be
+calculated. add ... menu to each line, for controls like duplicate and other potential controls."
+
+- **One deposit per bank deposit, many lines.** Each line names its own matter and bill, so one
+  deposit pays several matters. Date Deposited is the deposit's; Date Received is each line's.
+- **An account is shown by its own name, with the bank's mark beside it.** Not "Operating, Wells
+  Fargo": the firm names its accounts. The mark is the bank's logo where the bank feed supplies one,
+  and the bank's initials otherwise.
+- **A total is worked out, never typed.** No "deposit slip total" field at the top: the deposit
+  total is the lines less the bank fees, shown under the lines with a double rule.
+- **Every line has a "..." menu** (click only) holding Duplicate, Insert Line Below, Attach a Scan,
+  Attach a File, Add Note, Move Up, Move Down, Clear Line and Delete Line.
+- **Each method shows its own details**, the optional ones behind Add Detail; cash can be counted by
+  bill and coin. Bank fees are their own lines, as QuickBooks enters them.
+- **Files open in the page**, with a download, and every line has a scan slot.
+- **Required fields carry a star**, and the totals use thousands commas.

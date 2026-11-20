@@ -511,29 +511,6 @@ describe("the bounds CHECK is the guarantee, not the pre-check", () => {
 });
 
 describe("the one application door", () => {
-  it("refuses a kind whose ledger entry nothing composes yet", async () => {
-    const fixture = await billingFixture();
-    // A payment, a credit note, a client credit, a write-off, and a reversal each owe the ledger an
-    // entry, and none of those write paths exist. Letting one through would reduce what a client
-    // owes with nothing on the firm's books to match.
-    expect(() =>
-      composeInvoiceApplication(
-        fixture.database,
-        {
-          invoiceId: "invoice_x" as InvoiceId,
-          matterId: "matter_x" as MatterId,
-          kind: "payment",
-          amountMinor: 100_00,
-          currency: "USD",
-          effectiveDate: "2026-08-05",
-          invoiceIssueDate: "2026-08-01",
-          appliedBy: fixture.memberUserId,
-        },
-        options,
-      ),
-    ).toThrow(expect.objectContaining({ code: "application-kind-not-built" }) as Error);
-  });
-
   it("refuses a negative or fractional amount — direction is the kind, never a sign", async () => {
     const fixture = await billingFixture();
     for (const amountMinor of [-100, 0, 12.5]) {

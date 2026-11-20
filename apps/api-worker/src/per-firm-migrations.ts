@@ -104,6 +104,8 @@ import batesLogsSql from "@magna-carta/database/drizzle/per-firm/20261120T203600
 import signersCanGetACodeByTextSql from "@magna-carta/database/drizzle/per-firm/20261120T205502_signers-can-get-a-code-by-text.sql";
 import aMemberSharesACalendarAsBusySql from "@magna-carta/database/drizzle/per-firm/20261120T211109_a-member-shares-a-calendar-as-busy.sql";
 import aMembersOwnEventBecomesACopySql from "@magna-carta/database/drizzle/per-firm/20261120T211806_a-members-own-event-becomes-a-copy.sql";
+import operatingBooksAndVendorBillsSql from "@magna-carta/database/drizzle/per-firm/20261120T212524_operating-books-and-vendor-bills.sql";
+import paymentsRecordedByHandSql from "@magna-carta/database/drizzle/per-firm/20261120T212524_payments-recorded-by-hand.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -212,6 +214,8 @@ export function perFirmMigrations(): Migration[] {
     "20261120T205502_signers-can-get-a-code-by-text": signersCanGetACodeByTextSql,
     "20261120T211109_a-member-shares-a-calendar-as-busy": aMemberSharesACalendarAsBusySql,
     "20261120T211806_a-members-own-event-becomes-a-copy": aMembersOwnEventBecomesACopySql,
+    "20261120T212524_operating-books-and-vendor-bills": operatingBooksAndVendorBillsSql,
+    "20261120T212524_payments-recorded-by-hand": paymentsRecordedByHandSql,
   });
 }
 

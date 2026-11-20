@@ -23,6 +23,7 @@
    */
   import type { Snippet } from "svelte";
   import { page } from "$app/state";
+  import { goto } from "$app/navigation";
   import * as Alert from "@magna-carta/design-system/alert";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -310,6 +311,12 @@
         return;
       case "writeOff":
         writeOffOpen = true;
+        return;
+      case "recordPayment":
+        // Record a Payment is its own page; it starts its first line on this bill and matter.
+        void goto(
+          `/billing/payments/new?invoice=${encodeURIComponent(target.summary.id)}&matter=${encodeURIComponent(matterId)}`,
+        );
         return;
       case "creditNote":
         creditNoteOpen = true;

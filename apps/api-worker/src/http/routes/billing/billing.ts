@@ -5,7 +5,10 @@ import {
   isAccountRole,
   readAccountRoleMap,
 } from "@magna-carta/billing/account-roles";
-import { BillingValidationError } from "@magna-carta/billing/billing-validation";
+import {
+  BILLING_NOT_FOUND_CODES,
+  BillingValidationError,
+} from "@magna-carta/billing/billing-validation";
 import {
   addClaimsToDraft,
   createInvoiceDraft,
@@ -120,7 +123,7 @@ const FINALIZE = "billing:finalize" as const;
 // draft into evidence, applying takes somebody else's money against that evidence, and the migration
 // that seeded these put `billing:apply` on the same roles `trust:manage` reaches for exactly that
 // reason.
-const APPLY = "billing:apply" as const;
+export const APPLY = "billing:apply" as const;
 // Correcting a bill that has already been issued. Separate from finalizing for the same reason
 // applying is: issuing a credit note, giving up a receivable, or unwinding an application each
 // change what a client owes on a document the firm has already handed over, and a billing clerk who
@@ -922,7 +925,7 @@ const errorResponses = {
   },
 } as const;
 
-const readErrorResponses = {
+export const readErrorResponses = {
   401: errorResponses[401],
   403: errorResponses[403],
   404: errorResponses[404],
@@ -933,7 +936,7 @@ const readErrorResponses = {
 // Plain objects, deliberately NOT `as const`: a const-asserted spread deep-freezes the
 // content-schema literal in a way that breaks zod-openapi's match of the handler's typed problem
 // responses to these status codes — the same note custom-fields.ts carries.
-const mutationResponses = {
+export const mutationResponses = {
   400: errorResponses[400],
   401: errorResponses[401],
   403: errorResponses[403],
@@ -951,7 +954,7 @@ type BillingPermission =
   | typeof CREDIT
   | typeof CONFIGURE;
 
-function writeMeta(operationId: string, permission: BillingPermission): RouteMeta {
+export function writeMeta(operationId: string, permission: BillingPermission): RouteMeta {
   return {
     operationId,
     surface: "app",
@@ -968,7 +971,7 @@ function writeMeta(operationId: string, permission: BillingPermission): RouteMet
   };
 }
 
-function readMeta(operationId: string): RouteMeta {
+export function readMeta(operationId: string): RouteMeta {
   return {
     operationId,
     surface: "app",
@@ -1737,18 +1740,11 @@ const contingencyResidualRoute = defineOpenAPIRoute(readMeta("billing.contingenc
 
 // A refusal's HTTP status is a property of what the refusal MEANS, so the mapping lives in one place
 // rather than at nine call sites that would drift.
-function billingErrorResponse(
+export function billingErrorResponse(
   c: Context,
   error: BillingValidationError,
 ): ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> {
-  if (
-    error.code === "unknown-invoice" ||
-    error.code === "unknown-invoice-line" ||
-    error.code === "unknown-invoice-claim" ||
-    error.code === "unknown-matter-recovery" ||
-    error.code === "unknown-client-credit" ||
-    error.code === "unknown-invoice-application"
-  ) {
+  if (BILLING_NOT_FOUND_CODES.has(error.code)) {
     return problemJson(c, {
       type: "not-found",
       title: "Not found",
@@ -1789,8 +1785,8 @@ function billingErrorResponse(
   // Both ceilings move for the same reason and take the same remedy: retry against the balance as it
   // now stands, or aim the correction somewhere else. A conflict rather than a refusal on the merits.
   if (
-    error.code === "earned-fee-exceeds-unpaid-balance" ||
-    error.code === "write-off-exceeds-unpaid-balance" ||
+    // An earned-fee transfer, a write-off, or a payment recorded by hand.
+    error.code.endsWith("-exceeds-unpaid-balance") ||
     error.code === "client-credit-exhausted"
   ) {
     return problemJson(c, {
@@ -1839,7 +1835,7 @@ function billingErrorResponse(
   });
 }
 
-type BillingApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
+export type BillingApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 
 // The commit's outcome, kept separate from the HTTP reply so each route can name its own success
 // status literal — a PATCH answers 200 and a create answers 201, and a helper that returned both
@@ -1863,70 +1859,70 @@ async function readApprovalRequired(database: SqlDatabase): Promise<boolean> {
   return (await readFirmSetting(database, approvalRequiredDefinition)) ?? false;
 }
 
-export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): void {
-  // The shared idempotent commit: one batch carrying the business statements, the idempotency
-  // record, and the outbox messages. Everything a billing mutation does commits together or not at
-  // all — which for finalization is the whole point.
-  async function runBillingEffect<Body>(
-    c: Context,
-    responseCode: 200 | 201,
-    compose: (actor: UserId) => Promise<{ write: EffectWrite; body: Body }>,
-  ): Promise<BillingOutcome<Body>> {
-    const firm = requireChokepointFirmContext(c);
-    const userId = requireChokepointUserId(c);
-    const idempotency = requireChokepointIdempotency(c);
-    const now = () => new Date().toISOString();
-    let result;
-    try {
-      result = await runIdempotentEffect({
-        database: firm.firmDatabase,
-        key: idempotency.key,
-        fingerprint: idempotency.fingerprint,
-        now,
-        effect: async () => {
-          const composed = await compose(userId);
-          return {
-            write: composed.write,
-            responseCode,
-            responseBody: canonicalJsonStringify(composed.body),
-          };
-        },
-      });
-    } catch (caught) {
-      if (caught instanceof BillingValidationError) {
-        return { kind: "refused", response: billingErrorResponse(c, caught) };
-      }
-      // The ledger refuses on its own terms too — a future or malformed issue date on a finalize
-      // reaches validateEntry, not this package's rules. A different error class, so without this
-      // arm it reaches the app error boundary and a member gets a 500 for a typo.
-      if (caught instanceof LedgerValidationError) {
-        return { kind: "refused", response: problemResponseForLedgerRefusal(c, caught) };
-      }
-      // The apply-funds path composes trust's transfer through trust's own composer, so the trust
-      // rules refuse on their own terms here — money under a disputed-funds hold, a closed account,
-      // an office with no jurisdiction recorded, a matter that holds no client ledger. Billing does
-      // not restate any of them, and the mapping is the one trust's own routes use.
-      if (caught instanceof TrustValidationError) {
-        return { kind: "refused", response: problemResponseForTrustRefusal(c, caught) };
-      }
-      throw caught;
+// The shared idempotent commit: one batch carrying the business statements, the idempotency
+// record, and the outbox messages. Everything a billing mutation does commits together or not at
+// all — which for finalization is the whole point.
+export async function runBillingEffect<Body>(
+  c: Context,
+  responseCode: 200 | 201,
+  compose: (actor: UserId) => Promise<{ write: EffectWrite; body: Body }>,
+): Promise<BillingOutcome<Body>> {
+  const firm = requireChokepointFirmContext(c);
+  const userId = requireChokepointUserId(c);
+  const idempotency = requireChokepointIdempotency(c);
+  const now = () => new Date().toISOString();
+  let result;
+  try {
+    result = await runIdempotentEffect({
+      database: firm.firmDatabase,
+      key: idempotency.key,
+      fingerprint: idempotency.fingerprint,
+      now,
+      effect: async () => {
+        const composed = await compose(userId);
+        return {
+          write: composed.write,
+          responseCode,
+          responseBody: canonicalJsonStringify(composed.body),
+        };
+      },
+    });
+  } catch (caught) {
+    if (caught instanceof BillingValidationError) {
+      return { kind: "refused", response: billingErrorResponse(c, caught) };
     }
-    if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
-      return { kind: "refused", response: problemResponseForIdempotencyConflict(c, result) };
+    // The ledger refuses on its own terms too — a future or malformed issue date on a finalize
+    // reaches validateEntry, not this package's rules. A different error class, so without this
+    // arm it reaches the app error boundary and a member gets a 500 for a typo.
+    if (caught instanceof LedgerValidationError) {
+      return { kind: "refused", response: problemResponseForLedgerRefusal(c, caught) };
     }
-    if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
-    return { kind: "committed", body: JSON.parse(result.responseBody ?? "{}") as Body };
+    // The apply-funds path composes trust's transfer through trust's own composer, so the trust
+    // rules refuse on their own terms here — money under a disputed-funds hold, a closed account,
+    // an office with no jurisdiction recorded, a matter that holds no client ledger. Billing does
+    // not restate any of them, and the mapping is the one trust's own routes use.
+    if (caught instanceof TrustValidationError) {
+      return { kind: "refused", response: problemResponseForTrustRefusal(c, caught) };
+    }
+    throw caught;
   }
+  if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
+    return { kind: "refused", response: problemResponseForIdempotencyConflict(c, result) };
+  }
+  if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
+  return { kind: "committed", body: JSON.parse(result.responseBody ?? "{}") as Body };
+}
 
-  // Wall-clock and randomness are ambient at the runtime edge and injected everywhere below it: the
-  // domain package holds no clock, so this is where one is supplied.
-  const clockOptions = () => ({
-    clock: {
-      now: () => new Date().toISOString(),
-      today: () => todayInUtc(),
-    },
-  });
+// Wall-clock and randomness are ambient at the runtime edge and injected everywhere below it: the
+// domain package holds no clock, so this is where one is supplied.
+export const clockOptions = () => ({
+  clock: {
+    now: () => new Date().toISOString(),
+    today: () => todayInUtc(),
+  },
+});
 
+export function registerBillingRoutes(app: BillingApp, chokepoint: Chokepoint): void {
   // POST /api/v1/billing/invoices — open a working document
   app.openapi(
     { ...createInvoiceRoute, middleware: chokepointMiddleware(chokepoint, createInvoiceRoute) },

@@ -945,6 +945,27 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "report-manual",
     note: "the payee printed on a trust check, copied from the disbursement it paid, held as free text with no structured subject",
   },
+  // A line of a deposit names who the payment came from as the firm wrote it, and its details may
+  // name a drawer, a purchaser or a sender: free text with no structured subject, on an append-only
+  // row the firm keeps as a payment record.
+  {
+    table: "payment_receipt",
+    subjectKey: "received_from",
+    action: "report-manual",
+    note: "who a payment recorded by hand came from, and the names on its check or transfer, held as free text with no structured subject on an append-only payment record",
+  },
+  {
+    table: "payment_deposit_note",
+    subjectKey: "body",
+    action: "report-manual",
+    note: "a note a firm member wrote about a deposit or one of its lines, free text that may name a client",
+  },
+  {
+    table: "payment_deposit_file",
+    subjectKey: "object_key",
+    action: "report-manual",
+    note: "a check scan, deposit slip or transfer confirmation kept with a deposit; it names the payer and is kept as a payment record",
+  },
   {
     table: "trust_bank_reconciliation_note",
     subjectKey: "body",
@@ -1884,6 +1905,11 @@ export const NO_PII_TABLES: readonly string[] = [
   // the line trust_transfer.authorized_by sits on — and whose money it was resolves through the
   // invoice and the trust transfer, never through a column here.
   "invoice_application",
+  // A deposit of payments recorded by hand: the bank account, the dates, the slip number, the
+  // posting, and member provenance. Who paid is on its lines, not here. A bank fee taken out of it
+  // is a description and an amount.
+  "payment_deposit",
+  "payment_deposit_fee",
   // The numbering pair is a sequence: a scope key, a counter, and which invoice consumed which
   // value. Nothing about any person.
   "invoice_number_counter",

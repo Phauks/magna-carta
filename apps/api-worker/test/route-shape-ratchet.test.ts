@@ -49,7 +49,7 @@ interface Shape {
 // shape count learned to see a chain the formatter breaks after `z`). Keyed by the path under
 // src/http/routes/ (domain directory included). Lower an entry when the file shrinks; delete it when the file clears both caps.
 export const LEDGER: Readonly<Record<string, Shape>> = {
-  "billing/billing.ts": { lines: 3059, shapes: 70 },
+  "billing/billing.ts": { lines: 3055, shapes: 70 },
   "billing/costs.ts": { lines: 1202, shapes: 8 },
   "billing/reports.ts": { lines: 534, shapes: 32 },
   // Raised when the meeting recording branch (recording, transcript, summary and captions, written

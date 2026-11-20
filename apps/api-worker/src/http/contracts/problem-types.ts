@@ -401,6 +401,11 @@ export const PROBLEM_TYPES = {
   // no reason. DISTINCT from `validation`: the request is well-formed, the record it describes is not
   // one the rules permit.
   "trust-check-refused": "trust-check-refused",
+  // Something the operating books refuse (HTTP 422): a vendor bill line with no expense account, a
+  // payment larger than what is left on a bill, a trust account offered where only the firm's own
+  // accounts may go, a chart account whose type would change. DISTINCT from `validation`: the
+  // request is well-formed, the entry it describes is not one the books permit.
+  "books-refused": "books-refused",
   // A check that has already been answered printed, spoiled or voided (HTTP 409). A check's events
   // only move forward, so a second answer is refused rather than silently ignored.
   "trust-check-already-answered": "trust-check-already-answered",

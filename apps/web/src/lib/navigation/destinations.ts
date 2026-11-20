@@ -64,6 +64,8 @@ import Sparkles from "@lucide/svelte/icons/sparkles";
 import ListChecks from "@lucide/svelte/icons/list-checks";
 import HandCoins from "@lucide/svelte/icons/hand-coins";
 import BookCheck from "@lucide/svelte/icons/book-check";
+import BookOpen from "@lucide/svelte/icons/book-open";
+import FileInput from "@lucide/svelte/icons/file-input";
 
 export type DestinationGroup =
   | "favorites"
@@ -562,6 +564,22 @@ const DESTINATION_LIST = [
     defaultShown: true,
   },
   {
+    // The firm's own bills from the people it buys from, grouped by vendor, and paying them from
+    // any of its operating bank accounts. Never from trust. A line on a matter is a real cost on
+    // that matter and goes on its next draft invoice. Called Vendor Bills because "Bill" on this
+    // rail means a bill to a client.
+    id: "vendor-bills",
+    label: "Vendor Bills",
+    href: "/vendor-bills",
+    icon: FileInput,
+    description: "What the firm owes its vendors, and paying it.",
+    group: "money",
+    shipped: true,
+    stage: "alpha",
+    defaultShown: true,
+    permission: assertPermission("billing:read"),
+  },
+  {
     // The firm's own trust register: every account it holds, at which bank, under which office and
     // which state's rules, with one account's work beside it. It is the read a matter's Trust
     // section cannot give — a matter knows its own ledger, and no amount of visiting matters says
@@ -596,6 +614,21 @@ const DESTINATION_LIST = [
     shipped: true,
     stage: "alpha",
     defaultShown: true,
+  },
+  {
+    // The firm's accounts: its bank accounts first (any number of operating accounts, one marked
+    // Default; trust accounts shown and managed on the Trust screen), then every other account by
+    // type, and which account the app posts to for each purpose.
+    id: "chart-of-accounts",
+    label: "Chart of Accounts",
+    href: "/chart-of-accounts",
+    icon: BookOpen,
+    description: "The firm's accounts, its bank accounts, and where the app posts.",
+    group: "money",
+    shipped: true,
+    stage: "alpha",
+    defaultShown: true,
+    permission: assertPermission("billing:read"),
   },
   // Firm — the firm about itself.
   {

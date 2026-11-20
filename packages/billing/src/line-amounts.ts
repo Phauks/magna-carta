@@ -1,6 +1,13 @@
 import { toMinor } from "@magna-carta/money/format";
-import { currencyFromCode, money, multiplyByQuantity, rate, sum } from "@magna-carta/money/money";
-import { roundInvoiceLine } from "@magna-carta/money/rounding";
+import {
+  currencyFromCode,
+  money,
+  multiplyByQuantity,
+  rate,
+  subtract,
+  sum,
+} from "@magna-carta/money/money";
+import { roundInvoiceLine, roundLedger } from "@magna-carta/money/rounding";
 
 // The scale the work-in-progress stores snapshot every rate at, and the scale a fee line carries its
 // quantity at. Both are integers on the wire; nothing here ever sees a float.
@@ -33,4 +40,23 @@ export function aggregateMinor(amountsMinor: readonly number[], currencyCode: st
   if (amountsMinor.length === 0) return 0;
   const currency = currencyFromCode(currencyCode);
   return toMinor(sum(amountsMinor.map((amount) => money(amount, currency))));
+}
+
+// One already-collapsed amount less another: what a bill still owes, a deposit net of its fees.
+// Through Money for the same reason as the sum above, and with no rounding for the same reason.
+export function differenceMinor(
+  fromMinor: number,
+  lessMinor: number,
+  currencyCode: string,
+): number {
+  const currency = currencyFromCode(currencyCode);
+  return toMinor(subtract(money(fromMinor, currency), money(lessMinor, currency)));
+}
+
+// A whole count of one bill or coin, as an amount. The count is a whole number, so the product is
+// exact at scale 2 and the ledger's rounding has nothing to round; it is named because every
+// multiplication leaves Money through a named helper.
+export function countedMinor(unitMinor: number, count: number, currencyCode: string): number {
+  const currency = currencyFromCode(currencyCode);
+  return toMinor(roundLedger(multiplyByQuantity(money(unitMinor, currency), count)));
 }
