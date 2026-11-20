@@ -125,12 +125,33 @@ What to know:
   see the title, the place or which calendar it came from. It is off until you turn it on, and
   turning off **Show in Magna Carta** for a calendar turns it off too.
 - They are shown with their own titles and at the hour they fall in your time zone.
-- They are not part of any matter, and nothing is changed in Outlook. To change one, change it in
-  Outlook.
+- They are not part of any matter until you add one to a matter (below), and nothing is changed in
+  Outlook. To change one, change it in Outlook.
 - A new or changed Outlook event appears within moments. Magna Carta keeps a month back and a year
   ahead.
 - An event Magna Carta itself sent to Outlook is not shown a second time.
 - Switch a calendar off and its events leave your Magna Carta calendar at once.
+
+## Adding one of your own events to a matter
+
+An event you made in Outlook or Google can be put on a matter without typing it again.
+
+1. On the **Calendar**, press the event. Its window shows when and where it is.
+2. Choose the **Matter** and the **Type**.
+3. Press **Add to Matter**.
+
+What to know:
+
+- It becomes an ordinary event on the matter. Everyone who can see the matter sees it.
+- The event in your own calendar is kept and stays in step with the one on the matter, so you do
+  not see it twice. Magna Carta never deletes it or moves it to another calendar.
+- You are listed on the event. Change anything else about it by opening it afterwards.
+- Magna Carta writes the matter's details into your own event, at the level of detail your firm
+  allows for that type. If your firm sends only the type and matter number, your event's title
+  becomes that.
+- If the event is later cancelled in Magna Carta, your own event stays in your calendar and is
+  yours alone again.
+- You need permission to record events on the calendar.
 
 ## What your firm decides
 

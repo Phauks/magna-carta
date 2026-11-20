@@ -7964,6 +7964,37 @@ export type CalendarEventRecordedResponse = {
     meetingId: string | null;
 };
 
+export type CreateMatterEventFromAccountRequest = CreateMatterEventRequest & {
+    fromAccountEvent?: FromAccountEvent;
+};
+
+export type MatterEventParticipantInput = {
+    participantKind: 'member' | 'entity' | 'external';
+    memberUserId?: string | null;
+    entityId?: string | null;
+    participantName?: string | null;
+    role?: string | null;
+};
+
+export type CalendarEventMeetingInput = {
+    medium: 'video' | 'audio';
+    lobby?: 'off' | 'on';
+} | null;
+
+/**
+ * Names one of the session member's own Outlook or Google events as the one this event is made from. The event in their account is kept and becomes this event's synced copy, so they never see two. It is never deleted or moved by a later sync.
+ */
+export type FromAccountEvent = {
+    /**
+     * Which of the member's accounts holds it.
+     */
+    provider: 'microsoft' | 'google';
+    /**
+     * The provider's own identifier for the event.
+     */
+    id: string;
+};
+
 export type CreateMatterEventRequest = {
     eventTypeId?: string | null;
     title: string;
@@ -7981,19 +8012,6 @@ export type CreateMatterEventRequest = {
     participants?: Array<MatterEventParticipantInput>;
     meeting?: CalendarEventMeetingInput;
 };
-
-export type MatterEventParticipantInput = {
-    participantKind: 'member' | 'entity' | 'external';
-    memberUserId?: string | null;
-    entityId?: string | null;
-    participantName?: string | null;
-    role?: string | null;
-};
-
-export type CalendarEventMeetingInput = {
-    medium: 'video' | 'audio';
-    lobby?: 'off' | 'on';
-} | null;
 
 export type CalendarEventUpdatedResponse = {
     ok: true;
@@ -36908,7 +36926,7 @@ export type CalendarListEventsResponses = {
 export type CalendarListEventsResponse = CalendarListEventsResponses[keyof CalendarListEventsResponses];
 
 export type CalendarCreateEventData = {
-    body: CreateMatterEventRequest;
+    body: CreateMatterEventFromAccountRequest;
     headers: {
         'idempotency-key': string;
     };

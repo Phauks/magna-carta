@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "0b78feb3-173b-4b42-8d62-5f13057bc99c",
-  "prevId": "79f9f313-3042-42d0-8090-645a7e9807e2",
+  "id": "2f0a5321-413e-4eda-8016-830cc1d6f6ba",
+  "prevId": "02837e43-5de6-4add-91ba-42cae3f72705",
   "tables": {
     "account_balance": {
       "name": "account_balance",
@@ -1151,6 +1151,14 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "adopted": {
+          "name": "adopted",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
         },
         "created_at": {
           "name": "created_at",

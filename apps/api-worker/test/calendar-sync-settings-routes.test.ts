@@ -1122,6 +1122,111 @@ describe("the member's own events, shown back to them", () => {
     expect(await readJson(await busyTime(colleagueCookie))).toEqual({ busy: [], truncated: false });
     expect((await events(memberCookie)).events).toHaveLength(1);
   });
+
+  // The colleague is the one with a seat that may record events, so the account in these is
+  // theirs: a connection of their own with one event a pass read from it.
+  describe("put on a matter", () => {
+    const OWN_CONNECTION = "integrationConnection_syncroutesadopt1";
+    const MATTER_EVENTS_URL = `${ORIGIN}/api/v1/matters/matter_syncroutesadopt000001/events`;
+
+    async function record(cookie: string, key: string, remoteEventId: string): Promise<Response> {
+      return await app.request(
+        MATTER_EVENTS_URL,
+        {
+          method: "POST",
+          headers: { ...headers(cookie), "Idempotency-Key": key },
+          body: JSON.stringify({
+            title: "Call with R. Alvarez",
+            startsOn: "2026-11-12",
+            startsAtTime: "09:00",
+            endsAtTime: "10:00",
+            timeZone: "America/Chicago",
+            fromAccountEvent: { provider: "google", id: remoteEventId },
+          }),
+        },
+        PROVISIONED,
+      );
+    }
+
+    beforeAll(async () => {
+      const colleague = await firmDatabase
+        .prepare("SELECT user_id FROM member WHERE display_name = 'Sam Roe'")
+        .first<{ user_id: string }>();
+      await firmDatabase
+        .prepare(
+          "INSERT INTO integration_connection (id, category, adapter_id, scope, principal_ref, credential_ref, status, capability_snapshot, created_at, updated_at) VALUES (?1, 'calendar-sync', 'google-calendar', 'user', ?2, 'integration:calendar-sync:adopt', 'connected', '{}', ?3, ?3)",
+        )
+        .bind(OWN_CONNECTION, colleague?.user_id ?? "", STAMP)
+        .run();
+      await firmDatabase
+        .prepare(
+          "INSERT INTO matter (id, title, status, responsible_member_id, matter_number, created_at, updated_at) VALUES ('matter_syncroutesadopt000001', 'Alvarez v. Dunmore', 'open', ?2, '2026-0412', ?1, ?1)",
+        )
+        .bind(STAMP, colleague?.user_id ?? "")
+        .run();
+      await firmDatabase
+        .prepare(
+          "INSERT INTO external_calendar_event (connection_id, remote_event_id, calendar_remote_id, remote_version_tag, title, location_text, whole_day, starts_at, ends_at, read_at) VALUES (?1, 'own-call-1', 'cal-own', 'v1', 'Call with R. Alvarez', 'Phone', 0, '2026-11-12T15:00:00.000Z', '2026-11-12T16:00:00.000Z', ?2)",
+        )
+        .bind(OWN_CONNECTION, STAMP)
+        .run();
+    });
+
+    it("refuses an event that is not one of the member's own", async () => {
+      expect((await record(colleagueCookie, "adopt-unknown", "own-nowhere")).status).toBe(404);
+      // Another member's event is not theirs to name, and an admin has no account at all.
+      expect((await record(adminCookie, "adopt-other", "own-call-1")).status).toBe(404);
+      const count = await firmDatabase
+        .prepare(
+          "SELECT COUNT(*) AS count FROM matter_event WHERE matter_id = 'matter_syncroutesadopt000001'",
+        )
+        .first<{ count: number }>();
+      expect(count?.count).toBe(0);
+    });
+
+    it("records the event, keeps the member's own one as its copy, and stops listing it as theirs", async () => {
+      const recorded = await record(colleagueCookie, "adopt-1", "own-call-1");
+      expect(recorded.status).toBe(201);
+      const { id } = await readJson<{ id: string }>(recorded);
+      const link = await firmDatabase
+        .prepare(
+          "SELECT local_kind, local_id, calendar_remote_id, remote_event_id, state, adopted FROM calendar_sync_link WHERE connection_id = ?1",
+        )
+        .bind(OWN_CONNECTION)
+        .all();
+      expect(link.results).toEqual([
+        {
+          local_kind: "matter_event",
+          local_id: id,
+          calendar_remote_id: "cal-own",
+          remote_event_id: "own-call-1",
+          state: "synced",
+          adopted: 1,
+        },
+      ]);
+      const left = await firmDatabase
+        .prepare("SELECT COUNT(*) AS count FROM external_calendar_event WHERE connection_id = ?1")
+        .bind(OWN_CONNECTION)
+        .first<{ count: number }>();
+      expect(left?.count).toBe(0);
+
+      // The same request again answers the same event and makes no second one.
+      const replayed = await record(colleagueCookie, "adopt-1", "own-call-1");
+      expect(replayed.status).toBe(201);
+      expect((await readJson<{ id: string }>(replayed)).id).toBe(id);
+      // A new request for an event already on a matter finds nothing of theirs to put there.
+      expect((await record(colleagueCookie, "adopt-2", "own-call-1")).status).toBe(404);
+      await settleBackgroundWork();
+      await firmDatabase
+        .prepare("DELETE FROM calendar_sync_link WHERE connection_id = ?1")
+        .bind(OWN_CONNECTION)
+        .run();
+      await firmDatabase
+        .prepare("DELETE FROM integration_connection WHERE id = ?1")
+        .bind(OWN_CONNECTION)
+        .run();
+    });
+  });
 });
 
 describe("disconnecting", () => {

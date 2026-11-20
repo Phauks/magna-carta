@@ -96,6 +96,11 @@ export const FIXTURE_GROUPS: readonly DevPageGroup[] = [
         note: "The room's encryption mark, pause banner and Security tab, and Start's switch, in each state",
       },
       {
+        label: "Own calendar event",
+        href: "/developer-console/own-calendar-event",
+        note: "The window one of your own Outlook or Google events opens in, with Add to Matter",
+      },
+      {
         label: "Trust reconciliation",
         href: "/developer-console/trust-reconciliation",
         note: "The Reconciliation list and one reconciliation over fixtures, ticking and all",
