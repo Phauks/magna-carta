@@ -230,6 +230,11 @@ describe("who is already busy at the hour the form proposes", () => {
     expect(availabilitySentence({ ...base, busy: ["Hearing", "Trial"], read: true })).toBe(
       "Busy: Hearing, Trial",
     );
+    // A stretch from their own calendar says only that they are busy, which the sentence says.
+    expect(availabilitySentence({ ...base, busy: ["Busy"], read: true })).toBe("Busy");
+    expect(availabilitySentence({ ...base, busy: ["Hearing", "Busy"], read: true })).toBe(
+      "Busy: Hearing",
+    );
   });
 });
 

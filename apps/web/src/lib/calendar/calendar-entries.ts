@@ -31,6 +31,7 @@ import {
   type TimelineEntry,
 } from "./calendar-api.ts";
 import { isMatterScope, type CalendarScope } from "./calendar-scope.ts";
+import type { MemberBusyTime } from "./member-busy-time.ts";
 import type { OwnAccountEvent } from "./own-account-events.ts";
 import {
   eventTypeNameForCode,
@@ -432,6 +433,60 @@ export function entryFromOwnAccountEvent(
   const endsAt = event.endsAt === null ? Number.NaN : Date.parse(event.endsAt);
   if (Number.isNaN(startsAt) || Number.isNaN(endsAt)) return null;
   // A runtime that cannot name the reader's zone still has to place the event somewhere.
+  const zone = context.readerTimeZone === "" ? "UTC" : context.readerTimeZone;
+  const start = zonedReading(startsAt, zone);
+  const end = zonedReading(endsAt, zone);
+  return {
+    ...base,
+    date: start.civilDate,
+    endDate: end.civilDate !== start.civilDate ? end.civilDate : undefined,
+    time: formatWallClock(start.wallClockTime, zone, zone, start.civilDate) ?? undefined,
+    startMinute: minutesOf(start.wallClockTime),
+    endMinute: minutesOf(end.wallClockTime),
+  };
+}
+
+/** What a stretch of a colleague's own calendar paints as: the one word they agreed to share. */
+export const BUSY_TIME_LABEL = "Busy";
+
+/**
+ * One stretch a colleague is busy for, from a calendar of their own they chose to share as busy.
+ * It paints the word and its hours and nothing else, because nothing else was sent.
+ *
+ * Placed in the READER'S zone when timed, for the reason an own-account event is: it arrives as
+ * two instants with no zone. It opens nowhere, having no record here to open.
+ */
+export function entryFromBusyTime(
+  busy: MemberBusyTime,
+  memberUserId: string,
+  context: EntryContext,
+): CalendarEntry | null {
+  const key = busy.wholeDay
+    ? `${busy.startsOn ?? ""}:${busy.endsOn ?? ""}`
+    : `${busy.startsAt ?? ""}:${busy.endsAt ?? ""}`;
+  const base = {
+    id: entryId("other", `busyTime:${memberUserId}:${key}`),
+    kind: "other" as const,
+    recordId: `${memberUserId}:${key}`,
+    matterId: null,
+    detailIsMatterNumber: false,
+    link: null,
+    settled: false,
+    sourceKeys: [],
+    label: BUSY_TIME_LABEL,
+    tone: "neutral" as const,
+  };
+  if (busy.wholeDay) {
+    if (busy.startsOn === null) return null;
+    return {
+      ...base,
+      date: busy.startsOn,
+      endDate: busy.endsOn !== null && busy.endsOn !== busy.startsOn ? busy.endsOn : undefined,
+    };
+  }
+  const startsAt = busy.startsAt === null ? Number.NaN : Date.parse(busy.startsAt);
+  const endsAt = busy.endsAt === null ? Number.NaN : Date.parse(busy.endsAt);
+  if (Number.isNaN(startsAt) || Number.isNaN(endsAt)) return null;
   const zone = context.readerTimeZone === "" ? "UTC" : context.readerTimeZone;
   const start = zonedReading(startsAt, zone);
   const end = zonedReading(endsAt, zone);
