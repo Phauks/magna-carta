@@ -23,13 +23,18 @@ export interface Cover {
 /** The largest picture the server keeps. A larger PNG is sent as a JPEG instead. */
 export const MAX_SCREENSHOT_BYTES = 4 * 1024 * 1024;
 
-/** True for a node the picture must not include: a dialog, or the shade behind one. */
+/**
+ * True for a node the picture must not include: a dialog, the shade behind one, or a menu or tooltip
+ * still closing from the click that opened the dialog.
+ */
 function isDialogLayer(node: Node): boolean {
   if (!(node instanceof Element)) return false;
   const role = node.getAttribute("role");
   return (
     role === "dialog" ||
     role === "alertdialog" ||
+    role === "menu" ||
+    role === "tooltip" ||
     node.hasAttribute("data-dialog-overlay") ||
     node.hasAttribute("data-dialog-content") ||
     node.hasAttribute("data-alert-dialog-overlay") ||

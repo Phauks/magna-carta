@@ -87,6 +87,14 @@
     return words === "" ? "Problem Report" : words.length > 90 ? `${words.slice(0, 90)}...` : words;
   });
 
+  // The heading already says the first line; the body says the rest, so nothing reads twice.
+  const body = $derived.by(() => {
+    const words = (report.description ?? "").trim();
+    const firstBreak = words.indexOf("\n");
+    if (firstBreak === -1) return words.length > 90 ? words : "";
+    return words.slice(firstBreak + 1).trim();
+  });
+
   const byline = $derived(
     [firmName, report.reporterName, formatInstant(report.createdAt), report.route]
       .filter((part): part is string => part !== null && part !== "")
@@ -112,8 +120,8 @@
     <p class="text-xs break-words text-text-muted">{byline}</p>
   </header>
 
-  {#if report.description !== null}
-    <p class="text-sm break-words whitespace-pre-wrap text-text-default">{report.description}</p>
+  {#if body !== ""}
+    <p class="text-sm break-words whitespace-pre-wrap text-text-default">{body}</p>
   {/if}
 
   {#if report.hasScreenshot}

@@ -71,7 +71,10 @@
         <ul class="flex flex-col divide-y divide-border-default" aria-label="The problems you reported">
           {#each rows as report (report.id)}
             <li class="flex flex-col gap-4 py-8" aria-current={report.id === selectedId ? "true" : undefined}>
-              <a href={reportAddress(report)} class="break-words underline underline-offset-2">
+              <a
+                href={reportAddress(report)}
+                class={["break-words underline underline-offset-2", report.id === selectedId && "font-semibold text-text-strong"]}
+              >
                 {report.summary ?? "Problem report"}
               </a>
               <span class="text-xs text-text-muted">
