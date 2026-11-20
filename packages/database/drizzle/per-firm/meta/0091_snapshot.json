@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "a346f15b-785b-44c1-b7be-3a2333594a9a",
+  "id": "c7ada307-05ce-410c-8165-2f07b22b2c29",
   "prevId": "09b24967-2c77-435f-a34a-a4a27297dee7",
   "tables": {
     "account_balance": {
@@ -29592,282 +29592,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "share": {
-      "name": "share",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matter_id": {
-          "name": "matter_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "scope": {
-          "name": "scope",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "folder_id": {
-          "name": "folder_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "file_id": {
-          "name": "file_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "file_version_id": {
-          "name": "file_version_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "target_id": {
-          "name": "target_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "recipient_entity_id": {
-          "name": "recipient_entity_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "role": {
-          "name": "role",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "allow_download": {
-          "name": "allow_download",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 1
-        },
-        "sign_in": {
-          "name": "sign_in",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'emailCode'"
-        },
-        "ends_on": {
-          "name": "ends_on",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'active'"
-        },
-        "shared_by_user_id": {
-          "name": "shared_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "revoked_by_user_id": {
-          "name": "revoked_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "revoked_at": {
-          "name": "revoked_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "share_recipient_target_active_unique_index": {
-          "name": "share_recipient_target_active_unique_index",
-          "columns": [
-            "recipient_entity_id",
-            "target_id"
-          ],
-          "isUnique": true,
-          "where": "\"share\".\"status\" = 'active'"
-        },
-        "share_matter_id_status_index": {
-          "name": "share_matter_id_status_index",
-          "columns": [
-            "matter_id",
-            "status"
-          ],
-          "isUnique": false
-        },
-        "share_target_id_index": {
-          "name": "share_target_id_index",
-          "columns": [
-            "target_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "share_matter_id_matter_id_fk": {
-          "name": "share_matter_id_matter_id_fk",
-          "tableFrom": "share",
-          "tableTo": "matter",
-          "columnsFrom": [
-            "matter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "share_folder_id_folder_id_fk": {
-          "name": "share_folder_id_folder_id_fk",
-          "tableFrom": "share",
-          "tableTo": "folder",
-          "columnsFrom": [
-            "folder_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "share_file_id_file_id_fk": {
-          "name": "share_file_id_file_id_fk",
-          "tableFrom": "share",
-          "tableTo": "file",
-          "columnsFrom": [
-            "file_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "share_file_version_id_file_version_id_fk": {
-          "name": "share_file_version_id_file_version_id_fk",
-          "tableFrom": "share",
-          "tableTo": "file_version",
-          "columnsFrom": [
-            "file_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "share_shared_by_user_id_member_user_id_fk": {
-          "name": "share_shared_by_user_id_member_user_id_fk",
-          "tableFrom": "share",
-          "tableTo": "member",
-          "columnsFrom": [
-            "shared_by_user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "share_revoked_by_user_id_member_user_id_fk": {
-          "name": "share_revoked_by_user_id_member_user_id_fk",
-          "tableFrom": "share",
-          "tableTo": "member",
-          "columnsFrom": [
-            "revoked_by_user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "share_scope_check": {
-          "name": "share_scope_check",
-          "value": "\"share\".\"scope\" IN ('matter', 'folder', 'file')"
-        },
-        "share_target_shape_check": {
-          "name": "share_target_shape_check",
-          "value": "(\"share\".\"scope\" = 'matter' AND \"share\".\"folder_id\" IS NULL AND \"share\".\"file_id\" IS NULL AND \"share\".\"file_version_id\" IS NULL AND \"share\".\"target_id\" = \"share\".\"matter_id\")\n        OR (\"share\".\"scope\" = 'folder' AND \"share\".\"folder_id\" IS NOT NULL AND \"share\".\"file_id\" IS NULL AND \"share\".\"file_version_id\" IS NULL AND \"share\".\"target_id\" = \"share\".\"folder_id\")\n        OR (\"share\".\"scope\" = 'file' AND \"share\".\"file_id\" IS NOT NULL AND \"share\".\"folder_id\" IS NULL AND \"share\".\"target_id\" = \"share\".\"file_id\")"
-        },
-        "share_role_check": {
-          "name": "share_role_check",
-          "value": "\"share\".\"role\" IN ('viewer', 'commenter', 'editor')"
-        },
-        "share_allow_download_check": {
-          "name": "share_allow_download_check",
-          "value": "\"share\".\"allow_download\" IN (0, 1)"
-        },
-        "share_sign_in_check": {
-          "name": "share_sign_in_check",
-          "value": "\"share\".\"sign_in\" IN ('link', 'emailCode', 'twoStep')"
-        },
-        "share_status_check": {
-          "name": "share_status_check",
-          "value": "\"share\".\"status\" IN ('active', 'revoked')"
-        },
-        "share_revoked_shape_check": {
-          "name": "share_revoked_shape_check",
-          "value": "(\"share\".\"status\" = 'revoked') = (\"share\".\"revoked_at\" IS NOT NULL AND \"share\".\"revoked_by_user_id\" IS NOT NULL)"
-        },
-        "share_ends_on_shape_check": {
-          "name": "share_ends_on_shape_check",
-          "value": "\"share\".\"ends_on\" IS NULL OR \"share\".\"ends_on\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
-        }
-      }
-    },
     "shipment": {
       "name": "shipment",
       "columns": {
@@ -30723,6 +30447,20 @@
         },
         "user_id": {
           "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "code_channel": {
+          "name": "code_channel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "mobile_number": {
+          "name": "mobile_number",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

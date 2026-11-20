@@ -94,6 +94,18 @@ export function accessCodeEmail(input: {
 }
 
 /**
+ * The text a signer gets when their code goes by text message. Short enough for one message for any
+ * ordinary firm name, and like the email it names no document, matter or signer.
+ */
+export function accessCodeText(input: {
+  readonly firmName: string;
+  readonly code: string;
+  readonly minutes: number;
+}): string {
+  return `${input.code} is your code to sign the document ${firmOf(input.firmName)} sent you. It works for ${input.minutes} minutes.`;
+}
+
+/**
  * The mail each outside signer gets once everyone has signed and the copy is sealed. Like the others
  * it never carries the document: the link opens a page with the signed copy and its certificate.
  */

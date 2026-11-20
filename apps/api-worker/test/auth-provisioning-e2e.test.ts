@@ -328,6 +328,7 @@ describe("end-to-end", () => {
         "emails:manageCaptureAddresses",
         "emails:manageLinks",
         "emails:read",
+        "esign:manageSettings",
         "esign:seal",
         "esign:send",
         "esign:sign",

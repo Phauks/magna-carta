@@ -101,7 +101,9 @@ import translationToolPermissionSql from "@magna-carta/database/drizzle/per-firm
 import theFrontDeskKeepsAnInOutLogSql from "@magna-carta/database/drizzle/per-firm/20261119T203231_the-front-desk-keeps-an-in-out-log.sql";
 import recordPresenceSql from "@magna-carta/database/drizzle/per-firm/20261120T201547_record-presence.sql";
 import batesLogsSql from "@magna-carta/database/drizzle/per-firm/20261120T203600_bates-logs.sql";
-import fileAndFolderSharingSql from "@magna-carta/database/drizzle/per-firm/20261120T211024_file-and-folder-sharing.sql";
+import signersCanGetACodeByTextSql from "@magna-carta/database/drizzle/per-firm/20261120T205502_signers-can-get-a-code-by-text.sql";
+import aMemberSharesACalendarAsBusySql from "@magna-carta/database/drizzle/per-firm/20261120T211109_a-member-shares-a-calendar-as-busy.sql";
+import fileAndFolderSharingSql from "@magna-carta/database/drizzle/per-firm/20261120T212624_file-and-folder-sharing.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -207,7 +209,9 @@ export function perFirmMigrations(): Migration[] {
     "20261119T203231_the-front-desk-keeps-an-in-out-log": theFrontDeskKeepsAnInOutLogSql,
     "20261120T201547_record-presence": recordPresenceSql,
     "20261120T203600_bates-logs": batesLogsSql,
-    "20261120T211024_file-and-folder-sharing": fileAndFolderSharingSql,
+    "20261120T205502_signers-can-get-a-code-by-text": signersCanGetACodeByTextSql,
+    "20261120T211109_a-member-shares-a-calendar-as-busy": aMemberSharesACalendarAsBusySql,
+    "20261120T212624_file-and-folder-sharing": fileAndFolderSharingSql,
   });
 }
 

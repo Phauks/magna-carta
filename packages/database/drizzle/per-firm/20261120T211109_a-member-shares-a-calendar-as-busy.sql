@@ -1,0 +1,1 @@
+ALTER TABLE `calendar_sync_shown_calendar` ADD `share_busy` integer DEFAULT false NOT NULL;

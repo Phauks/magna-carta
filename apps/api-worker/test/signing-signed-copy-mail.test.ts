@@ -30,6 +30,8 @@ function signer(
     email: `${name.toLowerCase()}@example.com`,
     attributionLevel,
     userId: attributionLevel === "firm-authenticated" ? (newIdentifier("user") as UserId) : null,
+    codeChannel: attributionLevel === "access-code" ? "email" : null,
+    mobileNumber: null,
     status,
     notifiedAt: null,
     openedAt: null,

@@ -8954,6 +8954,9 @@ export const calendarSyncShownCalendar = sqliteTable(
     calendarRemoteId: text("calendar_remote_id").notNull(),
     calendarName: text("calendar_name").notNull(),
     createdAt: text("created_at").notNull(),
+    // The member's second choice for a shown calendar: colleagues are told the hours its events
+    // take, as "Busy" and nothing more. Off until the member turns it on.
+    shareBusy: integer("share_busy", { mode: "boolean" }).notNull().default(false),
   },
   (table) => [
     primaryKey({ columns: [table.connectionId, table.calendarRemoteId] }),
@@ -14171,6 +14174,11 @@ export const signingSigner = sqliteTable(
     userId: text("user_id")
       .$type<UserId>()
       .references(() => member.userId),
+    // 'access-code' only: where the code is sent, 'email' or 'text'. Null on every other signer and
+    // on a row written before codes could be texted, which read as email.
+    codeChannel: text("code_channel", { enum: ["email", "text"] }),
+    // A text code only: the mobile number the code is texted to, in E.164.
+    mobileNumber: text("mobile_number"),
     status: text("status", {
       enum: ["waiting", "notified", "opened", "signed", "declined"],
     })

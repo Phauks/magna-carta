@@ -65,14 +65,15 @@ export async function answerSyncIssue(
   return data === undefined ? refusal(error) : { kind: "saved", value: data };
 }
 
-// The member's whole choice of which of their own calendars are shown to them. Answers with their
-// settings as they now stand.
+// The member's whole choice of which of their own calendars are shown to them, and which of those
+// tell colleagues they are busy. Answers with their settings as they now stand.
 export async function saveMyShownCalendars(
   calendarRemoteIds: string[],
+  busyCalendarRemoteIds: string[],
   account?: AccountChoice,
 ): Promise<SaveOutcome<CalendarSyncSettings>> {
   const { data, error } = await calendarSyncReplaceMyShownCalendars({
-    body: { calendarRemoteIds },
+    body: { calendarRemoteIds, busyCalendarRemoteIds },
     query: account,
   });
   return data === undefined ? refusal(error) : { kind: "saved", value: data };
