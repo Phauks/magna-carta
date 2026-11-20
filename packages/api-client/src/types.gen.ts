@@ -53394,6 +53394,10 @@ export type TrustAttachBankReconciliationFileErrors = {
      * Rate limit exceeded
      */
     429: Problem;
+    /**
+     * The malware-scan engine did not answer; nothing was kept
+     */
+    503: Problem;
 };
 
 export type TrustAttachBankReconciliationFileError = TrustAttachBankReconciliationFileErrors[keyof TrustAttachBankReconciliationFileErrors];

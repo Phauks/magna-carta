@@ -306,7 +306,7 @@ export const fileRoute = defineOpenAPIRoute(writeMeta("trust.attachBankReconcili
   method: "post",
   path: "/api/v1/trust/bank-reconciliations/{reconciliationId}/files",
   description:
-    "Keeps a file with the reconciliation: the bank statement, a deposit slip. PDF, PNG or JPEG, up to 25 MB.",
+    "Keeps a file with the reconciliation: the bank statement, a deposit slip. PDF, PNG or JPEG, up to 25 MB. The file is malware-scanned first and not kept when the scan flags it.",
   request: {
     headers: idempotencyKeyHeader,
     params: reconciliationParam,
@@ -321,6 +321,7 @@ export const fileRoute = defineOpenAPIRoute(writeMeta("trust.attachBankReconcili
     409: errors[409],
     422: errors[422],
     429: errors[429],
+    503: problem("The malware-scan engine did not answer; nothing was kept"),
   },
 });
 

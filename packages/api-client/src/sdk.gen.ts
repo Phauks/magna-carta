@@ -7074,7 +7074,7 @@ export const trustAddBankReconciliationNote = <ThrowOnError extends boolean = fa
 });
 
 /**
- * Keeps a file with the reconciliation: the bank statement, a deposit slip. PDF, PNG or JPEG, up to 25 MB.
+ * Keeps a file with the reconciliation: the bank statement, a deposit slip. PDF, PNG or JPEG, up to 25 MB. The file is malware-scanned first and not kept when the scan flags it.
  */
 export const trustAttachBankReconciliationFile = <ThrowOnError extends boolean = false>(options: Options<TrustAttachBankReconciliationFileData, ThrowOnError>): RequestResult<TrustAttachBankReconciliationFileResponses, TrustAttachBankReconciliationFileErrors, ThrowOnError> => (options.client ?? client).post<TrustAttachBankReconciliationFileResponses, TrustAttachBankReconciliationFileErrors, ThrowOnError>({
     url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/files',
