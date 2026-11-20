@@ -1,5 +1,6 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
+  BatesLogId,
   BatesRangeId,
   ExhibitSetId,
   FileId,
@@ -13,6 +14,7 @@ export const BATES_RANGE_TABLE = "bates_range";
 export interface BatesRangeRow {
   readonly id: BatesRangeId;
   readonly matter_id: MatterId;
+  readonly log_id: BatesLogId | null;
   readonly prefix: string;
   readonly digits: number;
   readonly first_number: number;
@@ -27,11 +29,11 @@ export interface BatesRangeRow {
 }
 
 export const RANGE_COLUMNS =
-  "id, matter_id, prefix, digits, first_number, last_number, purpose, source_file_id, " +
+  "id, matter_id, log_id, prefix, digits, first_number, last_number, purpose, source_file_id, " +
   "exhibit_set_id, stamped_file_id, stamped_file_saved_at, created_by, created_at";
 
 /**
- * Takes a range, guarded on no range under the same matter and prefix overlapping it.
+ * Takes a range, guarded on no range in the same log overlapping it.
  *
  * THIS IS THE GUARD, not the read before it. Two members stamping at once both read the same next
  * number; the batch that commits second sees the first one's row here, inserts nothing, and is
@@ -44,6 +46,7 @@ export function takeRangeStatement(
   row: {
     readonly id: BatesRangeId;
     readonly matterId: MatterId;
+    readonly logId: BatesLogId;
     readonly prefix: string;
     readonly digits: number;
     readonly firstNumber: number;
@@ -57,15 +60,16 @@ export function takeRangeStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${BATES_RANGE_TABLE} (id, matter_id, prefix, digits, first_number, last_number, ` +
-        `purpose, source_file_id, exhibit_set_id, created_by, created_at) ` +
-        `SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11 ` +
-        `WHERE NOT EXISTS (SELECT 1 FROM ${BATES_RANGE_TABLE} WHERE matter_id = ?2 AND prefix = ?3 ` +
-        `AND first_number <= ?6 AND last_number >= ?5)`,
+      `INSERT INTO ${BATES_RANGE_TABLE} (id, matter_id, log_id, prefix, digits, first_number, ` +
+        `last_number, purpose, source_file_id, exhibit_set_id, created_by, created_at) ` +
+        `SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12 ` +
+        `WHERE NOT EXISTS (SELECT 1 FROM ${BATES_RANGE_TABLE} WHERE log_id = ?3 ` +
+        `AND first_number <= ?7 AND last_number >= ?6)`,
     )
     .bind(
       row.id,
       row.matterId,
+      row.logId,
       row.prefix,
       row.digits,
       row.firstNumber,
@@ -104,36 +108,32 @@ export async function readRangeRow(
   return results[0];
 }
 
-/** One past the highest number stamped under a prefix, or undefined when nothing has been. */
+/** One past the highest number stamped in a log, or undefined when nothing has been. */
 export async function readNextNumber(
   database: SqlDatabase,
-  matterId: MatterId,
-  prefix: string,
+  logId: BatesLogId,
 ): Promise<number | undefined> {
   const { results } = await database
-    .prepare(
-      `SELECT MAX(last_number) AS highest FROM ${BATES_RANGE_TABLE} WHERE matter_id = ?1 AND prefix = ?2`,
-    )
-    .bind(matterId, prefix)
+    .prepare(`SELECT MAX(last_number) AS highest FROM ${BATES_RANGE_TABLE} WHERE log_id = ?1`)
+    .bind(logId)
     .all<{ highest: number | null }>();
   const highest = results[0]?.highest ?? null;
   return highest === null ? undefined : highest + 1;
 }
 
-/** The first stamped range under a prefix that overlaps the asked-for numbers, if any. */
+/** The first stamped range in a log that overlaps the asked-for numbers, if any. */
 export async function readOverlappingRange(
   database: SqlDatabase,
-  matterId: MatterId,
-  prefix: string,
+  logId: BatesLogId,
   firstNumber: number,
   lastNumber: number,
 ): Promise<BatesRangeRow | undefined> {
   const { results } = await database
     .prepare(
-      `SELECT ${RANGE_COLUMNS} FROM ${BATES_RANGE_TABLE} WHERE matter_id = ?1 AND prefix = ?2 ` +
-        `AND first_number <= ?4 AND last_number >= ?3 ORDER BY first_number LIMIT 1`,
+      `SELECT ${RANGE_COLUMNS} FROM ${BATES_RANGE_TABLE} WHERE log_id = ?1 ` +
+        `AND first_number <= ?3 AND last_number >= ?2 ORDER BY first_number LIMIT 1`,
     )
-    .bind(matterId, prefix, firstNumber, lastNumber)
+    .bind(logId, firstNumber, lastNumber)
     .all<BatesRangeRow>();
   return results[0];
 }

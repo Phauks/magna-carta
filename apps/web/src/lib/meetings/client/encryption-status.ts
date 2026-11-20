@@ -52,6 +52,18 @@ const REASON_CLAUSES: Record<PauseReason, string> = {
   phone: "a phone participant is connected",
 };
 
+/** What each reason is called where it is named on its own: the Security tab's state line. */
+const REASON_WORDS: Record<PauseReason, string> = {
+  recording: "Recording",
+  captions: "Live captions",
+  phone: "Phone participant",
+};
+
+/** The reasons a pause holds, named as a short list: "Recording, Live captions". */
+export function pauseReasonWords(reasons: readonly PauseReason[]): string {
+  return reasons.map((reason) => REASON_WORDS[reason]).join(", ");
+}
+
 /**
  * The banner's sentence for a pause: every reason that holds, joined, so a recording with captions
  * on is one sentence rather than two banners.

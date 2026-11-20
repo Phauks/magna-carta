@@ -64,7 +64,9 @@ export interface PackageContext {
   readonly folderId: string | null;
 }
 
+/** The Bates log the package takes its numbers from, already started when it is a new one. */
 export interface BatesChoice {
+  readonly logId: string;
   readonly prefix: string;
   readonly digits: number;
 }
@@ -276,8 +278,7 @@ export async function makeExhibitPackage(
   let rangeId: string | null = null;
   if (bates !== null) {
     const taken = await takeBatesRange(fetch, context.matterId, {
-      prefix: bates.prefix,
-      digits: bates.digits,
+      logId: bates.logId,
       pageCount: totalPages,
       purpose: "exhibitPackage",
       exhibitSetId: context.set.id,

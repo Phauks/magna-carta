@@ -22,11 +22,11 @@ export const UNPAGED_LIST_OPERATIONS = [];
  * "it is probably small".
  */
 export const BOUNDED_BY_CONSTRUCTION = {
-  // --- A matter's Bates prefixes ------------------------------------------------------------------
-  "bates.listBatesPrefixes":
-    "One row per Bates prefix on ONE matter, grouped from its ranges. listBatesPrefixes in " +
-    "packages/bates/src/queries.ts reads at most MAX_PREFIXES_PER_MATTER (200) plus one, and the " +
-    "response's `capped` flag says when the matter holds more. The ranges themselves are paged.",
+  // --- A matter's Bates logs ----------------------------------------------------------------------
+  "bates.listBatesLogs":
+    "One row per Bates log on ONE matter, each a filing or production a member started by hand. " +
+    "listBatesLogs in packages/bates/src/queries.ts reads at most MAX_LOGS_PER_MATTER (200) plus " +
+    "one, and the response's `capped` flag says when the matter holds more. The ranges are paged.",
   // --- A member's own Magnus folders --------------------------------------------------------------
   "magnus.listFolders":
     "One member's own folders, read whole into their conversation list. The create route in " +
