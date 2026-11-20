@@ -922,6 +922,23 @@ With `TELNYX_API_KEY` (already set for caller lookup) and `TELNYX_TEXT_FROM` bot
 
 **Switching it off.** Remove the `SECRETS_STORE_TELNYX_TEXT_FROM` entry from `wrangler.jsonc` and deploy, then delete the store secret. Text Code drops out of every firm's choices at once; a signer already given a text code is asked to have the sender choose another way.
 
+## 19d. Bank feeds — Plaid
+
+The owner picked Plaid on 2026-11-20 (`docs/decisions/pending/bank-feeds-run-on-plaid-read-only.md`). With `PLAID_CLIENT_ID` and `PLAID_SECRET` set, the Banking screen's Connect Bank opens Plaid's sign-in window; without them it says Banking is not set up. Adapter: `packages/bank-feeds/src/plaid.ts`.
+
+**Switching it on**
+
+1. Sign up at plaid.com (the free **Trial** plan covers 10 live bank connections). Under **Developers, Keys**, copy the client id and the secret for the environment you want.
+2. Create `PLAID_CLIENT_ID` and `PLAID_SECRET` in the Secrets Store (scope _Workers_). Only AFTER both exist, add `SECRETS_STORE_PLAID_CLIENT_ID` and `SECRETS_STORE_PLAID_SECRET` entries to `apps/api-worker/wrangler.jsonc` in their own pull request: a store binding that names a secret the store does not hold fails the deploy. `stored-secrets.ts` already resolves those binding names, with a per-Worker secret of the same name as the fallback (see "Secrets Store").
+3. To try it with Plaid's test banks first, also create `PLAID_ENVIRONMENT` with the value `sandbox` (and its `SECRETS_STORE_PLAID_ENVIRONMENT` binding in the same pull request), and use the sandbox secret. Without it the Worker calls Plaid's production host.
+4. Once that pull request deploys, an owner or administrator opens Banking and presses Connect Bank.
+
+**What it costs.** Plaid bills per connected account per month for Transactions and per balance read; the screen reads balances at most every 30 minutes per connection, and only when someone opens it. Prices: [`docs/operating-costs.md`](../operating-costs.md).
+
+**What crosses, and what is kept.** The client id and secret go to Plaid in the request body, never a URL. The access token for each connection is sealed in the firm's integration credential store and never leaves the Worker. The bank's lines (date, amount, the bank's description, check number) are stored in the firm's own database.
+
+**Switching it off.** Disconnect each bank on the Banking screen, which removes the connection at Plaid, then delete the two secrets. The screen then says Banking is not set up.
+
 ## 20. Address autocomplete — the retired own index and Smarty
 
 Retired 2026-11-20, when the owner chose Google Places as the only address engine (§19). The platform's own US index (the `magna-carta-address` Worker, its two Containers and the `magna-carta-addresses` R2 bucket) and the Smarty adapter were removed from the repository; their design is kept in [`docs/specs/2026-10-02-address-autocomplete-self-hosted-engine-design.md`](../specs/2026-10-02-address-autocomplete-self-hosted-engine-design.md) for anyone who reopens the question.

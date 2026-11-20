@@ -6,6 +6,7 @@ import type { ConnectedAccountsRouteDeps } from "./calendar/connected-accounts.t
 import type { SafeBrowseRouteDeps } from "./tools/safe-browse.ts";
 import type { WhoisRouteDeps } from "./tools/whois.ts";
 import type { TranslationRouteDeps } from "./tools/translation.ts";
+import type { BankingRouteDeps } from "./banking/banking-shared.ts";
 import type { Bindings } from "../../bindings.ts";
 import type { SendEmail } from "../../email-port.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
@@ -43,6 +44,8 @@ export interface DomainDeps {
   readonly connectedAccounts?: ConnectedAccountsRouteDeps;
   /** Which translation engine a request gets; tests inject a port. */
   readonly translation?: TranslationRouteDeps;
+  /** The bank feed provider, the credential store and the clock the Banking routes use. */
+  readonly banking?: BankingRouteDeps;
 }
 
 // One entry of the manifest (src/http/routes/manifest.ts).

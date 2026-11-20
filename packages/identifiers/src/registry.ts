@@ -259,6 +259,13 @@ export const ENTITY_PREFIXES = {
   trustBankReconciliationInterest: "trustBankReconciliationInterest",
   trustBankReconciliationNote: "trustBankReconciliationNote",
   trustBankReconciliationFile: "trustBankReconciliationFile",
+  // Bank feeds: read-only evidence of what the firm's banks say. A `bankConnection` is one sign-in
+  // at one bank through the feed provider; a `bankFeedAccount` is one account the bank reported under
+  // it, optionally tied to a bank account in the firm's books; a `bankFeedTransaction` is one line the
+  // bank reported on that account.
+  bankConnection: "bankConnection",
+  bankFeedAccount: "bankFeedAccount",
+  bankFeedTransaction: "bankFeedTransaction",
   // Billing and invoicing. An `invoice` is the header (registered above, alongside the earliest
   // entities); an `invoiceLine` is what the client is told, in presentation order; an
   // `invoiceWipClaim` records which work-in-progress row an invoice has taken, and IS the

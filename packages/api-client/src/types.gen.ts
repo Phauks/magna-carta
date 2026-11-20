@@ -12087,6 +12087,134 @@ export type TrustUnclaimedFundsReviewClosureRecord = {
     note: string | null;
 } | null;
 
+export type BankingOverviewResponse = {
+    /**
+     * Whether this deployment has bank feed keys set. False: Connect Bank cannot work.
+     */
+    providerConfigured: boolean;
+    connections: Array<BankConnection>;
+    accounts: Array<BankFeedAccount>;
+    /**
+     * Every bank account in the books a feed account can be tied to.
+     */
+    bookAccounts: Array<BankBookAccount>;
+};
+
+export type BankConnection = {
+    id: string;
+    institutionName: string;
+    /**
+     * The bank's logo as a base64 PNG. Null when the bank feed has none for it.
+     */
+    institutionLogo: string | null;
+    /**
+     * The bank asked the firm to sign in again before it shares anything more.
+     */
+    signInNeeded: boolean;
+    connectedAt: string;
+    /**
+     * The member who connected it, by name.
+     */
+    connectedBy: string;
+    lastSyncedAt: string | null;
+};
+
+export type BankFeedAccount = {
+    id: string;
+    connectionId: string;
+    institutionName: string;
+    /**
+     * The bank's logo as a base64 PNG. Null when the bank feed has none for it.
+     */
+    institutionLogo: string | null;
+    name: string;
+    mask: string | null;
+    subtype: string | null;
+    currency: string;
+    /**
+     * The bank's current balance, in minor units, as of balanceAsOf.
+     */
+    bankBalanceMinor: number | null;
+    availableBalanceMinor: number | null;
+    balanceAsOf: string | null;
+    /**
+     * The bank account in the books this is. Null: the firm chose not to use it.
+     */
+    bookAccount: {
+        ledgerAccountId: string;
+        name: string;
+        kind: BankBookAccountKind;
+        trustAccountId: string | null;
+        feedAccountId: string | null;
+    } | null;
+    /**
+     * The books' balance of the tied account. Null when it is not tied.
+     */
+    booksBalanceMinor: number | null;
+    notInBooksCount: number;
+};
+
+export type BankBookAccountKind = 'operating' | 'trust';
+
+export type BankBookAccount = {
+    ledgerAccountId: string;
+    name: string;
+    kind: BankBookAccountKind;
+    trustAccountId: string | null;
+    feedAccountId: string | null;
+};
+
+export type BankFeedTransactionsResponse = {
+    accountId: string;
+    from: string;
+    to: string;
+    /**
+     * Newest first.
+     */
+    transactions: Array<BankFeedTransaction>;
+};
+
+export type BankFeedTransaction = {
+    id: string;
+    postedOn: string;
+    description: string;
+    /**
+     * Positive is money in.
+     */
+    amountMinor: number;
+    checkNumber: string | null;
+    status: BankLineStatusName;
+};
+
+export type BankLineStatusName = 'inBooks' | 'notInBooks' | 'pending';
+
+export type BankSignInTokenResponse = {
+    token: string;
+    expiresAt: string;
+};
+
+export type BankSignInTokenRequest = {
+    /**
+     * Present to sign in again to a connection the bank asked about.
+     */
+    connectionId?: string;
+};
+
+export type ConnectBankResponse = {
+    connectionId: string;
+};
+
+export type ConnectBankRequest = {
+    publicToken: string;
+};
+
+export type LinkBankFeedAccountRequest = {
+    /**
+     * The bank account in the books this feed account is. Null: don't use it.
+     */
+    ledgerAccountId: string | null;
+};
+
 export type NotificationPage = {
     data: Array<NotificationItem>;
     nextCursor: string | null;
@@ -55462,6 +55590,291 @@ export type TrustGetUnclaimedFundsReviewResponses = {
 };
 
 export type TrustGetUnclaimedFundsReviewResponse = TrustGetUnclaimedFundsReviewResponses[keyof TrustGetUnclaimedFundsReviewResponses];
+
+export type BankingOverviewData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/banking';
+};
+
+export type BankingOverviewErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks banking:read
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BankingOverviewError = BankingOverviewErrors[keyof BankingOverviewErrors];
+
+export type BankingOverviewResponses = {
+    /**
+     * The Banking screen
+     */
+    200: BankingOverviewResponse;
+};
+
+export type BankingOverviewResponse2 = BankingOverviewResponses[keyof BankingOverviewResponses];
+
+export type BankingTransactionsData = {
+    body?: never;
+    path: {
+        accountId: string;
+    };
+    query?: never;
+    url: '/api/v1/banking/accounts/{accountId}/transactions';
+};
+
+export type BankingTransactionsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks banking:read
+     */
+    403: Problem;
+    /**
+     * No connected bank account has that id
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BankingTransactionsError = BankingTransactionsErrors[keyof BankingTransactionsErrors];
+
+export type BankingTransactionsResponses = {
+    /**
+     * The account's lines
+     */
+    200: BankFeedTransactionsResponse;
+};
+
+export type BankingTransactionsResponse = BankingTransactionsResponses[keyof BankingTransactionsResponses];
+
+export type BankingSignInTokenData = {
+    body: BankSignInTokenRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/banking/sign-in-token';
+};
+
+export type BankingSignInTokenErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks banking:manage
+     */
+    403: Problem;
+    /**
+     * No connected bank has that id
+     */
+    404: Problem;
+    /**
+     * The request body is invalid
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * No bank feed is set up, or the provider did not answer
+     */
+    503: Problem;
+};
+
+export type BankingSignInTokenError = BankingSignInTokenErrors[keyof BankingSignInTokenErrors];
+
+export type BankingSignInTokenResponses = {
+    /**
+     * The sign-in token
+     */
+    200: BankSignInTokenResponse;
+};
+
+export type BankingSignInTokenResponse = BankingSignInTokenResponses[keyof BankingSignInTokenResponses];
+
+export type BankingConnectData = {
+    body: ConnectBankRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/banking/connections';
+};
+
+export type BankingConnectErrors = {
+    /**
+     * The Idempotency-Key header is missing
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks banking:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The provider refused the token, or the body is invalid
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * No bank feed is set up, or the provider did not answer
+     */
+    503: Problem;
+};
+
+export type BankingConnectError = BankingConnectErrors[keyof BankingConnectErrors];
+
+export type BankingConnectResponses = {
+    /**
+     * The connection
+     */
+    201: ConnectBankResponse;
+};
+
+export type BankingConnectResponse = BankingConnectResponses[keyof BankingConnectResponses];
+
+export type BankingLinkAccountData = {
+    body: LinkBankFeedAccountRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        accountId: string;
+    };
+    query?: never;
+    url: '/api/v1/banking/accounts/{accountId}/book-account';
+};
+
+export type BankingLinkAccountErrors = {
+    /**
+     * The Idempotency-Key header is missing
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks banking:manage
+     */
+    403: Problem;
+    /**
+     * No connected bank account has that id
+     */
+    404: Problem;
+    /**
+     * Another bank account is already tied to that account in the books
+     */
+    409: Problem;
+    /**
+     * That is not a bank account in the books, or the body is invalid
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BankingLinkAccountError = BankingLinkAccountErrors[keyof BankingLinkAccountErrors];
+
+export type BankingLinkAccountResponses = {
+    /**
+     * Tied, or untied
+     */
+    204: void;
+};
+
+export type BankingLinkAccountResponse = BankingLinkAccountResponses[keyof BankingLinkAccountResponses];
+
+export type BankingDisconnectData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        connectionId: string;
+    };
+    query?: never;
+    url: '/api/v1/banking/connections/{connectionId}';
+};
+
+export type BankingDisconnectErrors = {
+    /**
+     * The Idempotency-Key header is missing
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks banking:manage
+     */
+    403: Problem;
+    /**
+     * No connected bank has that id
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The Idempotency-Key was reused with a different request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type BankingDisconnectError = BankingDisconnectErrors[keyof BankingDisconnectErrors];
+
+export type BankingDisconnectResponses = {
+    /**
+     * Disconnected
+     */
+    204: void;
+};
+
+export type BankingDisconnectResponse = BankingDisconnectResponses[keyof BankingDisconnectResponses];
 
 export type NotificationsListData = {
     body?: never;

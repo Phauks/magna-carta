@@ -52408,6 +52408,382 @@
           "note"
         ]
       },
+      "BankingOverviewResponse": {
+        "type": "object",
+        "properties": {
+          "providerConfigured": {
+            "type": "boolean",
+            "description": "Whether this deployment has bank feed keys set. False: Connect Bank cannot work."
+          },
+          "connections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BankConnection"
+            }
+          },
+          "accounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BankFeedAccount"
+            }
+          },
+          "bookAccounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BankBookAccount"
+            },
+            "description": "Every bank account in the books a feed account can be tied to."
+          }
+        },
+        "required": [
+          "providerConfigured",
+          "connections",
+          "accounts",
+          "bookAccounts"
+        ]
+      },
+      "BankConnection": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "institutionName": {
+            "type": "string"
+          },
+          "institutionLogo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The bank's logo as a base64 PNG. Null when the bank feed has none for it."
+          },
+          "signInNeeded": {
+            "type": "boolean",
+            "description": "The bank asked the firm to sign in again before it shares anything more."
+          },
+          "connectedAt": {
+            "type": "string"
+          },
+          "connectedBy": {
+            "type": "string",
+            "description": "The member who connected it, by name."
+          },
+          "lastSyncedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "institutionName",
+          "institutionLogo",
+          "signInNeeded",
+          "connectedAt",
+          "connectedBy",
+          "lastSyncedAt"
+        ]
+      },
+      "BankFeedAccount": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "connectionId": {
+            "type": "string"
+          },
+          "institutionName": {
+            "type": "string"
+          },
+          "institutionLogo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The bank's logo as a base64 PNG. Null when the bank feed has none for it."
+          },
+          "name": {
+            "type": "string"
+          },
+          "mask": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "subtype": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": "string"
+          },
+          "bankBalanceMinor": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "The bank's current balance, in minor units, as of balanceAsOf."
+          },
+          "availableBalanceMinor": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "balanceAsOf": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bookAccount": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "ledgerAccountId": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "kind": {
+                "$ref": "#/components/schemas/BankBookAccountKind"
+              },
+              "trustAccountId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "feedAccountId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "ledgerAccountId",
+              "name",
+              "kind",
+              "trustAccountId",
+              "feedAccountId"
+            ],
+            "description": "The bank account in the books this is. Null: the firm chose not to use it."
+          },
+          "booksBalanceMinor": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "The books' balance of the tied account. Null when it is not tied."
+          },
+          "notInBooksCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "connectionId",
+          "institutionName",
+          "institutionLogo",
+          "name",
+          "mask",
+          "subtype",
+          "currency",
+          "bankBalanceMinor",
+          "availableBalanceMinor",
+          "balanceAsOf",
+          "bookAccount",
+          "booksBalanceMinor",
+          "notInBooksCount"
+        ]
+      },
+      "BankBookAccountKind": {
+        "type": "string",
+        "enum": [
+          "operating",
+          "trust"
+        ]
+      },
+      "BankBookAccount": {
+        "type": "object",
+        "properties": {
+          "ledgerAccountId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/BankBookAccountKind"
+          },
+          "trustAccountId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "feedAccountId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "ledgerAccountId",
+          "name",
+          "kind",
+          "trustAccountId",
+          "feedAccountId"
+        ]
+      },
+      "BankFeedTransactionsResponse": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "to": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "transactions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BankFeedTransaction"
+            },
+            "description": "Newest first."
+          }
+        },
+        "required": [
+          "accountId",
+          "from",
+          "to",
+          "transactions"
+        ]
+      },
+      "BankFeedTransaction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "postedOn": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "description": {
+            "type": "string"
+          },
+          "amountMinor": {
+            "type": "integer",
+            "description": "Positive is money in."
+          },
+          "checkNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/BankLineStatusName"
+          }
+        },
+        "required": [
+          "id",
+          "postedOn",
+          "description",
+          "amountMinor",
+          "checkNumber",
+          "status"
+        ]
+      },
+      "BankLineStatusName": {
+        "type": "string",
+        "enum": [
+          "inBooks",
+          "notInBooks",
+          "pending"
+        ]
+      },
+      "BankSignInTokenResponse": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "expiresAt"
+        ]
+      },
+      "BankSignInTokenRequest": {
+        "type": "object",
+        "properties": {
+          "connectionId": {
+            "type": "string",
+            "description": "Present to sign in again to a connection the bank asked about."
+          }
+        }
+      },
+      "ConnectBankResponse": {
+        "type": "object",
+        "properties": {
+          "connectionId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "connectionId"
+        ]
+      },
+      "ConnectBankRequest": {
+        "type": "object",
+        "properties": {
+          "publicToken": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "required": [
+          "publicToken"
+        ]
+      },
+      "LinkBankFeedAccountRequest": {
+        "type": "object",
+        "properties": {
+          "ledgerAccountId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The bank account in the books this feed account is. Null: don't use it."
+          }
+        },
+        "required": [
+          "ledgerAccountId"
+        ]
+      },
       "NotificationPage": {
         "type": "object",
         "properties": {
@@ -157339,6 +157715,655 @@
         }
       }
     },
+    "/api/v1/banking": {
+      "get": {
+        "description": "The firm's connected banks, each bank account they report with the bank's balance beside the books' balance, and how many of the bank's recent lines are not in the books. Reads the banks again first when the last read is stale. Read only: nothing here posts to the books.",
+        "operationId": "banking.overview",
+        "tags": [
+          "banking"
+        ],
+        "x-mc-operationId": "banking.overview",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "banking:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "banking"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The Banking screen",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BankingOverviewResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks banking:read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/banking/accounts/{accountId}/transactions": {
+      "get": {
+        "description": "The bank's lines on one account over the last 90 days, newest first, each marked In Books, Not in Books or Pending against the account it is tied to in the books. A label only: it clears nothing and posts nothing.",
+        "operationId": "banking.transactions",
+        "tags": [
+          "banking"
+        ],
+        "x-mc-operationId": "banking.transactions",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "banking:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "banking"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "required": true,
+            "name": "accountId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The account's lines",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BankFeedTransactionsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks banking:read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No connected bank account has that id",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/banking/sign-in-token": {
+      "post": {
+        "description": "A short-lived token that opens the bank feed provider's sign-in window, for a new bank or, with connectionId, to sign in again to one the bank asked about.",
+        "operationId": "banking.signInToken",
+        "tags": [
+          "banking"
+        ],
+        "x-mc-operationId": "banking.signInToken",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "banking:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "banking"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BankSignInTokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The sign-in token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BankSignInTokenResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks banking:manage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No connected bank has that id",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is invalid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No bank feed is set up, or the provider did not answer",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/banking/connections": {
+      "post": {
+        "description": "Records a bank the firm just signed in to: exchanges the provider's one-time token, seals the access token, and reads the bank's accounts. Each account starts untied from the books.",
+        "operationId": "banking.connect",
+        "tags": [
+          "banking"
+        ],
+        "x-mc-operationId": "banking.connect",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "banking:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "banking"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectBankRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The connection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectBankResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks banking:manage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The provider refused the token, or the body is invalid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No bank feed is set up, or the provider did not answer",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/banking/accounts/{accountId}/book-account": {
+      "put": {
+        "description": "Ties a bank account the feed reports to a bank account in the books (an operating account or a trust account's bank), or unties it with null. One feed per account in the books.",
+        "operationId": "banking.linkAccount",
+        "tags": [
+          "banking"
+        ],
+        "x-mc-operationId": "banking.linkAccount",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "banking:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "banking"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "required": true,
+            "name": "accountId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkBankFeedAccountRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Tied, or untied"
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks banking:manage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No connected bank account has that id",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Another bank account is already tied to that account in the books",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "That is not a bank account in the books, or the body is invalid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/banking/connections/{connectionId}": {
+      "delete": {
+        "description": "Stops reading a bank: ends the sign-in at the provider and unties its accounts. What the bank already reported stays on the record.",
+        "operationId": "banking.disconnect",
+        "tags": [
+          "banking"
+        ],
+        "x-mc-operationId": "banking.disconnect",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "banking:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "banking.connect"
+        },
+        "x-mc-tags": [
+          "banking"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "required": true,
+            "name": "connectionId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Disconnected"
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks banking:manage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No connected bank has that id",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The Idempotency-Key was reused with a different request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/notifications": {
       "get": {
         "description": "Returns one page of the session member's own notifications, newest first and cursor-paginated. Rows are scoped to the calling member and filtered by matter visibility at read time rather than when they were written, so a change in what a matter's notifications may show takes effect on the next read without any row being altered; today that filter excludes the platform's own internal holding matters, and any further restriction composes into the same read when it exists. A notification carries identifiers, closed labels, counts and dates only — never a title, a name, a filename or a subject line; follow the link to resolve the record it points at through that subsystem's own access-checked read. readThroughCursor names the newest row on this page and is what read-all takes as its bound; it is null only when the page is empty. Searching has an unusual shape here, and it follows from the row carrying no sentence: the words a member reads are composed by the client from the kind and the declared facts, so the client resolves a query into the `kinds` and `searchCategories` whose words match it and sends those alongside `search`, which is matched against the matter number — the one piece of member-facing text the row itself carries. The three are OR-ed; supplying none of them narrows nothing, and an empty `kinds` means the query matched no kind rather than matching no row.",
@@ -162205,6 +163230,9 @@
     },
     {
       "name": "assemblies"
+    },
+    {
+      "name": "banking"
     },
     {
       "name": "bates"

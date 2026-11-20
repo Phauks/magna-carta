@@ -1,0 +1,28 @@
+{
+  "name": "@magna-carta/bank-feeds",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./contract": "./src/contract.ts",
+    "./matching": "./src/matching.ts",
+    "./plaid": "./src/plaid.ts",
+    "./port": "./src/port.ts",
+    "./statements": "./src/statements.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/civil-time": "workspace:*",
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -257,6 +257,8 @@ describe("end-to-end", () => {
         // practitioner set, finalizing and crediting reach Admin + Attorney, applying client
         // money reaches Admin + Attorney + Billing, and configuring the account-role map is
         // Admin alone (20260805T230000_billing-invoices). Admin holds all six.
+        "banking:manage",
+        "banking:read",
         "billing:apply",
         "billing:configure",
         "billing:credit",

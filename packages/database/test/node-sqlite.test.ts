@@ -235,6 +235,11 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     expect(grantsFor("Admin")).toEqual(expect.arrayContaining(["esign:send", "esign:sign"]));
     expect(grantsFor("Attorney")).toEqual(expect.arrayContaining(["esign:send", "esign:sign"]));
     expect(grantsFor("Billing")).not.toContain("esign:send");
+    expect(grantsFor("Admin")).toEqual(expect.arrayContaining(["banking:read", "banking:manage"]));
+    expect(grantsFor("Attorney")).toContain("banking:read");
+    expect(grantsFor("Attorney")).not.toContain("banking:manage");
+    expect(grantsFor("Billing")).not.toContain("banking:manage");
+    expect(grantsFor("Paralegal")).not.toContain("banking:read");
     // Paralegal carries the practitioner set: file/matter work plus the firm-wide tools. The
     // firm-wide tool grants (whois/safeBrowse, scanFile, metadataScrubber, fileIntegrity,
     // fileTypeVerifier, aiTextDetection, decryption, fileRepair, ocr) and support:request are
@@ -392,6 +397,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
       [
         // A billing clerk assembles the bill and records the money that comes back against it; the
         // approval that turns a draft into evidence is a partner's, so billing:finalize is absent.
+        "banking:read",
         "billing:apply",
         "billing:draft",
         "billing:read",

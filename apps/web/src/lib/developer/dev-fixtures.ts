@@ -105,6 +105,11 @@ export const FIXTURE_GROUPS: readonly DevPageGroup[] = [
         href: "/developer-console/trust-reconciliation",
         note: "The Reconciliation list and one reconciliation over fixtures, ticking and all",
       },
+      {
+        label: "Banking",
+        href: "/developer-console/banking",
+        note: "The Banking screen over fixtures, with the connect and Add to Books windows",
+      },
     ],
   },
   {
