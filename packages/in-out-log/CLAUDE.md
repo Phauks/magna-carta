@@ -20,6 +20,9 @@ context — [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Carta-White-Pap
   read with its search, and the guarded transitions
 - `src/entry-service.ts` — Drop Off, Pick Up, the link to a custody packet, and Delete, each one
   batch with its audit row
+- Routes: `entries.ts` (list, read, Drop Off, Move to Custodian, Delete), `pick-up.ts` (Pick Up and the
+  ID picture), and `shared.ts` (meta, errors and the effect wrapper both use), under
+  `apps/api-worker/src/http/routes/in-out-log/`
 
 ## Local conventions
 
@@ -45,8 +48,11 @@ context — [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Carta-White-Pap
   into custody, the row is the record of that. The number is not given back.
 - **The audit row carries identifiers and the entry number, never the description or a name.** What
   a client's papers are is the client's business.
-- **Identity checked is a yes or no, never a document number.** A number written here could not be
-  taken back and nothing about the log needs it.
+- **Identity checked is a yes or no, never a transcribed document number.** A picture of the ID may
+  be saved with the pick up (owner, 2026-11-20), only where the ID was checked. Its row
+  (`in_out_identity_scan`, one per entry) names an object in the firm's bucket; the route writes the
+  object before the batch and removes it when the batch is refused. Viewing it takes manage and is
+  audited before the bytes leave. Nothing reads text off the picture.
 - **The number is drawn in the same batch as the entry**, under the shared register's draw planner
   and the caller's `drawWithBoundedRetry`; nothing here renders a number.
 

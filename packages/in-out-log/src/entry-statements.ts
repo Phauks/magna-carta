@@ -4,6 +4,7 @@ import type {
   CustodyPacketId,
   InOutEntryId,
   InOutEntryRecipientId,
+  InOutIdentityScanId,
   MatterId,
   UserId,
 } from "@magna-carta/identifiers/types";
@@ -13,6 +14,7 @@ import type { InOutEntryStatus, InOutParty, InOutPartyKind } from "./types.ts";
 // fitness test.
 export const IN_OUT_ENTRY_TABLE = "in_out_entry";
 export const IN_OUT_ENTRY_RECIPIENT_TABLE = "in_out_entry_recipient";
+export const IN_OUT_IDENTITY_SCAN_TABLE = "in_out_identity_scan";
 
 // Every read composes the visible-matter predicate as a REQUIRED argument. An entry with no matter
 // is visible to everybody who may read the log; an entry on a matter is visible exactly when the
@@ -43,6 +45,8 @@ export interface InOutEntryRow {
   readonly picked_up_by_entity_id: string | null;
   readonly picked_up_by_name: string | null;
   readonly identity_checked: number | null;
+  // 1 where a picture of the collector's ID was saved with the pick up, read from the scan's row.
+  readonly identity_scanned: number;
   readonly handed_over_by_user_id: UserId | null;
   readonly custody_packet_id: CustodyPacketId | null;
   // The packet's own custody number, read from the packet, for the link the log shows.
@@ -98,7 +102,9 @@ const ENTRY_COLUMNS = [
 function selectEntries(visibility: VisibleMatterPredicate): string {
   return (
     `SELECT ${ENTRY_COLUMNS}, entry_matter.title AS matter_title, ` +
-    `entry_matter.matter_number AS matter_number, entry_packet.custody_number AS custody_number ` +
+    `entry_matter.matter_number AS matter_number, entry_packet.custody_number AS custody_number, ` +
+    `EXISTS (SELECT 1 FROM ${IN_OUT_IDENTITY_SCAN_TABLE} AS entry_scan ` +
+    `WHERE entry_scan.entry_id = ${IN_OUT_ENTRY_TABLE}.id) AS identity_scanned ` +
     `FROM ${IN_OUT_ENTRY_TABLE} ` +
     `LEFT JOIN matter AS entry_matter ON entry_matter.id = ${IN_OUT_ENTRY_TABLE}.matter_id ` +
     `LEFT JOIN custody_packet AS entry_packet ON entry_packet.id = ${IN_OUT_ENTRY_TABLE}.custody_packet_id ` +
@@ -196,6 +202,73 @@ export function pickUpEntryStatement(
       input.handedOverByUserId,
       input.id,
     );
+}
+
+export interface IdentityScanInput {
+  readonly objectKey: string;
+  readonly sha256: string;
+  readonly contentType: "image/png" | "image/jpeg";
+  readonly sizeBytes: number;
+  readonly widthPixels: number;
+  readonly heightPixels: number;
+}
+
+export interface IdentityScanRow {
+  readonly id: InOutIdentityScanId;
+  readonly entry_id: InOutEntryId;
+  readonly object_key: string;
+  readonly content_type: string;
+}
+
+// The picture of the collector's ID, written in the pick up's own batch. The unique index on the
+// entry is the second guard: an entry has one pick up, so it has at most one picture.
+export function insertIdentityScanStatement(
+  database: SqlDatabase,
+  input: IdentityScanInput & {
+    readonly id: InOutIdentityScanId;
+    readonly entryId: InOutEntryId;
+    readonly recordedByUserId: UserId;
+    readonly now: string;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${IN_OUT_IDENTITY_SCAN_TABLE} (id, entry_id, object_key, sha256, content_type, ` +
+        `size_bytes, width_pixels, height_pixels, recorded_by_user_id, created_at) ` +
+        `VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`,
+    )
+    .bind(
+      input.id,
+      input.entryId,
+      input.objectKey,
+      input.sha256,
+      input.contentType,
+      input.sizeBytes,
+      input.widthPixels,
+      input.heightPixels,
+      input.recordedByUserId,
+      input.now,
+    );
+}
+
+// The picture's row, read through the entry so the visible-matter predicate applies to it exactly
+// as it applies to the entry it belongs to.
+export async function readIdentityScan(
+  database: SqlDatabase,
+  entryId: InOutEntryId,
+  visibility: VisibleMatterPredicate,
+): Promise<IdentityScanRow | undefined> {
+  const row = await database
+    .prepare(
+      `SELECT scan.id, scan.entry_id, scan.object_key, scan.content_type ` +
+        `FROM ${IN_OUT_IDENTITY_SCAN_TABLE} AS scan ` +
+        `JOIN ${IN_OUT_ENTRY_TABLE} ON ${IN_OUT_ENTRY_TABLE}.id = scan.entry_id ` +
+        `WHERE (${IN_OUT_ENTRY_TABLE}.matter_id IS NULL OR ` +
+        `${visibility.fragmentFor(`${IN_OUT_ENTRY_TABLE}.matter_id`)}) AND scan.entry_id = ?`,
+    )
+    .bind(...visibility.bindings, entryId)
+    .first<IdentityScanRow>();
+  return row ?? undefined;
 }
 
 // Linking the entry to the custody packet it became. Guarded on `status = 'waiting'` for the same

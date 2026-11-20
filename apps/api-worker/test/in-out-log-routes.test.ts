@@ -22,7 +22,7 @@ interface Entry {
   number: string;
   status: string;
   to: { id: string; name: string }[];
-  pickedUp: { by: { name: string }; identityChecked: boolean } | null;
+  pickedUp: { by: { name: string }; identityChecked: boolean; identityScanned: boolean } | null;
 }
 
 async function send(method: string, path: string, body?: unknown): Promise<Response> {
@@ -105,6 +105,52 @@ describe("the In/Out Log routes", () => {
     expect(stillWaiting.data.map((row) => row.id)).toEqual([second.id]);
     const found = await get<{ data: Entry[] }>("/api/v1/in-out-entries?search=Maria");
     expect(found.data).toHaveLength(2);
+  });
+
+  it("saves a picture of the ID with the pick up, and serves it back", async () => {
+    // A one-pixel PNG: the route reads the bytes to decide what they are.
+    const png =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+    const entry = await dropOff();
+
+    const unchecked = await send("POST", `/api/v1/in-out-entries/${entry.id}/pick-up`, {
+      collector: { kind: "external", name: "Courier" },
+      identityChecked: false,
+      identityScanBase64: png,
+    });
+    expect(unchecked.status).toBe(422);
+    const notAPicture = await send("POST", `/api/v1/in-out-entries/${entry.id}/pick-up`, {
+      collector: { kind: "external", name: "Courier" },
+      identityChecked: true,
+      identityScanBase64: btoa("not a picture"),
+    });
+    expect(notAPicture.status).toBe(422);
+    const none = await SELF.fetch(
+      `https://example.test/api/v1/in-out-entries/${entry.id}/identity-scan`,
+      { headers: { cookie: ownerCookie } },
+    );
+    expect(none.status).toBe(404);
+    await none.text();
+
+    // Somebody not on the To list, tagged as a member rather than typed.
+    const picked = await send("POST", `/api/v1/in-out-entries/${entry.id}/pick-up`, {
+      collector: { kind: "member", userId: ownerUserId, name: "In Out Owner" },
+      identityChecked: true,
+      identityScanBase64: png,
+    });
+    expect(picked.status).toBe(200);
+    const after = await get<Entry>(`/api/v1/in-out-entries/${entry.id}`);
+    expect(after.pickedUp?.identityChecked).toBe(true);
+    expect(after.pickedUp?.identityScanned).toBe(true);
+
+    const scan = await SELF.fetch(
+      `https://example.test/api/v1/in-out-entries/${entry.id}/identity-scan`,
+      { headers: { cookie: ownerCookie } },
+    );
+    expect(scan.status).toBe(200);
+    expect(scan.headers.get("content-type")).toBe("image/png");
+    expect(scan.headers.get("cache-control")).toContain("no-store");
+    expect(new Uint8Array(await scan.arrayBuffer()).byteLength).toBeGreaterThan(0);
   });
 
   it("deletes a waiting entry recorded by mistake", async () => {

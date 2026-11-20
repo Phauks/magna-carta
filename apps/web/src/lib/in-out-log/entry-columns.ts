@@ -25,7 +25,12 @@ export const STATUS_LABEL: Record<InOutEntryStatus, string> = {
 /** The line under a Log entry's status: who took it, or the custody number it became. */
 export function outcomeText(entry: InOutEntry): string {
   if (entry.pickedUp !== null) {
-    return `${entry.pickedUp.by.name}, ${formatInstant(entry.pickedUp.at)}`;
+    const proof = entry.pickedUp.identityScanned
+      ? ", ID scanned"
+      : entry.pickedUp.identityChecked
+        ? ", ID checked"
+        : "";
+    return `${entry.pickedUp.by.name}, ${formatInstant(entry.pickedUp.at)}${proof}`;
   }
   if (entry.movedToCustodian !== null) {
     return entry.movedToCustodian.custodyNumber ?? "";

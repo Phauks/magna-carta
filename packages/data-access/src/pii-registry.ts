@@ -896,6 +896,16 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
     action: "anonymize",
     note: "a person the entry is To, frozen; for somebody not on file the only handle erasure has on them",
   },
+  // The picture of the ID a person showed at pick up. It is the most sensitive thing the log holds
+  // and nothing about the log's record needs it once its owner is erased, so it goes outright. It
+  // resolves to its subject through the entry (entry_id to in_out_entry.picked_up_by_*), a two-hop
+  // like directory_name_phonetic_code's, and the row is the only thing naming its object.
+  {
+    table: "in_out_identity_scan",
+    subjectKey: "entry_id",
+    action: "hard-delete",
+    note: "the row names an R2 object; read object_key before deleting the row",
+  },
   // Trust accounting. The sub-ledger node is the one trust table with a structured subject
   // reference: it says the firm holds money for this client on this matter. That is retained on the
   // same basis as matter_party and the custody owner link — a record of client money the firm is

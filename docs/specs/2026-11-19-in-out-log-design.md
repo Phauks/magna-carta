@@ -36,9 +36,15 @@ and "return" already mean lending a packet in Custodian, so this log never uses 
 - `in_out_entry_recipient`: the people it is To, in the order listed. Anybody listed may collect.
 - A person is one of three kinds: a member, a Directory person or organization, or a typed name (a
   courier). The name is stored for every kind, because a log records who it was at the time.
-- Pick Up records who collected it (one of the To people, or somebody else by name), whether their
-  identity was checked (yes or no; no document number is ever stored), and who handed it over (the
-  member signed in).
+- Pick Up records who collected it (one of the To people, or somebody else as a member, a Directory
+  person or a typed name), whether their identity was checked (yes or no; no document number is ever
+  transcribed), and who handed it over (the member signed in).
+- A picture of the ID may be saved with the pick up, only where the ID was checked (owner,
+  2026-11-20). The browser re-encodes it to a JPEG at most 1600 pixels on its longest side, which drops
+  the camera's metadata. The bytes go to the firm's bucket under `in-out-identity-scan/`, keyed by the
+  entry and their hash, before the batch; the `in_out_identity_scan` row commits in the pick up's own
+  batch, and a refused batch removes the object again. Viewing it takes `inOutLog:manage` and is
+  audited before the bytes are served.
 - Move to Custodian is two writes: Custodian's own New Packet route logs the packet under
   `custody:manage`, prefilled from the entry, then the entry is linked to the packet.
 - Delete is for a mistake, and only while waiting. The number is not given back.

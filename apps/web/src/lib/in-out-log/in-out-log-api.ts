@@ -44,6 +44,8 @@ export interface InOutEntry {
     at: string;
     by: InOutParty;
     identityChecked: boolean;
+    /** Whether a picture of the ID was saved with the pick up; see `identityScanHref`. */
+    identityScanned: boolean;
     handedOverByUserId: string | null;
   } | null;
   movedToCustodian: {
@@ -101,9 +103,11 @@ export function dropOff(
 export interface PickUpRequest {
   /** One of the people it is To. */
   recipientId?: string;
-  /** Or somebody else, by name. Exactly one of the two. */
+  /** Or somebody else: a member, a Directory person, or a typed name. Exactly one of the two. */
   collector?: DropOffRequest["from"];
   identityChecked: boolean;
+  /** A picture of the ID they showed, as base64 of a PNG or JPEG. Only where the ID was checked. */
+  identityScanBase64?: string;
 }
 
 export function pickUp(
@@ -117,6 +121,14 @@ export function pickUp(
     body: request,
     idempotencyKey,
   });
+}
+
+/**
+ * Where the picture of an entry's ID is read. It needs the log's manage permission, and every view is
+ * recorded, so it is opened on purpose rather than drawn in the list.
+ */
+export function identityScanHref(entryId: string): string {
+  return `/api/v1/in-out-entries/${encodeURIComponent(entryId)}/identity-scan`;
 }
 
 /** Links a waiting entry to the custody packet it became, once Custodian has logged the packet. */

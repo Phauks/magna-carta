@@ -48,6 +48,9 @@ export const PickUpRequest = z
     // Or somebody who is not listed, by name. Exactly one of the two.
     collector: InOutParty.optional(),
     identityChecked: z.boolean(),
+    // A picture of the ID they showed, as base64 of a PNG or a JPEG. Saved only where the ID was
+    // checked; what the bytes are is read from the bytes, never from what the browser called them.
+    identityScanBase64: z.string().min(1).optional(),
   })
   .meta({ id: "InOutPickUpRequest" });
 
@@ -95,6 +98,8 @@ export const InOutEntry = z
           name: z.string(),
         }),
         identityChecked: z.boolean(),
+        // Whether a picture of the ID was saved with the pick up. The picture is its own read.
+        identityScanned: z.boolean(),
         handedOverByUserId: z.string().nullable(),
       })
       .nullable(),

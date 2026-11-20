@@ -96,3 +96,22 @@ INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermi
 INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_inOutManageParalegal0', 'role_917LCQyRKP50Z9bW89vXl', 'inOutLog:manage');
 --> statement-breakpoint
 INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_inOutManageBilling000', 'role_hwwC1D98d8Lazc_asL6vO', 'inOutLog:manage');
+--> statement-breakpoint
+-- The picture of the ID a person showed at pick up (owner, 2026-11-20): at most one per entry.
+CREATE TABLE `in_out_identity_scan` (
+	`id` text PRIMARY KEY NOT NULL,
+	`entry_id` text NOT NULL,
+	`object_key` text NOT NULL,
+	`sha256` text NOT NULL,
+	`content_type` text NOT NULL,
+	`size_bytes` integer NOT NULL,
+	`width_pixels` integer NOT NULL,
+	`height_pixels` integer NOT NULL,
+	`recorded_by_user_id` text NOT NULL,
+	`created_at` text NOT NULL,
+	FOREIGN KEY (`entry_id`) REFERENCES `in_out_entry`(`id`) ON UPDATE no action ON DELETE no action,
+	CONSTRAINT "in_out_identity_scan_content_type_check" CHECK("in_out_identity_scan"."content_type" IN ('image/png', 'image/jpeg')),
+	CONSTRAINT "in_out_identity_scan_size_check" CHECK("in_out_identity_scan"."size_bytes" > 0)
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `in_out_identity_scan_entry_unique_index` ON `in_out_identity_scan` (`entry_id`);

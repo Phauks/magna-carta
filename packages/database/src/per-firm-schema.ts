@@ -22,6 +22,7 @@ import type {
   CommunicationId,
   InOutEntryId,
   InOutEntryRecipientId,
+  InOutIdentityScanId,
   ConflictsCheckId,
   ConflictsDispositionId,
   ConflictsHitId,
@@ -14452,6 +14453,38 @@ export const inOutEntryRecipient = sqliteTable(
       "in_out_entry_recipient_shape_check",
       sql`(${table.kind} = 'member' AND ${table.userId} IS NOT NULL) OR (${table.kind} = 'entity' AND ${table.entityId} IS NOT NULL) OR (${table.kind} = 'external')`,
     ),
+  ],
+);
+
+// The picture of the ID a person showed when they picked an entry up (owner, 2026-11-20). At most
+// one per entry, written in the same batch as the pick up. The bytes live in the firm's bucket under
+// `object_key`; the row is the only thing that names them, so it is read before it is deleted. A
+// leaf table on purpose: erasing a person removes the picture outright while the log entry beside
+// it keeps its place with the name scrubbed.
+export const inOutIdentityScan = sqliteTable(
+  "in_out_identity_scan",
+  {
+    id: text("id").primaryKey().$type<InOutIdentityScanId>(), // inOutIdentityScan_ handle
+    entryId: text("entry_id")
+      .notNull()
+      .$type<InOutEntryId>()
+      .references(() => inOutEntry.id),
+    objectKey: text("object_key").notNull(),
+    sha256: text("sha256").notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    widthPixels: integer("width_pixels").notNull(),
+    heightPixels: integer("height_pixels").notNull(),
+    recordedByUserId: text("recorded_by_user_id").notNull().$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("in_out_identity_scan_entry_unique_index").on(table.entryId),
+    check(
+      "in_out_identity_scan_content_type_check",
+      sql`${table.contentType} IN ('image/png', 'image/jpeg')`,
+    ),
+    check("in_out_identity_scan_size_check", sql`${table.sizeBytes} > 0`),
   ],
 );
 

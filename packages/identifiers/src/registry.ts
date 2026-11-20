@@ -534,6 +534,8 @@ export const ENTITY_PREFIXES = {
   // of whom may pick it up.
   inOutEntry: "inOutEntry",
   inOutEntryRecipient: "inOutEntryRecipient",
+  // An `inOutIdentityScan` is the picture of the ID a person showed when they picked an entry up.
+  inOutIdentityScan: "inOutIdentityScan",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

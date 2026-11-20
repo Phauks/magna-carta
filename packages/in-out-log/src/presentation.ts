@@ -35,6 +35,7 @@ export interface InOutEntryView {
       name: string;
     };
     identityChecked: boolean;
+    identityScanned: boolean;
     handedOverByUserId: string | null;
   } | null;
   movedToCustodian: {
@@ -89,6 +90,7 @@ export function presentEntry(
               name: row.picked_up_by_name ?? "",
             },
             identityChecked: row.identity_checked === 1,
+            identityScanned: row.identity_scanned === 1,
             handedOverByUserId: row.handed_over_by_user_id,
           }
         : null,

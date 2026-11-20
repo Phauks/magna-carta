@@ -5,6 +5,7 @@ export const OPERATIONS: readonly string[] = [
   "inOutLog.deleteEntry",
   "inOutLog.dropOff",
   "inOutLog.getEntry",
+  "inOutLog.identityScan",
   "inOutLog.listEntries",
   "inOutLog.moveToCustodian",
   "inOutLog.pickUp",

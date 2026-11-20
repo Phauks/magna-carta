@@ -24,7 +24,9 @@ export type InOutValidationCode =
   | "in-out-unknown-entry"
   | "in-out-not-waiting"
   | "in-out-unknown-recipient"
-  | "in-out-unknown-packet";
+  | "in-out-unknown-packet"
+  // A picture of an ID with no ID checked: the picture is the proof of the check, never instead of it.
+  | "in-out-scan-without-check";
 
 export class InOutValidationError extends Error {
   constructor(

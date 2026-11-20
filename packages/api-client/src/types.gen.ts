@@ -9956,6 +9956,7 @@ export type InOutEntry = {
             name: string;
         };
         identityChecked: boolean;
+        identityScanned: boolean;
         handedOverByUserId: string | null;
     } | null;
     movedToCustodian: {
@@ -10000,14 +10001,15 @@ export type InOutAcknowledged = {
     ok: true;
 };
 
+export type InOutMoveToCustodianRequest = {
+    packetId: string;
+};
+
 export type InOutPickUpRequest = {
     recipientId?: string | null;
     collector?: InOutParty;
     identityChecked: boolean;
-};
-
-export type InOutMoveToCustodianRequest = {
-    packetId: string;
+    identityScanBase64?: string;
 };
 
 export type MagnusAvailability = {
@@ -46376,6 +46378,60 @@ export type InOutLogGetEntryResponses = {
 
 export type InOutLogGetEntryResponse = InOutLogGetEntryResponses[keyof InOutLogGetEntryResponses];
 
+export type InOutLogMoveToCustodianData = {
+    body: InOutMoveToCustodianRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        entryId: string;
+    };
+    query?: never;
+    url: '/api/v1/in-out-entries/{entryId}/custody-packet';
+};
+
+export type InOutLogMoveToCustodianErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, or the entry is not one this member can see
+     */
+    404: Problem;
+    /**
+     * The entry has already been picked up or moved to Custodian, or a retry is in progress
+     */
+    409: Problem;
+    /**
+     * The request body is not a shape this operation accepts
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type InOutLogMoveToCustodianError = InOutLogMoveToCustodianErrors[keyof InOutLogMoveToCustodianErrors];
+
+export type InOutLogMoveToCustodianResponses = {
+    /**
+     * Moved to Custodian
+     */
+    200: InOutAcknowledged;
+};
+
+export type InOutLogMoveToCustodianResponse = InOutLogMoveToCustodianResponses[keyof InOutLogMoveToCustodianResponses];
+
 export type InOutLogPickUpData = {
     body: InOutPickUpRequest;
     headers: {
@@ -46430,23 +46486,16 @@ export type InOutLogPickUpResponses = {
 
 export type InOutLogPickUpResponse = InOutLogPickUpResponses[keyof InOutLogPickUpResponses];
 
-export type InOutLogMoveToCustodianData = {
-    body: InOutMoveToCustodianRequest;
-    headers: {
-        'idempotency-key': string;
-    };
+export type InOutLogIdentityScanData = {
+    body?: never;
     path: {
         entryId: string;
     };
     query?: never;
-    url: '/api/v1/in-out-entries/{entryId}/custody-packet';
+    url: '/api/v1/in-out-entries/{entryId}/identity-scan';
 };
 
-export type InOutLogMoveToCustodianErrors = {
-    /**
-     * Missing Idempotency-Key (this operation requires one)
-     */
-    400: Problem;
+export type InOutLogIdentityScanErrors = {
     /**
      * No valid session
      */
@@ -46460,29 +46509,21 @@ export type InOutLogMoveToCustodianErrors = {
      */
     404: Problem;
     /**
-     * The entry has already been picked up or moved to Custodian, or a retry is in progress
-     */
-    409: Problem;
-    /**
-     * The request body is not a shape this operation accepts
-     */
-    422: Problem;
-    /**
      * Rate limited
      */
     429: Problem;
 };
 
-export type InOutLogMoveToCustodianError = InOutLogMoveToCustodianErrors[keyof InOutLogMoveToCustodianErrors];
+export type InOutLogIdentityScanError = InOutLogIdentityScanErrors[keyof InOutLogIdentityScanErrors];
 
-export type InOutLogMoveToCustodianResponses = {
+export type InOutLogIdentityScanResponses = {
     /**
-     * Moved to Custodian
+     * The picture
      */
-    200: InOutAcknowledged;
+    200: string;
 };
 
-export type InOutLogMoveToCustodianResponse = InOutLogMoveToCustodianResponses[keyof InOutLogMoveToCustodianResponses];
+export type InOutLogIdentityScanResponse = InOutLogIdentityScanResponses[keyof InOutLogIdentityScanResponses];
 
 export type MagnusAvailabilityData = {
     body?: never;

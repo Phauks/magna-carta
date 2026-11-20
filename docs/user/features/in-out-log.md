@@ -11,9 +11,14 @@ is **To**. You can list several people; anyone listed can pick it up. The matter
 notes are optional. The number (for example `IO-0042`) is on screen before you save, so you can write
 it on the envelope.
 
-When somebody collects it, press **Pick Up** on its row. Choose one of the people it was to, or
-**Someone else** and type their name, and tick **ID checked** if you checked their identification.
-Magna Carta records who handed it over.
+When somebody collects it, press **Pick Up** on its row. **Picked up by** lists the people it was
+to, with **Other** last. Choose **Other** to search members and the Directory for the person, or type
+a name for someone who is in neither, such as a courier. Tick **ID checked** if you checked their
+identification. You can then add a picture of the ID: on a phone or tablet it opens the camera, and on
+a computer you choose a scan. The picture is optional. Magna Carta records who handed it over.
+
+A picked up entry with a saved ID shows **View ID** on its row in the **Log** tab. Only people who can
+drop off and pick up can view it, and every view is recorded.
 
 ## The two tabs
 

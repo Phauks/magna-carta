@@ -1,6 +1,7 @@
 import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
 import { registerInOutLogRoutes } from "./entries.ts";
+import { registerPickUpRoutes } from "./pick-up.ts";
 
 // The In/Out Log: what crosses the front desk that is not held in custody.
 //
@@ -13,5 +14,6 @@ export function mountInOutLog(
 ): void {
   const domain = createDomainApp();
   registerInOutLogRoutes(domain, chokepoint);
+  registerPickUpRoutes(domain, chokepoint);
   app.route("/", domain);
 }

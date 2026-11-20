@@ -21,6 +21,7 @@ import {
   deleteRecipientsStatement,
   deleteWaitingEntryStatement,
   insertEntryStatement,
+  insertIdentityScanStatement,
   insertRecipientStatement,
   matterIsVisible,
   moveEntryToCustodianStatement,
@@ -29,6 +30,7 @@ import {
   readEntry,
   readKnownMembers,
   readRecipients,
+  type IdentityScanInput,
   type InOutEntryRow,
 } from "./entry-statements.ts";
 import { allocateEntryNumberStatement, IN_OUT_ENTRY_NUMBERING_TABLES } from "./numbering.ts";
@@ -192,6 +194,9 @@ export interface PickUpInput {
   // Or somebody who is not listed (a courier sent for it), by name. Exactly one of the two.
   readonly collector?: InOutPartyInput | null;
   readonly identityChecked: boolean;
+  // The picture of the ID they showed, already stored in the firm's bucket by the caller. Saved only
+  // where the ID was checked.
+  readonly identityScan?: IdentityScanInput | null;
 }
 
 // PICK UP: the entry has left the desk. Who collected it is either one of the people it was To or
@@ -203,6 +208,13 @@ export async function recordPickUp(
   options: InOutServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
   const entry = await waitingEntry(database, entryId, options.visibility);
+  const identityScan = input.identityScan ?? null;
+  if (identityScan !== null && !input.identityChecked) {
+    throw new InOutValidationError(
+      "in-out-scan-without-check",
+      "a picture of an ID is saved only where the ID was checked",
+    );
+  }
   const hasRecipient = input.recipientId !== undefined && input.recipientId !== null;
   const hasCollector = input.collector !== undefined && input.collector !== null;
   if (hasRecipient === hasCollector) {
@@ -245,6 +257,17 @@ export async function recordPickUp(
           }),
           "inOutLog.entry.pickUp",
         ),
+        ...(identityScan === null
+          ? []
+          : [
+              insertIdentityScanStatement(database, {
+                ...identityScan,
+                id: newIdentifier("inOutIdentityScan", options.randomSource),
+                entryId,
+                recordedByUserId: options.actorUserId,
+                now,
+              }),
+            ]),
         domainAuditStatement(database, {
           event: "inOutLog.entry.pickedUp",
           subjectId: entryId,
@@ -256,6 +279,7 @@ export async function recordPickUp(
             matterId: entry.matter_id,
             collectorKind: collector.kind,
             identityChecked: input.identityChecked,
+            identityScanned: identityScan !== null,
           },
         }),
       ],

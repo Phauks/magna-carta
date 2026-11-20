@@ -18,6 +18,7 @@
   import Ellipsis from "@lucide/svelte/icons/ellipsis";
   import Inbox from "@lucide/svelte/icons/inbox";
   import HandHelping from "@lucide/svelte/icons/hand-helping";
+  import IdCard from "@lucide/svelte/icons/id-card";
   import ScreenHeader from "$lib/screen/screen-header.svelte";
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
@@ -34,6 +35,7 @@
   import NewPacketDialog from "$lib/custodian/new-packet-dialog.svelte";
   import {
     deleteInOutEntry,
+    identityScanHref,
     linkToCustodyPacket,
     listInOutEntries,
     MANAGE_IN_OUT_LOG_PERMISSION,
@@ -277,6 +279,21 @@
           </DropdownMenu.Content>
         </DropdownMenu.Root>
       </div>
+    {:else if row.pickedUp?.identityScanned === true && manageRefusal === undefined}
+      <!-- The picture opens on its own, because every view of somebody's ID is recorded. -->
+      <div class="flex items-center justify-end">
+        <Button
+          variant="ghost"
+          size="sm"
+          href={identityScanHref(row.id)}
+          target="_blank"
+          rel="noopener"
+          aria-label="View ID for {row.number}"
+        >
+          <IdCard class="size-16" aria-hidden="true" />
+          <span class="hidden sm:inline">View ID</span>
+        </Button>
+      </div>
     {/if}
   {:else}
     {text}
@@ -380,6 +397,7 @@
 <PickUpDialog
   bind:open={pickUpOpen}
   entry={acting}
+  {members}
   onPickedUp={() => {
     notice = acting === null ? null : `${acting.number} was picked up.`;
     reread();

@@ -43461,6 +43461,9 @@
               "identityChecked": {
                 "type": "boolean"
               },
+              "identityScanned": {
+                "type": "boolean"
+              },
               "handedOverByUserId": {
                 "type": [
                   "string",
@@ -43472,6 +43475,7 @@
               "at",
               "by",
               "identityChecked",
+              "identityScanned",
               "handedOverByUserId"
             ]
           },
@@ -43681,6 +43685,18 @@
           "ok"
         ]
       },
+      "InOutMoveToCustodianRequest": {
+        "type": "object",
+        "properties": {
+          "packetId": {
+            "type": "string",
+            "pattern": "^custodyPacket_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "packetId"
+        ]
+      },
       "InOutPickUpRequest": {
         "type": "object",
         "properties": {
@@ -43696,22 +43712,14 @@
           },
           "identityChecked": {
             "type": "boolean"
+          },
+          "identityScanBase64": {
+            "type": "string",
+            "minLength": 1
           }
         },
         "required": [
           "identityChecked"
-        ]
-      },
-      "InOutMoveToCustodianRequest": {
-        "type": "object",
-        "properties": {
-          "packetId": {
-            "type": "string",
-            "pattern": "^custodyPacket_[A-Za-z0-9_-]{21}$"
-          }
-        },
-        "required": [
-          "packetId"
         ]
       },
       "MagnusAvailability": {
@@ -135456,9 +135464,143 @@
         }
       }
     },
+    "/api/v1/in-out-entries/{entryId}/custody-packet": {
+      "post": {
+        "description": "Move to Custodian: links a waiting entry to the custody packet it became. The packet is logged first through Custodian's own New Packet route; this records the link and takes the entry off Waiting for Pickup.",
+        "operationId": "inOutLog.moveToCustodian",
+        "tags": [
+          "inOutLog"
+        ],
+        "x-mc-operationId": "inOutLog.moveToCustodian",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "inOutLog:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "inOutLog"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^inOutEntry_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "entryId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InOutMoveToCustodianRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Moved to Custodian",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InOutAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required permission",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, or the entry is not one this member can see",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The entry has already been picked up or moved to Custodian, or a retry is in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is not a shape this operation accepts",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/in-out-entries/{entryId}/pick-up": {
       "post": {
-        "description": "Pick Up: records who collected the entry, one of the people it is to or somebody else by name, whether their identity was checked, and who handed it over.",
+        "description": "Pick Up: records who collected the entry, one of the people it is to or somebody else, whether their identity was checked, and who handed it over. A picture of the ID they showed may be saved with it, only where the ID was checked; it is read to be a PNG or a JPEG.",
         "operationId": "inOutLog.pickUp",
         "tags": [
           "inOutLog"
@@ -135590,20 +135732,20 @@
         }
       }
     },
-    "/api/v1/in-out-entries/{entryId}/custody-packet": {
-      "post": {
-        "description": "Move to Custodian: links a waiting entry to the custody packet it became. The packet is logged first through Custodian's own New Packet route; this records the link and takes the entry off Waiting for Pickup.",
-        "operationId": "inOutLog.moveToCustodian",
+    "/api/v1/in-out-entries/{entryId}/identity-scan": {
+      "get": {
+        "description": "The picture of the ID shown at pick up, in the type it was read to be when saved. Each view is audited before the bytes are sent. Never publicly addressable and never cached.",
+        "operationId": "inOutLog.identityScan",
         "tags": [
           "inOutLog"
         ],
-        "x-mc-operationId": "inOutLog.moveToCustodian",
+        "x-mc-operationId": "inOutLog.identityScan",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
         "x-mc-permission": "inOutLog:manage",
         "x-mc-resource": "firm",
         "x-mc-audited": true,
-        "x-mc-idempotency": "required",
+        "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
         "x-mc-firmlessSession": "reject",
         "x-mc-tags": [
@@ -135619,44 +135761,20 @@
             "required": true,
             "name": "entryId",
             "in": "path"
-          },
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
-            "required": true,
-            "name": "idempotency-key",
-            "in": "header"
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/InOutMoveToCustodianRequest"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
-            "description": "Moved to Custodian",
+            "description": "The picture",
             "content": {
-              "application/json": {
+              "image/png": {
                 "schema": {
-                  "$ref": "#/components/schemas/InOutAcknowledged"
+                  "type": "string"
                 }
-              }
-            }
-          },
-          "400": {
-            "description": "Missing Idempotency-Key (this operation requires one)",
-            "content": {
-              "application/problem+json": {
+              },
+              "image/jpeg": {
                 "schema": {
-                  "$ref": "#/components/schemas/Problem"
+                  "type": "string"
                 }
               }
             }
@@ -135683,26 +135801,6 @@
           },
           "404": {
             "description": "The firm is unreachable, or the entry is not one this member can see",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The entry has already been picked up or moved to Custodian, or a retry is in progress",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "The request body is not a shape this operation accepts",
             "content": {
               "application/problem+json": {
                 "schema": {
