@@ -1,18 +1,14 @@
 <script lang="ts">
   /*
-   * The answer to a search across matters, rendered: one group to a place, never one merged list.
+   * The answer to a search across matters, rendered as one list, newest first.
    *
-   * It is the matter search's results ($lib/matters/matter-search-results.svelte) with the one
-   * thing a reader standing outside a matter needs added: every record names the matter it is on.
-   * The two share the presentation registry, so a place wears the same icon and heading in both.
+   * Every record names the place it came from and the matter it is on, so a list mixing notes,
+   * files and time still reads at a glance. Matters and people found by name have no date, so
+   * where the reader ticked them they come first, in their own short lists, before the dated ones.
    *
-   * THE OVERVIEW SHOWS A FEW FROM EACH PLACE THAT ANSWERED, and a place with nothing in it is left
-   * to the list of places beside the results, where it reads as a zero. A CHOSEN PLACE shows a
-   * full page from that place alone.
-   *
-   * NO TOTALS. A group says how many results are on screen and whether there are more, which the
-   * server measured by reading one row past the limit. It never says "3 of 14": nothing counted
-   * to fourteen.
+   * NO TOTALS. The list says when a place holds more than it answered with, which the server
+   * measured by reading one row past the limit. It never says "3 of 14": nothing counted to
+   * fourteen.
    *
    * THE READER'S WORDS ARE MARKED WHERE THE SERVER FOUND THEM. Each hit says where they are in its
    * title and its excerpt, and a long text arrives already cut to the stretch they are in. This
@@ -22,7 +18,11 @@
   import Badge from "@magna-carta/design-system/badge";
   import LoadingRegion from "@magna-carta/design-system/loading-region";
   import { SAMPLE_SENTENCE } from "@magna-carta/design-system/loading-fixtures";
-  import { formatInstant, instantAttribute } from "@magna-carta/design-system/formatters";
+  import {
+    formatDate,
+    formatInstant,
+    instantAttribute,
+  } from "@magna-carta/design-system/formatters";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import Users from "@lucide/svelte/icons/users";
   import type { Component, Snippet } from "svelte";
@@ -30,84 +30,46 @@
   import type { StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import type { DirectorySearchHit } from "$lib/directory/directory-api.ts";
   import { entityRecordHref } from "$lib/directory/entity-presentation.ts";
-  import { emptyGroupLine, presentationFor } from "$lib/matters/matter-search-presentation.ts";
+  import { presentationFor } from "$lib/matters/matter-search-presentation.ts";
   import { matterStatusPresentation } from "$lib/matters/matter-status.ts";
   import type { MatterSummary } from "$lib/matters/matters-api.ts";
   import MarkedText from "$lib/search/marked-text.svelte";
-  import type { AcrossMattersGroup } from "$lib/search/search-across-matters-api.ts";
   import {
-    OVERVIEW_LIMIT,
-    PEOPLE_NOT_SEARCHED_REASON,
-    PLACE_LIMIT,
-    tooManyMattersLine,
+    listedHits,
+    tickedPlacesHoldMore,
     type NameGroup,
-    type SearchOverview,
+    type SearchAnswer,
   } from "$lib/search/search-across-matters.svelte.ts";
-  import {
-    ALL_PLACES,
-    MATTERS_PLACE,
-    PEOPLE_PLACE,
-    isRecordPlace,
-    searchAddress,
-  } from "$lib/search/search-address.ts";
+  import { MATTERS_PLACE, PEOPLE_PLACE, placeTicked } from "$lib/search/search-address.ts";
 
   let {
-    overview,
-    placeGroup,
-    chosen,
+    answer,
     failure,
     busy,
+    authorName,
     onRetry,
   }: {
-    overview: SearchOverview | null;
-    /** A full page from the chosen record place, or null where none is chosen or it has not landed. */
-    placeGroup: AcrossMattersGroup | null;
-    /** The place the address names. */
-    chosen: string;
+    answer: SearchAnswer | null;
     failure: StatedFailure | null;
     busy: boolean;
+    /** Who a member is called, for the line under a record. Empty where the roster cannot say. */
+    authorName: (userId: string) => string;
     onRetry?: () => void;
   } = $props();
 
-  const everyPlace = $derived(chosen === ALL_PLACES);
-  const nameLimit = $derived(everyPlace ? OVERVIEW_LIMIT : PLACE_LIMIT);
+  const listed = $derived(answer === null ? [] : listedHits(answer, answer.filters));
+  const holdsMore = $derived(answer === null ? false : tickedPlacesHoldMore(answer, answer.filters));
 
-  // The record groups on screen: in the overview, each place that found something; with a place
-  // chosen, that place's own page once it has landed.
-  const recordGroups = $derived.by((): readonly AcrossMattersGroup[] => {
-    if (overview === null) return [];
-    if (everyPlace) {
-      return (overview.records?.groups ?? []).filter((group) => group.hits.length > 0);
-    }
-    if (!isRecordPlace(chosen)) return [];
-    return placeGroup !== null && placeGroup.source === chosen ? [placeGroup] : [];
-  });
-
-  const showsMatters = $derived(everyPlace || chosen === MATTERS_PLACE);
-  const showsPeople = $derived(everyPlace || chosen === PEOPLE_PLACE);
-
-  function nameGroupVisible<Row>(group: NameGroup<Row>): boolean {
-    // In the overview a place with nothing to show is left to the list beside the results, and so
-    // is one the reader's choice of matters set aside: the list beside the results names it. A
-    // chosen place always renders, because the reader asked for it and the absence is the answer.
-    if (group.standing === "not-searched") return !everyPlace;
-    return !everyPlace || group.rows.length > 0 || group.standing !== "answered";
+  function shownNames<Row>(group: NameGroup<Row>, place: string): boolean {
+    return answer !== null && placeTicked(answer.filters, place) && group.standing !== "not-searched";
   }
 
   const foundSomething = $derived(
-    overview !== null &&
-      (overview.matters.rows.length > 0 ||
-        overview.people.rows.length > 0 ||
-        (overview.records?.groups ?? []).some((group) => group.hits.length > 0)),
+    listed.length > 0 ||
+      (answer !== null &&
+        ((shownNames(answer.matters, MATTERS_PLACE) && answer.matters.rows.length > 0) ||
+          (shownNames(answer.people, PEOPLE_PLACE) && answer.people.rows.length > 0))),
   );
-
-  // A chosen record place whose page has not landed yet, over an overview that has.
-  const placePending = $derived(
-    overview !== null && isRecordPlace(chosen) && recordGroups.length === 0 && busy,
-  );
-
-  // "file names and folder names", the way a sentence lists two things.
-  const FIELD_LIST = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
 
   function matterLabel(matter: { title: string; number: string | null }): string {
     return matter.number === null ? matter.title : `${matter.number} ${matter.title}`;
@@ -119,7 +81,6 @@
 
   function nameStandingLine(standing: NameGroup<unknown>["standing"], what: string): string {
     if (standing === "no-access") return `Your role does not include reading ${what}.`;
-    if (standing === "not-searched") return PEOPLE_NOT_SEARCHED_REASON;
     return `${what.charAt(0).toUpperCase()}${what.slice(1)} could not be searched just now.`;
   }
 
@@ -129,10 +90,12 @@
     return `Matched on ${hit.matchedNameRole} name: ${hit.matchedName}`;
   }
 
-  const SEARCH_FIXTURE = [
-    { source: "files", titles: ["Engagement letter.pdf", "Discovery plan.docx"] },
-    { source: "notes", titles: ["Status conference"] },
-  ] as const;
+  /** The day a record is listed by, as the list shows it. A day stays a day; a moment is shown whole. */
+  function listedDate(sortKey: string): string {
+    return sortKey.length === 10 ? formatDate(sortKey) : formatInstant(sortKey);
+  }
+
+  const SEARCH_FIXTURE = ["Engagement letter.pdf", "Status conference", "Discovery plan.docx"];
 </script>
 
 {#snippet failureNotice()}
@@ -147,81 +110,53 @@
   {/if}
 {/snippet}
 
-{#snippet groupFrame(
-  Icon: Component,
-  heading: string,
-  detail: string | null,
-  body: Snippet,
-  more: string | null,
-)}
+{#snippet nameFrame(Icon: Component, heading: string, detail: string, body: Snippet)}
   <section class="rounded-md border border-border-default bg-surface-raised">
     <header class="flex items-baseline gap-12 border-b border-border-default px-16 py-12">
       <Icon class="size-16 self-center text-text-muted" aria-hidden="true" />
       <h2 class="text-sm font-semibold text-text-default">{heading}</h2>
-      {#if detail !== null}
-        <span class="text-xs text-text-muted">{detail}</span>
-      {/if}
+      <span class="text-xs text-text-muted">{detail}</span>
     </header>
     {@render body()}
-    {#if more !== null}
-      <footer class="border-t border-border-default px-16 py-8">
-        <a
-          href={more}
-          class="text-sm font-medium text-text-default underline-offset-4 hover:underline"
-        >
-          Show More {heading}
-        </a>
-      </footer>
-    {/if}
   </section>
 {/snippet}
 
 <LoadingRegion
-  loading={overview === null && busy}
+  loading={answer === null && busy}
   failed={failure !== null}
   {onRetry}
-  refreshing={overview !== null && busy}
+  refreshing={answer !== null && busy}
   label="Searching the matters you can see"
   failure={failureNotice}
 >
   {#snippet fixture()}
-    <div class="flex flex-col gap-16">
-      {#each SEARCH_FIXTURE as group (group.source)}
-        {@const presentation = presentationFor(group.source)}
-        <section class="rounded-md border border-border-default bg-surface-raised">
-          <header class="flex items-baseline gap-12 border-b border-border-default px-16 py-12">
-            <h2 class="text-sm font-semibold text-text-default">{presentation.heading}</h2>
-          </header>
-          <ul class="divide-y divide-border-default">
-            {#each group.titles as title (title)}
-              <li class="flex flex-col gap-4 px-16 py-12">
-                <span class="text-sm font-medium text-text-default">{title}</span>
-                <span class="line-clamp-2 text-xs text-text-muted">{SAMPLE_SENTENCE}</span>
-              </li>
-            {/each}
-          </ul>
-        </section>
+    <ul class="divide-y divide-border-default rounded-md border border-border-default bg-surface-raised">
+      {#each SEARCH_FIXTURE as title (title)}
+        <li class="flex flex-col gap-4 px-16 py-12">
+          <span class="text-sm font-medium text-text-default">{title}</span>
+          <span class="line-clamp-2 text-xs text-text-muted">{SAMPLE_SENTENCE}</span>
+        </li>
       {/each}
-    </div>
+    </ul>
   {/snippet}
 
-  {#if overview !== null}
+  {#if answer !== null}
     <div class="flex flex-col gap-16">
-      {#if overview.records?.broad === true}
+      {#if answer.records?.broad === true}
         <Alert.Root variant="info">
           <Alert.Title>Showing The Most Recent Matches</Alert.Title>
           <Alert.Description>
-            These words appear in too many records to search at once, so only the most recent matches are shown. Add a word to narrow the search.
+            These words appear in too many records to search at once, so only the most recent matches are shown. Add a word or a filter to narrow the search.
           </Alert.Description>
         </Alert.Root>
       {/if}
 
-      {#if everyPlace && !foundSomething && failure === null}
+      {#if !foundSomething && failure === null && !busy}
         <p class="text-sm text-text-muted">No Results</p>
       {/if}
 
-      {#if showsMatters && nameGroupVisible(overview.matters)}
-        {@const matters = overview.matters}
+      {#if shownNames(answer.matters, MATTERS_PLACE)}
+        {@const matters = answer.matters}
         {#snippet mattersBody()}
           {#if matters.standing !== "answered"}
             <p class="px-16 py-12 text-sm text-text-muted">
@@ -231,7 +166,7 @@
             <p class="px-16 py-12 text-sm text-text-muted">No Results</p>
           {:else}
             <ul class="divide-y divide-border-default">
-              {#each matters.rows.slice(0, nameLimit) as matter (matter.id)}
+              {#each matters.rows as matter (matter.id)}
                 {@const status = matterStatusPresentation(matter.status)}
                 {@const number = matterNumber(matter)}
                 <li>
@@ -256,19 +191,11 @@
             </ul>
           {/if}
         {/snippet}
-        {@render groupFrame(
-          FolderOpen,
-          "Matters",
-          "Matched on title, number and client",
-          mattersBody,
-          everyPlace && (matters.rows.length > OVERVIEW_LIMIT || matters.more)
-            ? searchAddress(overview.query, MATTERS_PLACE, overview.reach)
-            : null,
-        )}
+        {@render nameFrame(FolderOpen, "Matters", "Matched on title, number and client", mattersBody)}
       {/if}
 
-      {#if showsPeople && nameGroupVisible(overview.people)}
-        {@const people = overview.people}
+      {#if shownNames(answer.people, PEOPLE_PLACE)}
+        {@const people = answer.people}
         {#snippet peopleBody()}
           {#if people.standing !== "answered"}
             <p class="px-16 py-12 text-sm text-text-muted">
@@ -278,7 +205,7 @@
             <p class="px-16 py-12 text-sm text-text-muted">No Results</p>
           {:else}
             <ul class="divide-y divide-border-default">
-              {#each people.rows.slice(0, nameLimit) as hit (hit.entityId)}
+              {#each people.rows as hit (hit.entityId)}
                 {@const matched = matchedNameLine(hit)}
                 <li>
                   <a
@@ -296,88 +223,65 @@
             </ul>
           {/if}
         {/snippet}
-        {@render groupFrame(
+        {@render nameFrame(
           Users,
           "People",
           "Matched on every name the directory holds, current and former",
           peopleBody,
-          everyPlace && (people.rows.length > OVERVIEW_LIMIT || people.more)
-            ? searchAddress(overview.query, PEOPLE_PLACE, overview.reach)
-            : null,
         )}
       {/if}
 
-      {#each recordGroups as group (group.source)}
-        {@const presentation = presentationFor(group.source)}
-        {#snippet recordsBody()}
-          {#if group.hits.length === 0}
-            <p class="px-16 py-12 text-sm text-text-muted">
-              {#if group.skipped === null}
-                No Results
-              {:else if group.skipped === "one-matter-only"}
-                {presentation.heading} is searched from inside a matter, with that matter's own
-                search.
-              {:else if group.skipped === "too-many-matters"}
-                {tooManyMattersLine(presentation.heading, overview.records?.fewMattersLimit ?? 0)}
-              {:else}
-                {emptyGroupLine(group.skipped, group.source)}
-              {/if}
-            </p>
-          {:else}
-            <ul class="divide-y divide-border-default">
-              {#each group.hits as hit (hit.id)}
-                <li>
-                  <a
-                    href={hit.link}
-                    class="flex flex-col gap-4 px-16 py-12 transition-colors duration-fast
-                           ease-standard hover:bg-surface-subtle"
-                  >
-                    <span class="text-sm font-medium text-text-default">
-                      {#if presentation.titleKind === "instant"}
-                        <time datetime={instantAttribute(hit.title)}>
-                          {formatInstant(hit.title)}
-                        </time>
-                      {:else}
-                        <MarkedText text={hit.title} marks={hit.titleMarks} />
-                      {/if}
-                    </span>
-                    {#if hit.snippet !== null}
-                      <span class="line-clamp-2 text-sm text-text-muted">
-                        <MarkedText text={hit.snippet} marks={hit.snippetMarks} />
-                      </span>
+      {#if listed.length > 0}
+        <ul
+          aria-label="Records found, newest first"
+          class="divide-y divide-border-default rounded-md border border-border-default bg-surface-raised"
+        >
+          {#each listed as { place, hit } (`${place}:${hit.id}`)}
+            {@const presentation = presentationFor(place)}
+            {@const author = hit.actorUserId === null ? "" : authorName(hit.actorUserId)}
+            <li>
+              <a
+                href={hit.link}
+                class="flex flex-col gap-4 px-16 py-12 transition-colors duration-fast
+                       ease-standard hover:bg-surface-subtle"
+              >
+                <span class="flex items-baseline justify-between gap-12">
+                  <span class="min-w-0 text-sm font-medium text-text-default">
+                    {#if presentation.titleKind === "instant"}
+                      <time datetime={instantAttribute(hit.title)}>
+                        {formatInstant(hit.title)}
+                      </time>
+                    {:else}
+                      <MarkedText text={hit.title} marks={hit.titleMarks} />
                     {/if}
-                    <span class="flex flex-wrap items-center gap-8 text-xs text-text-muted">
-                      <Badge variant="neutral">{matterLabel(hit.matter)}</Badge>
-                      {#if hit.secondary !== null}
-                        <span>{hit.secondary}</span>
-                      {/if}
-                    </span>
-                  </a>
-                </li>
-              {/each}
-            </ul>
-            {#if !everyPlace && group.hasMore}
-              <p class="border-t border-border-default px-16 py-8 text-xs text-text-muted">
-                More matches than shown. Add a word to narrow the search.
-              </p>
-            {/if}
-          {/if}
-        {/snippet}
-        {@render groupFrame(
-          presentation.icon,
-          presentation.heading,
-          group.matchedFields.length > 0
-            ? `Matched on ${FIELD_LIST.format(group.matchedFields)}`
-            : null,
-          recordsBody,
-          everyPlace && group.hasMore
-            ? searchAddress(overview.query, group.source, overview.reach)
-            : null,
-        )}
-      {/each}
+                  </span>
+                  <span class="flex-none text-xs text-text-muted">{listedDate(hit.sortKey)}</span>
+                </span>
+                {#if hit.snippet !== null}
+                  <span class="line-clamp-2 text-sm text-text-muted">
+                    <MarkedText text={hit.snippet} marks={hit.snippetMarks} />
+                  </span>
+                {/if}
+                <span class="flex flex-wrap items-center gap-8 text-xs text-text-muted">
+                  <Badge variant="neutral">{presentation.heading}</Badge>
+                  <Badge variant="neutral">{matterLabel(hit.matter)}</Badge>
+                  {#if author !== ""}
+                    <span>{author}</span>
+                  {/if}
+                  {#if hit.secondary !== null}
+                    <span>{hit.secondary}</span>
+                  {/if}
+                </span>
+              </a>
+            </li>
+          {/each}
+        </ul>
+      {/if}
 
-      {#if placePending}
-        <p class="text-sm text-text-muted">Reading this place.</p>
+      {#if holdsMore}
+        <p class="text-xs text-text-muted">
+          Some places hold more matches than shown. Add a word or a filter to narrow the search.
+        </p>
       {/if}
     </div>
   {/if}
