@@ -194,8 +194,8 @@ the time zone of the matter's office. A name in a script other than Western Euro
 left off the page and printed on the certificate.
 
 **Signers get their copy by email.** Once the copy is sealed, each signer from outside the firm is
-emailed a link to download the signed copy and its certificate. The link works for 30 days, so tell
-them to save both. Colleagues who signed in Magna Carta are not emailed; they open the signed copy
+emailed a link to a page that shows the signed copy and its certificate, with a button to download
+each. The link works for 30 days, so tell them to save both. Colleagues who signed in Magna Carta are not emailed; they open the signed copy
 from the document itself.
 
 **What an outside signer sees.** Each outside signer is emailed a link when it is their turn. The
