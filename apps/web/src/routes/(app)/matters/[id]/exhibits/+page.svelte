@@ -254,10 +254,10 @@
   function choose(setId: string): void {
     selected = setId;
     made = null;
-    const url = new URL(page.url);
+    const url = new URL(page.url.href);
     if (setId === REGISTER) url.searchParams.delete("entry");
     else url.searchParams.set("entry", setId);
-    void goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+    void goto(url, { replace: true, reset: false });
   }
 
   /* Reordering. Drag a grip, or use the row menu; either holds the order until Save Order. */

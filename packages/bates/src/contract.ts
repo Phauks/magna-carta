@@ -5,6 +5,7 @@ import {
   BATES_PURPOSES,
   MAX_BATES_NUMBER,
   MAX_DIGITS,
+  MAX_LOG_NAME_LENGTH,
   MAX_PAGES_PER_RANGE,
   MAX_PREFIX_LENGTH,
   MIN_DIGITS,
@@ -14,12 +15,32 @@ import {
 // and query parameters stay with the routes in apps/api-worker. The service re-validates every
 // field.
 
-export const TakeBatesRangeRequest = z
+export const CreateBatesLogRequest = z
   .object({
+    name: z.string().min(1).max(MAX_LOG_NAME_LENGTH),
     prefix: z.string().max(MAX_PREFIX_LENGTH),
     digits: z.number().int().min(MIN_DIGITS).max(MAX_DIGITS),
+  })
+  .meta({ id: "CreateBatesLogRequest" });
+
+export const RenameBatesLogRequest = z
+  .object({ name: z.string().min(1).max(MAX_LOG_NAME_LENGTH) })
+  .meta({ id: "RenameBatesLogRequest" });
+
+export const BatesLogRecord = z
+  .object({
+    id: identifierField("batesLog"),
+    name: z.string(),
+    prefix: z.string(),
+    digits: z.number().int(),
+  })
+  .meta({ id: "BatesLogRecord" });
+
+export const TakeBatesRangeRequest = z
+  .object({
+    logId: identifierField("batesLog"),
     pageCount: z.number().int().min(1).max(MAX_PAGES_PER_RANGE),
-    // Absent takes the next number under the prefix.
+    // Absent takes the next number in the log.
     firstNumber: z.number().int().min(0).max(MAX_BATES_NUMBER).optional(),
     purpose: z.enum(BATES_PURPOSES),
     sourceFileId: identifierField("file").nullable().optional(),
@@ -30,6 +51,7 @@ export const TakeBatesRangeRequest = z
 export const TakenBatesRange = z
   .object({
     id: identifierField("batesRange"),
+    logId: identifierField("batesLog"),
     prefix: z.string(),
     digits: z.number().int(),
     firstNumber: z.number().int(),
@@ -41,22 +63,27 @@ export const RecordBatesStampedFileRequest = z
   .object({ fileId: identifierField("file") })
   .meta({ id: "RecordBatesStampedFileRequest" });
 
-export const BatesPrefixSummary = z
+export const BatesLogSummary = z
   .object({
+    id: identifierField("batesLog"),
+    name: z.string(),
     prefix: z.string(),
     digits: z.number().int(),
     nextNumber: z.number().int(),
     rangeCount: z.number().int(),
     pagesStamped: z.number().int(),
-    lastStampedAt: z.string(),
+    lastStampedAt: z.string().nullable(),
+    createdAt: z.string(),
   })
-  .meta({ id: "BatesPrefixSummary" });
+  .meta({ id: "BatesLogSummary" });
 
-export const BatesPrefixList = capped(BatesPrefixSummary).meta({ id: "BatesPrefixList" });
+export const BatesLogList = capped(BatesLogSummary).meta({ id: "BatesLogList" });
 
 export const BatesRange = z
   .object({
     id: identifierField("batesRange"),
+    logId: identifierField("batesLog").nullable(),
+    logName: z.string().nullable(),
     prefix: z.string(),
     digits: z.number().int(),
     firstNumber: z.number().int(),

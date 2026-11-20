@@ -66,7 +66,7 @@
   const filesBack = $derived(
     file === null ? null : matterFilesBack(file.matterId, data.matter?.title ?? "Files", file.id),
   );
-  const startAt = $derived(startSecondOf(page.url.searchParams));
+  const startAt = $derived(startSecondOf(new URLSearchParams(page.url.search)));
   const media = $derived(file !== null && viewerKindOf(file) === "audio" ? "audio" : "video");
 
   let asking = $state(true);

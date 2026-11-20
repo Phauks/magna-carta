@@ -149,7 +149,6 @@ export default defineConfig({
     projects: [
       "apps/web/vitest.config.ts",
       "apps/api-worker/vitest.config.ts",
-      "apps/address-worker/vitest.config.ts",
       "apps/api-worker/vitest.node.config.ts",
       "apps/status-worker/vitest.config.ts",
       "apps/community-worker/vitest.config.ts",

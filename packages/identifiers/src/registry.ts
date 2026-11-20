@@ -449,9 +449,12 @@ export const ENTITY_PREFIXES = {
   exhibitSetMember: "exhibitSetMember",
   exhibitReference: "exhibitReference",
   exhibitPackage: "exhibitPackage",
-  // Bates numbers — a `batesRange` is one run of page numbers taken from a matter's register under
-  // one prefix, for one stamped document. Ranges under a prefix never overlap.
+  // Bates numbers — a `batesRange` is one run of page numbers taken from one of a matter's Bates
+  // logs, for one stamped document. Ranges in a log never overlap.
   batesRange: "batesRange",
+  // A `batesLog` is one named run of Bates numbers on a matter (one filing, one production), with its
+  // own prefix and its own count.
+  batesLog: "batesLog",
   // The matter's own identity records beyond the shell. A `matterAssignment` is one firm member
   // staffed onto a matter in a named working role (the responsible attorney stays on the matter row
   // itself); a `matterCourtCase` is the matter's court-and-case identity — the court, the case
@@ -528,6 +531,14 @@ export const ENTITY_PREFIXES = {
   // document is keyed by this id. Not a notification and never one — a generated file is platform
   // mechanics rather than a fact about the firm's work.
   downloadItem: "downloadItem",
+  // The In/Out Log — what crosses the front desk that is not held in custody: copies, papers, a
+  // physical file. An `inOutEntry` is one thing dropped off, from the moment it arrives until it is
+  // picked up or moved into Custodian; an `inOutEntryRecipient` is one person the entry is To, any
+  // of whom may pick it up.
+  inOutEntry: "inOutEntry",
+  inOutEntryRecipient: "inOutEntryRecipient",
+  // An `inOutIdentityScan` is the picture of the ID a person showed when they picked an entry up.
+  inOutIdentityScan: "inOutIdentityScan",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

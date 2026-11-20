@@ -1,2 +1,0 @@
-# Rust build artifacts — Cargo.lock IS committed (this is a binary crate, not a library).
-/target

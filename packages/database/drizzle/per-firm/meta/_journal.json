@@ -621,8 +621,29 @@
     {
       "idx": 88,
       "version": "6",
-      "when": 1795204975691,
-      "tag": "20261120T200255_a-member-shares-a-calendar-as-busy",
+      "when": 1795116100406,
+      "tag": "20261119T203231_the-front-desk-keeps-an-in-out-log",
+      "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "6",
+      "when": 1795205747091,
+      "tag": "20261120T201547_record-presence",
+      "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "6",
+      "when": 1795204966363,
+      "tag": "20261120T203600_bates-logs",
+      "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "6",
+      "when": 1795208516404,
+      "tag": "20261120T210156_a-member-shares-a-calendar-as-busy",
       "breakpoints": true
     }
   ]

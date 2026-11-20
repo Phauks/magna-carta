@@ -1,19 +1,17 @@
 /*
  * The Google adapter: AddressLookupPort over Google's Places API (New), Autocomplete and Place Details.
  *
- * WHY IT EXISTS BESIDE THE OTHER TWO. The owner asked on 2026-11-13 to try Google's data first and
- * decide afterwards whether the platform's own index is needed, because Google's addresses are the
- * ones people expect to see. It answers every country, so when its key is set it takes every lookup
- * (apps/api-worker/src/address-lookup/address-lookup-engine.ts).
+ * THE ONLY ENGINE. The owner tried Google from 2026-11-13, because its addresses are the ones people
+ * expect to see, and on 2026-11-20 chose it as the only one. It answers every country, so when its
+ * key is set it takes every lookup (apps/api-worker/src/address-lookup/address-lookup-engine.ts).
  *
  * WHAT GOOGLE'S TERMS ASK, AND WHERE EACH IS KEPT. Three things bind any use of this adapter:
  * - Attribution. Places content shown without a Google map carries "Google Maps" in the same visual
  *   container. The suggestions route marks Google's answers so the address field can show it; this
  *   adapter does not render anything.
  * - Storage. Google lets a customer keep a place ID indefinitely and nothing else beyond a short
- *   cache. The parts a person chooses are written into a record, which is the open question the owner
- *   accepted when asking for this trial; it is written down in docs/conventions/operations.md under
- *   the Google section, so whoever turns this into the permanent engine settles it first.
+ *   cache. The parts a person chooses are written into a record. The owner chose Google knowing that;
+ *   the question is written down in docs/conventions/operations.md under the Google section.
  * - No other map. Google's Places content may not be shown on a non-Google map.
  *
  * TWO REQUESTS, AND ONLY THE SECOND IS AN ADDRESS. Autocomplete answers a line of text and a place
@@ -64,7 +62,7 @@ const AUTOCOMPLETE_FIELD_MASK =
 /** Autocomplete never answers more than five. */
 const MOST_OFFERS = 5;
 
-/** As in the Smarty adapter: an answer nobody is waiting for any more is abandoned. */
+/** An answer nobody is waiting for any more is abandoned. */
 const REQUEST_TIMEOUT_MILLISECONDS = 4000;
 
 /** A place ID is letters, digits, `-` and `_`. Anything else did not come from Google. */

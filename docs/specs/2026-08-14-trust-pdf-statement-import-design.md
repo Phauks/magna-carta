@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-14
 **Scope:** Owner extension T10. Reading a bank statement the firm received as a **PDF** into the bank side of the trust reconciliation that already shipped. Design only — no schema, no route, no parser, no code of any kind.
-**Status:** Proposed. Nine questions are flagged for the owner (section 9) and every one of them is a place where deciding would mean the platform legislating about a firm's money or a client's records.
+**Status:** Proposed, revised 2026-11-20 (section 11). Sections 1 to 10 were written against the statement-and-match workbench, which was removed on 2026-11-20; section 11 restates the design for the tick-to-clear Reconciliation screen and records the owner's answers to S1, S2, S4 and S5. Where section 11 differs from an earlier section, section 11 governs.
 **Feeds:** the reconciliation built under ADR-0246 — `packages/trust/src/{bank-statements,statement-import,matching,reconciliation,three-way-proof}.ts` and migration `20260805T200000_trust-reconciliation`. It does not replace any of it and changes nothing about what a reconciliation means.
 **Inherits:** ADR-0214 (conversion of a firm's data is consensual and guided), ADR-0179 (the OCR engine, its model pin, and the honest limit of its determinism), ADR-0128 / ADR-0127 (the pure-Rust PDF core and the `hayro` doctrine), ADR-0182 (the PDF decompression guard).
 **Related:** the white paper, _Trust accounting_ and _Performance and concurrency model_; the invariants in [`docs/conventions/invariants.md`](../conventions/invariants.md) and in [`packages/trust/CLAUDE.md`](../../packages/trust/CLAUDE.md).
@@ -241,3 +241,29 @@ Numbered **S1–S9** as their own series, deliberately not extending the trust l
 3. **Automatic matching, in any form, including a confidence-gated one.** Unchanged and not reopened.
 4. **Multi-currency statements and multi-account statements in one PDF.** A combined statement covering an operating and a trust account on the same pages is real. Splitting one is a different problem, and guessing which pages belong to the trust account is exactly the class of guess this design refuses elsewhere. Refuse the file, naming what was found.
 5. **User documentation.** It lands with the interface. A guide to a surface a firm cannot reach tells them the platform supports something it does not.
+
+---
+
+## 11. Revision 2026-11-20 — the Reconciliation screen, and the owner's answers
+
+### 11.1 What changed underneath
+
+The statement-and-match workbench this design fed was removed on 2026-11-20 at the owner's ruling. Its tables stay (the trust compliance report reads them) but nothing new writes them. The reconciliation a firm now runs is the tick-to-clear Reconciliation screen (`packages/trust/src/bank-reconciliation.ts`): a period has a start and end balance, and a person ticks each book item that cleared. There are no bank lines in that model and no match rows.
+
+So the PDF import no longer produces `trust_bank_statement` rows. It produces **statement lines read from a file attached to a period**, and they do one thing: they put a suggestion under the book item each one could be. A person still ticks. Everything in sections 2 to 4 about why a parsed line may never post, never match on its own and never become a ledger fact holds unchanged; the owner's 2026-11-16 ruling on suggestions (only inline under their own line, citing the statement line, never a summation; "No suggestion" with the reason when it is ambiguous) is the display rule.
+
+### 11.2 The owner's answers
+
+- **S1, a statement whose lines do not add up: import it and show the error.** Overrides section 3.3's refusal. The lines are stored with the statement's own figures and the footing result; the screen shows the difference ("The lines add up to X; the statement says Y") and, where a running balance was read, the first line where it stops agreeing, plus the lines read at lowest confidence. The suggestions still appear. Section 2's concern is met differently: the disagreement is never with the BOOK. A statement line only ever suggests a tick, so a misread line produces a wrong or missing suggestion that a person declines, and the period's figures are still the person's ticks against the end balance the person typed.
+- **S2, scanned statements: allowed, with text recognition.** Pages the shared gate marks as scans go to the OCR Container. Every stored line records whether it came from the text layer or from recognition, and at what confidence.
+- **S4, one bank line that could be several entries: a dropdown asks which.** When a statement line has more than one candidate entry, the suggestion asks which entry it goes to. Once chosen, the line is "covered" and every other candidate says so ("Statement line already covered by ..."), which is also how a duplicate shows itself. A line is never split across entries; a deposit covering several items stays the known gap.
+- **S5, the PDF is kept for the trust-record retention period.** The statement is a reconciliation file, so the existing file row and bucket object are the copy kept; removing a file from a period already only writes a removal row and leaves the object. The retention period is the jurisdiction profile's `recordsRetention` (`packages/trust-jurisdictions`), and a subject erasure does not reach it while that period runs; the erasure registry says so.
+- **The rest keep their recommendations until the owner says otherwise:** S3 (a pre-filled bank-charge form) is not in the first slice; S6 is moot, because the delimited importer no longer has a screen; S7 stays on `trust:manage`; S8, no model reads a statement; S9, no second person.
+
+### 11.3 What gets built, in slices
+
+1. **Read the file.** A `extractPdfTextGlyphs` WASM edge over the existing `Document::page_text_glyphs` (the one Rust addition section 7.2 asked for, which now exists in the crate and needs only exposing), a per-page scan gate, the OCR Container for scanned pages, and table reconstruction in TypeScript in `@magna-carta/trust`. Stored: one `trust_bank_reconciliation_statement` row per statement file (period, opening and closing balances read, the footing result, the reader's version, how each page was read) and its `trust_bank_reconciliation_statement_line` rows (date, description, reference, signed amount, running balance when read, page and line, text layer or recognition, confidence). Append-only, like everything on a period. The extraction artifact goes to R2 beside the PDF.
+2. **Suggest.** Under each uncleared book item: the statement line it could be (exact amount, matching direction, within 45 days), citing the line's date, description and page. One candidate: a Tick button that records the tick and that this line covered it. Several: the S4 dropdown. None: nothing, and statement lines no book item could be are listed together as "On the statement, not in the book" (bank charges, returned deposits), because those are the findings reconciliation exists for.
+3. **Show the footing.** The S1 notice, and an offer to fill an empty End Balance from the statement's closing balance (a person presses it; nothing fills itself).
+
+Screens start as mockups the owner picks from, as every reconciliation screen did.

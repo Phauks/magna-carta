@@ -41,6 +41,12 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import AuthFrame from "$lib/auth/auth-frame.svelte";
+  import HumanCheck from "$lib/auth/human-check.svelte";
+  import {
+    HUMAN_CHECK_FAILED,
+    humanVerificationHeaders,
+    isHumanCheckRefusal,
+  } from "$lib/auth/human-check.ts";
   import { attemptBudget, authClient } from "$lib/auth/client.ts";
   import RecoveryCodeScreen from "$lib/auth/screens/recovery-code-screen.svelte";
   import SignInScreen from "$lib/auth/screens/sign-in-screen.svelte";
@@ -61,6 +67,7 @@
   let recoveryCode = $state("");
   let trustDevice = $state(false);
   let pending = $state(false);
+  let humanCheckWidget = $state<HumanCheck | null>(null);
 
   /*
    * The shared ladder, as the server last reported it. One value for all three steps because it is
@@ -126,13 +133,19 @@
     let outcome: "session" | "challenge" | "failed" = "failed";
     // undefined means no response at all — offline, or a frontend-only dev server with no Worker.
     let status: number | undefined;
+    let humanCheckRefused = false;
     try {
+      const solution = (await humanCheckWidget?.solution()) ?? null;
       const { data, error } = await authClient.signIn.email({
         email: email.trim(),
         password,
         rememberMe,
+        fetchOptions: { headers: humanVerificationHeaders(solution) },
       });
-      if (error) status = error.status;
+      if (error) {
+        status = error.status;
+        humanCheckRefused = isHumanCheckRefusal(error);
+      }
       else outcome = requiresSecondFactor(data) ? "challenge" : "session";
     } catch {
       status = undefined;
@@ -147,7 +160,9 @@
       return;
     }
     if (outcome === "failed") {
-      credentialRejection = signInErrorMessage(status, CREDENTIALS_REJECTED);
+      credentialRejection = humanCheckRefused
+        ? HUMAN_CHECK_FAILED
+        : signInErrorMessage(status, CREDENTIALS_REJECTED);
       return;
     }
     await enterApplication();
@@ -227,7 +242,11 @@
       onSubmit={signIn}
       onForgotPassword={() => goto("/login/reset-password")}
       onRegister={() => goto("/register")}
-    />
+    >
+      {#snippet humanCheck()}
+        <HumanCheck bind:this={humanCheckWidget} action="sign-in" />
+      {/snippet}
+    </SignInScreen>
   {:else if step === "verification"}
     <VerificationCodeScreen
       channel="authenticator"

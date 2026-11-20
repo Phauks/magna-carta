@@ -5,9 +5,6 @@
   "files": [],
   "references": [
     {
-      "path": "apps/address-worker/tsconfig.build.json"
-    },
-    {
       "path": "apps/api-worker/tsconfig.build.json"
     },
     {
@@ -183,6 +180,9 @@
     },
     {
       "path": "packages/identifiers/tsconfig.build.json"
+    },
+    {
+      "path": "packages/in-out-log/tsconfig.build.json"
     },
     {
       "path": "packages/inference/tsconfig.build.json"

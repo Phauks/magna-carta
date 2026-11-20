@@ -76,6 +76,11 @@ export interface CapabilityPanelProps {
    * a host that cannot take files, and a panel then offers a download instead.
    */
   readonly onAddFiles?: (files: readonly File[]) => void;
+  /**
+   * Open this file in the PDF Editor on one of its tools (`$lib/pdf-editor/editor-subject.ts` names
+   * them). Absent in a host that cannot draw the editor, and the PDF tab then offers no Open.
+   */
+  readonly onOpenPdfEditor?: (file: WorkbenchFile, tool: string) => void;
 }
 
 export interface CapabilityModule {
