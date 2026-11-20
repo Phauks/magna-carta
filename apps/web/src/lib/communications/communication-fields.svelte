@@ -49,6 +49,7 @@
    */
   import Input from "@magna-carta/design-system/input";
   import LabelledField from "@magna-carta/design-system/labelled-field";
+  import TranslateLine from "$lib/translation/translate-line.svelte";
   import Label from "@magna-carta/design-system/label";
   import Textarea from "@magna-carta/design-system/textarea";
   import { placeholderOf } from "@magna-carta/design-system/formatters";
@@ -301,6 +302,10 @@
       placeholder={placeholderOf(text ? "Message" : "Notes")}
       bind:value={draft.description}
     />
+    {#if text}
+      <!-- A client's text in another language: read it here rather than copying it out. -->
+      <TranslateLine text={draft.description} matterId={draft.matterId} />
+    {/if}
   </div>
 
   <div class="flex flex-col gap-4">

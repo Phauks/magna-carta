@@ -260,7 +260,7 @@ export const FEATURE_WORDS: Record<string, FeatureWords> = {
   },
   translation: {
     name: "Translation",
-    group: "ai",
+    group: "search",
     steps: [
       "Enable the Cloud Translation API in Google Cloud and make a key restricted to it,",
       "then create GOOGLE_TRANSLATE_API_KEY in the Cloudflare Secrets Store.",

@@ -37,6 +37,7 @@ describe("tool catalog", () => {
       "safe-website-viewer",
       "whois-lookup",
       "shipping",
+      "translate",
       "file-workbench",
     ]);
   });

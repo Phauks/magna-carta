@@ -10,7 +10,7 @@
   status: partial
   adrs: ADR-0109, ADR-0110, ADR-0111
   spec: docs/specs/2026-08-10-translation-services-design.md
-  evidence: The engine is built (packages/translation, Google Cloud Translation behind the firm switch, the owner's choice of 2026-11-19 recorded as ADR-translation-runs-on-google-cloud-translation); the pasted-text screen, document translation, renditions and the provenance record are not.
+  evidence: The engine is built (packages/translation, Google Cloud Translation, the owner's choice of 2026-11-19 recorded as ADR-translation-runs-on-google-cloud-translation), and so are the Translate screen and the Translate line under texts, notes and emails; document translation, renditions and the provenance record are not.
   audience: public
   public-name: Translation
   public-summary: Translate a pasted passage or a whole document, read the original and the translation side by side, and keep a record of exactly how the translation was produced.
@@ -19,10 +19,14 @@
 - id: translation.pasted-text
   name: Pasted-text translation
   scope: A member pastes a passage, names a language pair, and reads the result aligned beside the original on the matter-free tool surface.
-  status: designed
+  status: shipped
+  surface: screen
+  audience: public
+  public-name: Translate
+  public-summary: Paste text and read it beside its translation, or translate a text message, a note or an email where you are reading it, with Google Translate.
   spec: docs/specs/2026-08-10-translation-services-design.md
-  evidence: Specified as the first slice, buildable on the recommended defaults and depending on nothing unbuilt; no tool manifest entry, no route and no page exists.
-  awaiting-owner: Whether a pasted run is recorded or ephemeral. Recommended recorded: a firm has to be able to answer what it sent to which engine, about which client and when, and a retention story with a hole in it labelled the paste box is not one — the platform already answered the same question the same way for what a member types into its assistant. Ephemeral is the intuitive answer and it means privileged text passes through a place nothing accounts for. Recording it costs a run row and an object per paste. Translation design flag T4.
+  evidence: apps/web/src/routes/(app)/translate (layout A, the owner's pick of 2026-11-20) and the Translate line in apps/web/src/lib/translation, under a text message, a saved note and an email in the File Workbench; the translate tool manifest in packages/tools; docs/user/features/translate.md.
+  notes: Each run is logged without its text (a translation.translated row naming who, the engine, the languages, the characters and the matter). The text itself is kept nowhere, which is how flag T4 is built while it waits on the owner. Saving a translation to a matter is not built.
 
 - id: translation.documents
   name: Document translation
@@ -51,12 +55,12 @@
 
 - id: translation.engines
   name: Translation engines and consent gates
-  scope: Which engine may see a firm's text under which consent: Google Cloud Translation behind the firm switch, and later a frontier model through the shipped inference chokepoint.
+  scope: Which engine may see a firm's text under which consent: Google Cloud Translation, gated by the member's tools:translation, and later a frontier model through the shipped inference chokepoint.
   status: partial
-  surface: awaiting-screen
+  surface: screen
   adrs: ADR-0109, ADR-0110, ADR-0111
   spec: docs/specs/2026-08-10-translation-services-design.md
-  evidence: packages/translation (the port, the Google Basic v2 adapter, the translation.enabled switch); POST /api/v1/translation/translate and GET /api/v1/translation/languages behind tools:translation; GET/PATCH /api/v1/firm/translation-settings behind firm:manageAiSettings; GOOGLE_TRANSLATE_API_KEY from the Secrets Store. No screen yet, and the member notice is not built.
+  evidence: packages/translation (the port and the Google Basic v2 adapter); POST /api/v1/translation/translate and GET /api/v1/translation/languages behind tools:translation; GOOGLE_TRANSLATE_API_KEY from the Secrets Store. The owner ruled on 2026-11-20 that translation is not AI: no firm switch and no member notice, and every translation says Powered by Google Translate with a link to it. A frontier-model engine is not built.
   awaiting-owner: Whether a pasted translation is kept (flag T4). Built on the recommendation of a log row per run without the text; keeping the text means a run table and an object per paste.
   notes: The owner chose Google on 2026-11-19, answering flag T1 against its recommendation of the on-platform model. The engine used is recorded on every run's log row, so a firm asked later what saw a client's text has an answer for each translation.
 

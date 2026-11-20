@@ -31,6 +31,7 @@ import Globe from "@lucide/svelte/icons/globe";
 import Shield from "@lucide/svelte/icons/shield";
 import Microscope from "@lucide/svelte/icons/microscope";
 import Scale from "@lucide/svelte/icons/scale";
+import Languages from "@lucide/svelte/icons/languages";
 import { CATALOG } from "@magna-carta/tools/catalog";
 import { toolsByGroup, type GroupedTools } from "@magna-carta/tools/select";
 import type { ToolManifest } from "@magna-carta/tools/types";
@@ -80,6 +81,10 @@ export const TOOL_PRESENTATION: Record<string, ToolPresentation> = {
     description: "Open an untrusted website at arm's length.",
     stage: "alpha",
   },
+  translate: {
+    description: "Paste text and read it in another language, with Google Translate.",
+    stage: "alpha",
+  },
   "file-workbench": {
     description: "Bring a file that belongs to no matter, and read it every way at once.",
     stage: "alpha",
@@ -99,6 +104,7 @@ export const TOOL_ICONS: Record<string, Component> = {
   shield: Shield,
   microscope: Microscope,
   scale: Scale,
+  languages: Languages,
 };
 
 // Both lookups are keyed by a plain string (Record<string, T>), so an indexed read types as
@@ -149,6 +155,7 @@ const TOOL_SEARCH_SYNONYMS: Record<string, readonly string[]> = {
     "short form",
     "id.",
   ],
+  translate: ["translation", "language", "spanish", "interpreter", "google translate", "foreign"],
   "whois-lookup": ["registrant", "registration", "dns", "nameserver", "domain owner"],
   "attorney-license-lookup": [
     "bar",

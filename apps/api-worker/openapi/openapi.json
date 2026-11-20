@@ -1302,8 +1302,8 @@
               "fileContentsSearch",
               "naturalLanguageSearch",
               "addressSuggestions",
-              "aiTextDetection",
               "translation",
+              "aiTextDetection",
               "modelAvailabilityCheck",
               "signUpBotCheck",
               "communitySignIn",
@@ -1355,8 +1355,8 @@
               "fileContentsSearch",
               "naturalLanguageSearch",
               "addressSuggestions",
-              "aiTextDetection",
               "translation",
+              "aiTextDetection",
               "modelAvailabilityCheck",
               "signUpBotCheck",
               "communitySignIn",
@@ -5727,31 +5727,6 @@
         "required": [
           "requestedAt"
         ]
-      },
-      "FirmTranslationSettingsResponse": {
-        "type": "object",
-        "properties": {
-          "enabled": {
-            "type": "boolean",
-            "description": "Whether members may translate text."
-          },
-          "engineConnected": {
-            "type": "boolean",
-            "description": "Whether a translation engine is set up in this deployment. Read-only."
-          }
-        },
-        "required": [
-          "enabled",
-          "engineConnected"
-        ]
-      },
-      "PatchFirmTranslationSettingsRequest": {
-        "type": "object",
-        "properties": {
-          "enabled": {
-            "type": "boolean"
-          }
-        }
       },
       "ExportRenderRequest": {
         "type": "object",
@@ -65005,203 +64980,6 @@
         }
       }
     },
-    "/api/v1/firm/translation-settings": {
-      "get": {
-        "description": "Whether the firm's members may translate text with the translation engine (Google Cloud Translation), and whether this deployment has an engine set up. Off until the firm turns it on.",
-        "operationId": "firmTranslationSettings.get",
-        "tags": [
-          "firmTranslationSettings"
-        ],
-        "x-mc-operationId": "firmTranslationSettings.get",
-        "x-mc-surface": "app",
-        "x-mc-authenticated": true,
-        "x-mc-permission": "firm:manageAiSettings",
-        "x-mc-resource": "firm",
-        "x-mc-audited": false,
-        "x-mc-idempotency": "optional",
-        "x-mc-rateLimit": "default",
-        "x-mc-firmlessSession": "reject",
-        "x-mc-tags": [
-          "firmTranslationSettings"
-        ],
-        "x-mc-deprecated": false,
-        "responses": {
-          "200": {
-            "description": "The firm's translation settings",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FirmTranslationSettingsResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The session member lacks firm:manageAiSettings",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The firm is unreachable or the member is deactivated",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit exceeded",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          }
-        }
-      },
-      "patch": {
-        "description": "Turns translation on or off for the firm. An absent field is left alone; the change is audited.",
-        "operationId": "firmTranslationSettings.update",
-        "tags": [
-          "firmTranslationSettings"
-        ],
-        "x-mc-operationId": "firmTranslationSettings.update",
-        "x-mc-surface": "app",
-        "x-mc-authenticated": true,
-        "x-mc-permission": "firm:manageAiSettings",
-        "x-mc-resource": "firm",
-        "x-mc-audited": true,
-        "x-mc-idempotency": "required",
-        "x-mc-rateLimit": "default",
-        "x-mc-firmlessSession": "reject",
-        "x-mc-tags": [
-          "firmTranslationSettings"
-        ],
-        "x-mc-deprecated": false,
-        "parameters": [
-          {
-            "schema": {
-              "type": "string",
-              "minLength": 1
-            },
-            "required": true,
-            "name": "idempotency-key",
-            "in": "header"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PatchFirmTranslationSettingsRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The firm's translation settings after the change",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FirmTranslationSettingsResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The Idempotency-Key header is missing on a write",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid session",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The session member lacks firm:manageAiSettings",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The firm is unreachable or the member is deactivated",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "A request with this Idempotency-Key is already in progress",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "The request body is invalid, or the Idempotency-Key was reused with a different body",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit exceeded",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/reports/exports": {
       "post": {
         "description": "Read-shaped POST: renders the tabular export document in the request into a Word document and returns its bytes. A tabular export's PDF is composed in the browser by the platform's PDF composer, not here. Pure computation over the caller's own payload; nothing is stored.",
@@ -80119,7 +79897,7 @@
             }
           },
           "422": {
-            "description": "Translation is off for this firm, no engine is set up, the text has nothing to translate, a paragraph is too long, or the engine refused the request",
+            "description": "No engine is set up, the text has nothing to translate, a paragraph is too long, or the engine refused the request",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -158792,9 +158570,6 @@
     },
     {
       "name": "firmTimePolicy"
-    },
-    {
-      "name": "firmTranslationSettings"
     },
     {
       "name": "firmUsage"

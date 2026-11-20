@@ -912,13 +912,13 @@ The owner chose Google on 2026-11-19. With `GOOGLE_TRANSLATE_API_KEY` set, a fir
 2. **APIs & Services, Credentials, Create credentials, API key.** Name it for translation. Under **API restrictions** choose **Restrict key** and tick only Cloud Translation API. Leave application restrictions at none: the key is used from a Worker and never reaches a browser. Use a separate key from `GOOGLE_PLACES_API_KEY`, so either can be revoked alone.
 3. **Set a quota** under Cloud Translation API, Quotas (characters per day), and a budget alert under Billing. Google has no hard spending cap; the quota is the ceiling.
 4. Create it in the Secrets Store as `GOOGLE_TRANSLATE_API_KEY` (scope _Workers_). `apps/api-worker/wrangler.jsonc` binds that name as `SECRETS_STORE_GOOGLE_TRANSLATE_API_KEY`, so the next deploy picks it up; a per-Worker secret of the same name on `magna-carta-api` is the fallback (see "Secrets Store"). System Status then shows Translation as set up.
-5. A firm administrator turns translation on for the firm (`PATCH /api/v1/firm/translation-settings`; the switch on Settings, AI lands with the Translate screen).
+5. Nothing to turn on per firm: every member whose role holds `tools:translation` (every default role) can translate once the key is there. A firm withdraws it from a role in Settings > Roles.
 
 **What it costs.** Google bills every character sent, spaces included; the first 500,000 a month are free (a $10 monthly credit shared with Advanced), then $20 per million. A two-page letter is about 5,000 characters. Prices: [`docs/operating-costs.md`](../operating-costs.md).
 
 **What crosses, and what is kept.** The text goes to Google in a request body and the key in a header; Google states it holds the text in memory only while translating and does not train on it. Basic is served globally, so the text cannot be kept in one region; that needs Advanced (v3), which takes a service account and is a new adapter. Nothing here keeps the text: each run writes a `translation.translated` row to the firm's log with the engine, languages, character count and matter, and nothing the member typed.
 
-**Switching it off.** Turn the firm switch off to stop one firm, or delete `GOOGLE_TRANSLATE_API_KEY` from the Secrets Store (and any per-Worker copy) to stop every firm. The next request answers that translation is not set up.
+**Switching it off.** Take `tools:translation` off a firm's roles to stop one firm, or delete `GOOGLE_TRANSLATE_API_KEY` from the Secrets Store (and any per-Worker copy) to stop every firm. The next request answers that translation is not set up.
 
 ## 20. Address autocomplete — the platform's own index (OpenAddresses)
 

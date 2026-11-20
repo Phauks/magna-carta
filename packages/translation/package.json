@@ -7,8 +7,7 @@
   "exports": {
     "./contract": "./src/contract.ts",
     "./google": "./src/google.ts",
-    "./port": "./src/port.ts",
-    "./settings": "./src/settings.ts"
+    "./port": "./src/port.ts"
   },
   "scripts": {
     "test": "vp test run"

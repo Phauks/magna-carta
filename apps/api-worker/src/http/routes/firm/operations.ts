@@ -53,8 +53,6 @@ export const OPERATIONS: readonly string[] = [
   "firmSearchStatus.rebuild",
   "firmTimePolicy.get",
   "firmTimePolicy.update",
-  "firmTranslationSettings.get",
-  "firmTranslationSettings.update",
   "firmUsage.get",
   "matterTypes.create",
   "matterTypes.deactivate",

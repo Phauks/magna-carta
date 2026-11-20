@@ -1,7 +1,6 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import {
   TranslateRequest,
@@ -14,7 +13,6 @@ import {
   type TranslationFailure,
   type TranslationPort,
 } from "@magna-carta/translation/port";
-import { translationEnabledDefinition } from "@magna-carta/translation/settings";
 import type { Context } from "hono";
 import type { Bindings } from "../../../bindings.ts";
 import { resolveTranslationPort } from "../../../translation/translation-engine.ts";
@@ -29,9 +27,10 @@ import { Problem, problemJson } from "../../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../../contracts/route-meta.ts";
 
 // The Translate tool: a member pastes text, names a language, and gets each paragraph back beside its
-// translation. Two gates before any text leaves: the member's tools:translation, at the chokepoint,
-// and the firm's translation.enabled switch (default off), here. Then a third fact the firm does not
-// control: whether this deployment has an engine at all (translation/translation-engine.ts).
+// translation. One gate before any text leaves: the member's tools:translation, at the chokepoint,
+// which a firm grants or withholds per role. Then a fact the firm does not control: whether this
+// deployment has an engine at all (translation/translation-engine.ts). Translation is its own
+// service, not one of the AI features, so the AI settings do not reach it.
 //
 // NOTHING OF THE TEXT IS KEPT. The firm's log records that a run happened: who, when, which engine,
 // which languages, how many characters and for which matter, so the firm can answer what it sent to
@@ -94,8 +93,8 @@ const translateRoute = defineOpenAPIRoute(translateMeta, {
     401: problem("No valid session"),
     403: problem("The session member lacks tools:translation"),
     422: problem(
-      "Translation is off for this firm, no engine is set up, the text has nothing to translate, " +
-        "a paragraph is too long, or the engine refused the request",
+      "No engine is set up, the text has nothing to translate, a paragraph is too long, or the " +
+        "engine refused the request",
     ),
     429: problem("Rate limit exceeded"),
     502: problem("The translation engine did not answer"),
@@ -197,17 +196,6 @@ export function registerTranslationRoutes(
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
       const { text, target, source, matterId } = c.req.valid("json");
-
-      // The firm's switch: the one gate before any text leaves. Off, or never set, refuses.
-      const enabled = await readFirmSetting(firm.firmDatabase, translationEnabledDefinition);
-      if (!enabled) {
-        return problemJson(c, {
-          type: "validation",
-          title: "Translation is off for this firm",
-          status: 422,
-          detail: "An administrator can turn it on in Settings, under AI.",
-        });
-      }
 
       const passages = passagesOf(text);
       if (passages.length === 0) {

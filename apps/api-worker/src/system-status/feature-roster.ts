@@ -103,9 +103,9 @@ export const FEATURE_ROSTER = [
     ],
     worker: "address",
   },
+  { id: "translation", alternatives: [["GOOGLE_TRANSLATE_API_KEY"]] },
   // AI
   { id: "aiTextDetection", alternatives: [["PANGRAM_API_KEY"]] },
-  { id: "translation", alternatives: [["GOOGLE_TRANSLATE_API_KEY"]] },
   { id: "modelAvailabilityCheck", alternatives: [["ANTHROPIC_MODELS_API_KEY"]] },
   // Platform
   { id: "signUpBotCheck", alternatives: [["TURNSTILE_SECRET_KEY"]] },
