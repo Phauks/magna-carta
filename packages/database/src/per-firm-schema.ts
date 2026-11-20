@@ -14373,3 +14373,29 @@ export const batesRange = sqliteTable(
     ),
   ],
 );
+
+// WHO ELSE IS HERE — one row per member per record they have open, kept current by the screen.
+//
+// A screen showing a record that several people may work on at once (a trust reconciliation first)
+// touches its row every few seconds while it is in view and deletes it on leaving. Whoever touched
+// within the last half-minute is "here". The row holds nothing but the fact and its instant, so it
+// is safe to forget: each touch on a record also clears that record's rows older than an hour, and a
+// lost leave only means a face lingers for the half-minute window. `record_kind` names the screen's
+// record type (the routes that serve it decide who may ask), and `record_id` is that record's id.
+export const recordPresence = sqliteTable(
+  "record_presence",
+  {
+    recordKind: text("record_kind").notNull(),
+    recordId: text("record_id").notNull(),
+    memberUserId: text("member_user_id")
+      .$type<UserId>()
+      .notNull()
+      .references(() => member.userId),
+    seenAt: text("seen_at").notNull(), // ISO-8601 instant
+  },
+  (table) => [
+    primaryKey({ columns: [table.recordKind, table.recordId, table.memberUserId] }),
+    index("record_presence_record_seen_index").on(table.recordKind, table.recordId, table.seenAt),
+    check("record_presence_kind_length_check", sql`length(${table.recordKind}) BETWEEN 1 AND 64`),
+  ],
+);

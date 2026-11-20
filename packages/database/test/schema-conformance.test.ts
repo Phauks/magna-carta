@@ -188,7 +188,11 @@ describe("schema conformance (fitness functions)", () => {
     // number, and the write is an upsert on this key so a second paid lookup replaces the first.
     // number_reservation is keyed by (purpose, scope_key, drawn_value) — a held or given-back counter
     // value IS that triple, the same reasoning as the allocation tables beside it.
+    // record_presence is keyed by (record_kind, record_id, member_user_id): one member on one record
+    // IS the row, and the touch is an upsert on that triple. A handle would let a member be on a record
+    // twice.
     const compositeKeyTables = new Set([
+      "record_presence",
       "number_reservation",
       "caller_identity",
       "file_version_participant",

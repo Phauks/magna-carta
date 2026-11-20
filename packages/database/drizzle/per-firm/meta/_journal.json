@@ -617,6 +617,13 @@
       "when": 1795116917089,
       "tag": "20261119T202718_translation-tool-permission",
       "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "6",
+      "when": 1795205747091,
+      "tag": "20261120T201547_record-presence",
+      "breakpoints": true
     }
   ]
 }

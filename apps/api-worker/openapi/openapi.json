@@ -49258,6 +49258,40 @@
           "balanced"
         ]
       },
+      "RecordPresence": {
+        "type": "object",
+        "properties": {
+          "others": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PresentMember"
+            }
+          }
+        },
+        "required": [
+          "others"
+        ]
+      },
+      "PresentMember": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "seenAt": {
+            "type": "string",
+            "description": "When they last touched, as an ISO-8601 instant."
+          }
+        },
+        "required": [
+          "userId",
+          "name",
+          "seenAt"
+        ]
+      },
       "TrustBankReconciliationList": {
         "type": "object",
         "properties": {
@@ -150697,6 +150731,181 @@
           },
           "422": {
             "description": "The request is invalid, the Idempotency-Key was reused with a different payload, the statement or match the trust rules describe is refused, or the imported file no longer matches the one that was reviewed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trust/bank-reconciliations/{reconciliationId}/presence": {
+      "post": {
+        "description": "Says the member has this record open now, and answers who else has opened it in the last 30 seconds. A screen calls it every few seconds while the record is in view.",
+        "operationId": "trust.touchBankReconciliationPresence",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.touchBankReconciliationPresence",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustBankReconciliation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reconciliationId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Who else is here",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordPresence"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member cannot read this record",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The record is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The record id is malformed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Says the member has left this record, so others stop seeing them at once.",
+        "operationId": "trust.leaveBankReconciliationPresence",
+        "tags": [
+          "trust"
+        ],
+        "x-mc-operationId": "trust.leaveBankReconciliationPresence",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "trust:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-reversal": {
+          "kind": "inverse",
+          "by": "trust.touchBankReconciliationPresence"
+        },
+        "x-mc-tags": [
+          "trust"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^trustBankReconciliation_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "reconciliationId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Left"
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member cannot read this record",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The record id is malformed",
             "content": {
               "application/problem+json": {
                 "schema": {
