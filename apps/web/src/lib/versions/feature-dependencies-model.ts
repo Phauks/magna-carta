@@ -177,7 +177,7 @@ export const FEATURE_OUTSIDE_SERVICES: Record<string, readonly OutsideService[]>
     {
       name: "Cloudflare Turnstile",
       liveCheck: null,
-      settings: ["TURNSTILE_SECRET_KEY"],
+      settings: ["TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY"],
       noLiveCheckReason: NO_FREE_CHECK,
     },
   ],

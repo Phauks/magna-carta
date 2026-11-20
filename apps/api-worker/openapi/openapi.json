@@ -673,6 +673,21 @@
           "url"
         ]
       },
+      "HumanVerificationSettings": {
+        "type": "object",
+        "properties": {
+          "siteKey": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The Cloudflare Turnstile site key the browser renders the widget with, or null when the bot check is not set up and no widget should be shown."
+          }
+        },
+        "required": [
+          "siteKey"
+        ]
+      },
       "StartRegistrationResponse": {
         "type": "object",
         "properties": {
@@ -56173,6 +56188,50 @@
           },
           "503": {
             "description": "Signing in to the board is not set up on this deployment",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/human-verification": {
+      "get": {
+        "description": "The public Turnstile site key the signed-out screens render the bot check with. Null while the bot check is not set up.",
+        "operationId": "humanVerification.settings",
+        "tags": [
+          "humanVerification"
+        ],
+        "x-mc-operationId": "humanVerification.settings",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": false,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "humanVerification"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The site key, or null",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HumanVerificationSettings"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -161204,6 +161263,9 @@
     },
     {
       "name": "health"
+    },
+    {
+      "name": "humanVerification"
     },
     {
       "name": "inOutLog"

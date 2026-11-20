@@ -26,6 +26,7 @@
    * THE CODE FIELD CARRIES NO GENERATED PREFIX. ../invitation-code.ts says why, and does the
    * grouping the field shows.
    */
+  import type { Snippet } from "svelte";
   import Button from "@magna-carta/design-system/button";
   import Input from "@magna-carta/design-system/input";
   import Label from "@magna-carta/design-system/label";
@@ -36,6 +37,7 @@
   import { civilDateTextOrEmpty, civilDateValue } from "$lib/dates";
 
   let {
+    humanCheck,
     code = $bindable(""),
     lastName = $bindable(""),
     dateOfBirth = $bindable(""),
@@ -49,6 +51,8 @@
     onSubmit,
     back,
   }: {
+    /** The bot check, drawn just above the main button when the page supplies one. */
+    humanCheck?: Snippet;
     /** Names where back goes — this screen is reached from two places that are not each other. */
     backLabel?: string;
     code?: string;
@@ -144,6 +148,8 @@
           required
         />
       </div>
+
+      {@render humanCheck?.()}
 
       <Button type="submit" variant="primary" size="lg" class="w-full" disabled={!canSubmit}>
         {pending ? "Redeeming…" : "Redeem Invitation"}
