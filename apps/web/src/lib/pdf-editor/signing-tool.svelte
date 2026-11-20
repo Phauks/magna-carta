@@ -20,6 +20,7 @@
   import FailureNotice from "$lib/diagnostics/failure-notice.svelte";
   import { stated, type StatedFailure } from "$lib/diagnostics/failure-view.ts";
   import { openEditorDocument } from "./editor-document.ts";
+  import { matterSubject } from "./editor-subject.ts";
   import {
     createSigningRequest,
     listSigningRequests,
@@ -72,7 +73,7 @@
   async function open(): Promise<void> {
     const [opened, listed] = await Promise.all([
       openEditorDocument(
-        file,
+        matterSubject(file),
         "This document has a password. Unlock it in the File Workbench, save the unlocked copy, and send that for signature.",
       ),
       listSigningRequests(file.id),

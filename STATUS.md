@@ -1081,6 +1081,7 @@ stays as it is, on the owner's direction, and its rebuild on the same component 
 the plan in `docs/decisions/pending/activity-names-its-rows-in-the-owning-source-behind-its-own-permission.md`.
 
 Two things stage 1 still does not close. Entity notes wait on a third `visibilityAnchor` with its own predicate, which is the substance of that stage rather than a copy of this one. Firm-wide note search is not built: the natural-language feed reserves `work-product` as a class its writer must never produce and a note is exactly that, while the keyword index takes a file or a review document fed from R2 objects — so the search that shipped is within one matter and needs no index. |
+| 4·5 — In/Out Log (front desk drop off and pick up) | [-] | [x] | [-] | [x] Opus 5.5 | [x] Opus 5.5 | [ ] | [x] Opus 5.5 | Built end to end: the `@magna-carta/in-out-log` package over four per-firm tables, six routes behind `inOutLog:read` and `inOutLog:manage`, and the `/in-out-log` screen with Waiting for Pickup and Log tabs, a Drop Off window holding a draft `IO-` number, a Pick Up window, Delete for a mistake, and Move to Custodian through Custodian's own New Packet window. |
 
 ## Phase 5 — Discovery (first slice open)
 

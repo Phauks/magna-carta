@@ -6,6 +6,7 @@ import { OPERATIONS as billing } from "../../src/http/routes/billing/operations.
 import { OPERATIONS as calendar } from "../../src/http/routes/calendar/operations.ts";
 import { OPERATIONS as communications } from "../../src/http/routes/communications/operations.ts";
 import { OPERATIONS as custody } from "../../src/http/routes/custody/operations.ts";
+import { OPERATIONS as inOutLog } from "../../src/http/routes/in-out-log/operations.ts";
 import { OPERATIONS as developer } from "../../src/http/routes/developer/operations.ts";
 import { OPERATIONS as directory } from "../../src/http/routes/directory/operations.ts";
 import { OPERATIONS as discovery } from "../../src/http/routes/discovery/operations.ts";
@@ -41,6 +42,7 @@ export const DOMAIN_OPERATIONS: ReadonlyMap<string, readonly string[]> = new Map
   ["notes-and-tasks", notesAndTasks],
   ["communications", communications],
   ["custody", custody],
+  ["in-out-log", inOutLog],
   ["magnus", magnus],
   ["discovery", discovery],
   ["timekeeping", timekeeping],

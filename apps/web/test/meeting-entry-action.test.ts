@@ -222,7 +222,13 @@ describe("a member who may host, on an entry with no room yet", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(started).toEqual([
-      { eventKind: "matter", eventId: "matterEvent_1", medium: "audio", lobby: "off" },
+      {
+        eventKind: "matter",
+        eventId: "matterEvent_1",
+        medium: "audio",
+        lobby: "off",
+        encrypted: true,
+      },
     ]);
   });
 
@@ -251,7 +257,13 @@ describe("a member who may host, on an entry with no room yet", () => {
     // The standing the room OPENS with, sent with the medium: a host changes it from inside
     // afterwards, because who may come in has no bearing on what anybody already agreed to.
     expect(started).toEqual([
-      { eventKind: "matter", eventId: "matterEvent_1", medium: "video", lobby: "on" },
+      {
+        eventKind: "matter",
+        eventId: "matterEvent_1",
+        medium: "video",
+        lobby: "on",
+        encrypted: true,
+      },
     ]);
   });
 });

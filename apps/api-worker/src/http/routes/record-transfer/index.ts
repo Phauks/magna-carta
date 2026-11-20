@@ -1,5 +1,6 @@
 import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
+import { registerTransferFileUploadRoutes } from "./file-uploads.ts";
 import { registerTransferSourceFileRoutes } from "./files.ts";
 import { registerTransferPassRoutes } from "./passes.ts";
 import { registerTransferRunRoutes } from "./runs.ts";
@@ -18,6 +19,7 @@ export function mountRecordTransfer(
   const domain = createDomainApp();
   registerTransferRunRoutes(domain, chokepoint);
   registerTransferSourceFileRoutes(domain, chokepoint);
+  registerTransferFileUploadRoutes(domain, chokepoint);
   registerTransferPassRoutes(domain, chokepoint);
   app.route("/", domain);
 }
