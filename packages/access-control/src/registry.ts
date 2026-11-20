@@ -302,6 +302,11 @@ export const PERMISSIONS = [
   "billing:apply", // move client money onto a finalized invoice (payments, earned fees taken from trust)
   "billing:credit", // credit notes and write-offs against a finalized invoice
   "billing:configure", // billing arrangements, tax rates, the numbering scheme, the account-role map
+  // The firm's own payables: bills from vendors and paying them from an operating account. Reading
+  // them, the chart of accounts and the operating accounts rides on billing:read; opening a bank
+  // account or editing the chart rides on billing:configure. Entering and paying a vendor bill is
+  // its own key because it spends the firm's money, which no billing key does.
+  "payables:manage", // enter, pay and reverse vendor bills; set a vendor's usual account
   // Case calendar — litigation events, deadlines, and the matter timeline that federates them with
   // everything else the firm already recorded. Two keys, because reading a case's history and
   // asserting when a hearing is are genuinely different capabilities: everyone working a matter needs

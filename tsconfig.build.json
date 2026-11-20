@@ -56,6 +56,9 @@
       "path": "packages/access-control/tsconfig.build.json"
     },
     {
+      "path": "packages/account-roles/tsconfig.build.json"
+    },
+    {
       "path": "packages/address-formats/tsconfig.build.json"
     },
     {
@@ -168,6 +171,9 @@
     },
     {
       "path": "packages/fixtures/tsconfig.build.json"
+    },
+    {
+      "path": "packages/general-ledger/tsconfig.build.json"
     },
     {
       "path": "packages/google-calendar/tsconfig.build.json"

@@ -1,0 +1,24 @@
+{
+  "name": "@magna-carta/account-roles",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./account-roles": "./src/account-roles.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/ledger": "workspace:*"
+  },
+  "devDependencies": {
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

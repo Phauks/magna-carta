@@ -141,6 +141,7 @@ import type {
   MatterTaskExternalLinkId,
   MatterTaskId,
   MatterTaskLinkId,
+  OperatingBankAccountId,
   MatterTypeId,
   MeetingAttendanceId,
   MeetingGuestInvitationId,
@@ -231,6 +232,10 @@ import type {
   UploadSessionId,
   UserId,
   UtbmsCodeId,
+  VendorBillId,
+  VendorBillLineId,
+  VendorBillPaymentId,
+  VendorBillReversalId,
 } from "@magna-carta/identifiers/types";
 
 // PER-FIRM LINEAGE. Every tenant firm's D1 carries these tables; drizzle-kit generates per-firm
@@ -459,9 +464,34 @@ export const ledgerAccount = sqliteTable(
       .references((): AnySQLiteColumn => ledgerAccount.id), // subledger seam; children share type+currency
     active: integer("active").notNull().default(1), // soft close — accounts are never deleted
     createdAt: text("created_at").notNull(), // UTC instant
+    // The chart of accounts is a classification laid over these rows, never a second ledger. The
+    // number is a caption a firm's accountant reads, not a handle: renumbering moves no posting.
+    code: text("code"),
+    // Where the account prints on a statement. A refinement of `type`, never a free choice: the
+    // CHECK admits only sections of the account's own type, so a re-section moves an account
+    // within one statement and can never carry last year's expense onto the balance sheet.
+    statementSection: text("statement_section"),
+    // A seeded account: renameable and renumberable, never deactivated or re-typed.
+    systemAccount: integer("system_account").notNull().default(0),
+    description: text("description"),
   },
   (table) => [
     index("ledger_account_parent_account_id_index").on(table.parentAccountId),
+    uniqueIndex("ledger_account_code_unique_index")
+      .on(table.code)
+      .where(sql`${table.code} IS NOT NULL`),
+    index("ledger_account_statement_section_index").on(table.statementSection),
+    check("ledger_account_code_nonempty_check", sql`${table.code} IS NULL OR length(${table.code}) > 0`),
+    check("ledger_account_system_account_check", sql`${table.systemAccount} IN (0, 1)`),
+    check(
+      "ledger_account_statement_section_check",
+      sql`${table.statementSection} IS NULL
+        OR (${table.type} = 'asset' AND ${table.statementSection} IN ('cash', 'currentAssets', 'fixedAssets', 'otherAssets', 'trustAssets'))
+        OR (${table.type} = 'liability' AND ${table.statementSection} IN ('currentLiabilities', 'longTermLiabilities', 'clientTrustLiability'))
+        OR (${table.type} = 'equity' AND ${table.statementSection} IN ('equity'))
+        OR (${table.type} = 'income' AND ${table.statementSection} IN ('feeIncome', 'otherIncome'))
+        OR (${table.type} = 'expense' AND ${table.statementSection} IN ('costOfServices', 'operatingExpenses', 'otherExpenses'))`,
+    ),
     check("ledger_account_name_nonempty_check", sql`length(${table.name}) > 0`),
     // Drizzle text enums are type-level only (same rationale as ledger_line_direction_check): an
     // unknown type silently reads as credit-normal everywhere, inverting every balance delta on
@@ -6759,6 +6789,10 @@ export const firmAccountRole = sqliteTable(
         "fee_write_off",
         "operating_bank",
         "client_credit_liability",
+        "accounts_payable",
+        "owners_equity",
+        "undeposited_funds",
+        "bank_fees",
       ],
     }).primaryKey(),
     ledgerAccountId: text("ledger_account_id")
@@ -6771,8 +6805,235 @@ export const firmAccountRole = sqliteTable(
   (table) => [
     check(
       "firm_account_role_role_check",
-      sql`${table.role} IN ('accounts_receivable', 'fee_income', 'client_costs_advanced', 'cost_recovery_income', 'tax_payable', 'fee_adjustments', 'fee_write_off', 'operating_bank', 'client_credit_liability')`,
+      sql`${table.role} IN ('accounts_receivable', 'fee_income', 'client_costs_advanced', 'cost_recovery_income', 'tax_payable', 'fee_adjustments', 'fee_write_off', 'operating_bank', 'client_credit_liability', 'accounts_payable', 'owners_equity', 'undeposited_funds', 'bank_fees')`,
     ),
+  ],
+);
+
+// OPERATING BOOKS: the firm's own bank accounts and what it owes its vendors.
+//
+// One of the firm's own bank accounts. A firm may hold several, and a vendor bill may be paid from
+// any of them, never from trust. The registration is what makes an asset leaf operating cash: a
+// trust bank leaf is registered on trust_account, and the two registrations are kept apart by the
+// services (a trust-registered account is refused here). The `operating_bank` role names the
+// default the payment window offers first. Check stock and printing hang off this row.
+export const operatingBankAccount = sqliteTable(
+  "operating_bank_account",
+  {
+    id: text("id").primaryKey().$type<OperatingBankAccountId>(), // operatingBankAccount_ handle
+    name: text("name").notNull(),
+    bankName: text("bank_name"),
+    // The display fragment only; the full account number is never stored here.
+    accountNumberLastFour: text("account_number_last_four"),
+    ledgerAccountId: text("ledger_account_id")
+      .notNull()
+      .$type<LedgerAccountId>()
+      .references(() => ledgerAccount.id),
+    currency: text("currency").notNull(),
+    openedOn: text("opened_on").notNull(), // YYYY-MM-DD civil date
+    closedAt: text("closed_at"), // UTC instant; a closed account pays nothing
+    createdBy: text("created_by").notNull().$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("operating_bank_account_ledger_account_unique_index").on(table.ledgerAccountId),
+    check("operating_bank_account_name_nonempty_check", sql`length(${table.name}) > 0`),
+    check("operating_bank_account_currency_check", sql`${table.currency} = 'USD'`),
+    check("operating_bank_account_opened_on_shape_check", civilDateShape(table.openedOn)),
+    check(
+      "operating_bank_account_last_four_check",
+      sql`${table.accountNumberLastFour} IS NULL OR (length(${table.accountNumberLastFour}) = 4 AND ${table.accountNumberLastFour} GLOB '[0-9][0-9][0-9][0-9]')`,
+    ),
+  ],
+);
+
+// Where a vendor's bills usually go: the account a new bill from this vendor fills in first. A
+// setting, not a record, so it is edited in place; every bill still names its own account per line.
+export const vendorDefaultAccount = sqliteTable(
+  "vendor_default_account",
+  {
+    vendorId: text("vendor_id").primaryKey(), // a Directory person or organization id
+    ledgerAccountId: text("ledger_account_id")
+      .notNull()
+      .$type<LedgerAccountId>()
+      .references(() => ledgerAccount.id),
+    updatedBy: text("updated_by").notNull().$type<UserId>(),
+    updatedAt: text("updated_at").notNull(),
+  },
+);
+
+// A bill the firm owes a vendor. The header is an evidence record, frozen from birth by trigger; a
+// bill entered in error is reversed (vendor_bill_reversal), never edited. Its state (unpaid, part
+// paid, paid) is derived from vendor_bill_balance, never stored as a status.
+export const vendorBill = sqliteTable(
+  "vendor_bill",
+  {
+    id: text("id").primaryKey().$type<VendorBillId>(), // vendorBill_ handle
+    vendorId: text("vendor_id").notNull(), // a Directory person or organization id
+    billReference: text("bill_reference"),
+    billDate: text("bill_date").notNull(), // YYYY-MM-DD civil date
+    dueDate: text("due_date"), // YYYY-MM-DD civil date
+    amountMinor: integer("amount_minor").notNull(),
+    currency: text("currency").notNull(),
+    memo: text("memo"),
+    entryId: text("entry_id")
+      .notNull()
+      .$type<LedgerEntryId>()
+      .references(() => ledgerEntry.id),
+    createdBy: text("created_by").notNull().$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("vendor_bill_entry_unique_index").on(table.entryId),
+    index("vendor_bill_vendor_index").on(table.vendorId, table.billDate),
+    index("vendor_bill_due_date_index").on(table.dueDate),
+    check("vendor_bill_amount_positive_check", sql`${table.amountMinor} > 0`),
+    check("vendor_bill_currency_check", sql`${table.currency} = 'USD'`),
+    check("vendor_bill_bill_date_shape_check", civilDateShape(table.billDate)),
+    check("vendor_bill_due_date_shape_check", civilDateShape(table.dueDate, true)),
+    check(
+      "vendor_bill_due_after_bill_check",
+      sql`${table.dueDate} IS NULL OR ${table.dueDate} >= ${table.billDate}`,
+    ),
+  ],
+);
+
+// One line of a vendor bill. A line on a matter is a real cost on that matter: the cost entry it
+// created is named here (disbursement_entry_id), which is how a cost's bill is found, so cost_entry
+// needs no column of its own. A hard cost debits Client Costs Advanced; a soft cost, or a line with
+// no matter, debits its own expense account.
+export const vendorBillLine = sqliteTable(
+  "vendor_bill_line",
+  {
+    id: text("id").primaryKey().$type<VendorBillLineId>(), // vendorBillLine_ handle
+    vendorBillId: text("vendor_bill_id")
+      .notNull()
+      .$type<VendorBillId>()
+      .references(() => vendorBill.id),
+    lineIndex: integer("line_index").notNull(),
+    description: text("description").notNull(),
+    amountMinor: integer("amount_minor").notNull(),
+    disbursementClass: text("disbursement_class", { enum: ["hard", "soft"] }),
+    matterId: text("matter_id")
+      .$type<MatterId>()
+      .references(() => matter.id),
+    disbursementEntryId: text("disbursement_entry_id")
+      .$type<CostEntryId>()
+      .references(() => costEntry.id),
+    ledgerAccountId: text("ledger_account_id")
+      .notNull()
+      .$type<LedgerAccountId>()
+      .references(() => ledgerAccount.id),
+  },
+  (table) => [
+    uniqueIndex("vendor_bill_line_index_unique_index").on(table.vendorBillId, table.lineIndex),
+    index("vendor_bill_line_matter_index").on(table.matterId),
+    check("vendor_bill_line_amount_positive_check", sql`${table.amountMinor} > 0`),
+    check("vendor_bill_line_index_check", sql`${table.lineIndex} >= 0`),
+    check("vendor_bill_line_description_nonempty_check", sql`length(${table.description}) > 0`),
+    check(
+      "vendor_bill_line_disbursement_class_check",
+      sql`${table.disbursementClass} IS NULL OR ${table.disbursementClass} IN ('hard', 'soft')`,
+    ),
+    // A line on a matter is a cost of that matter, with its class and the cost entry it made; a
+    // line with no matter is the firm's own expense and carries neither.
+    check(
+      "vendor_bill_line_matter_shape_check",
+      sql`(${table.matterId} IS NOT NULL AND ${table.disbursementClass} IS NOT NULL AND ${table.disbursementEntryId} IS NOT NULL)
+        OR (${table.matterId} IS NULL AND ${table.disbursementClass} IS NULL AND ${table.disbursementEntryId} IS NULL)`,
+    ),
+  ],
+);
+
+// What is left to pay on a bill. `amount_minor` is frozen by trigger; `paid_minor` moves only by an
+// in-batch delta from a payment, under the bounds CHECK. The delta is deliberately unguarded: a
+// guarded UPDATE that matches no row is not an error and would let an overpaying batch commit, so
+// the CHECK is what makes two payments racing for one remainder abort instead of overpaying.
+export const vendorBillBalance = sqliteTable(
+  "vendor_bill_balance",
+  {
+    vendorBillId: text("vendor_bill_id")
+      .primaryKey()
+      .$type<VendorBillId>()
+      .references(() => vendorBill.id),
+    amountMinor: integer("amount_minor").notNull(),
+    paidMinor: integer("paid_minor").notNull().default(0),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    check(
+      "vendor_bill_balance_bounds_check",
+      sql`${table.paidMinor} >= 0 AND ${table.paidMinor} <= ${table.amountMinor}`,
+    ),
+  ],
+);
+
+// One payment against one bill, from one of the firm's operating accounts. Append-only by trigger.
+// Recording a payment says the firm paid; it does not move money at a bank.
+export const vendorBillPayment = sqliteTable(
+  "vendor_bill_payment",
+  {
+    id: text("id").primaryKey().$type<VendorBillPaymentId>(), // vendorBillPayment_ handle
+    vendorBillId: text("vendor_bill_id")
+      .notNull()
+      .$type<VendorBillId>()
+      .references(() => vendorBill.id),
+    operatingBankAccountId: text("operating_bank_account_id")
+      .notNull()
+      .$type<OperatingBankAccountId>()
+      .references(() => operatingBankAccount.id),
+    entryId: text("entry_id")
+      .notNull()
+      .$type<LedgerEntryId>()
+      .references(() => ledgerEntry.id),
+    amountMinor: integer("amount_minor").notNull(),
+    paidOn: text("paid_on").notNull(), // YYYY-MM-DD civil date
+    method: text("method", { enum: ["check", "bank_transfer", "card", "cash"] }).notNull(),
+    // A check written by hand carries its number; a check still to print carries none.
+    checkNumber: integer("check_number"),
+    reference: text("reference"),
+    recordedBy: text("recorded_by").notNull().$type<UserId>(),
+    recordedAt: text("recorded_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("vendor_bill_payment_entry_unique_index").on(table.entryId),
+    index("vendor_bill_payment_bill_index").on(table.vendorBillId),
+    index("vendor_bill_payment_account_index").on(table.operatingBankAccountId, table.paidOn),
+    check("vendor_bill_payment_amount_positive_check", sql`${table.amountMinor} > 0`),
+    check("vendor_bill_payment_paid_on_shape_check", civilDateShape(table.paidOn)),
+    check(
+      "vendor_bill_payment_method_check",
+      sql`${table.method} IN ('check', 'bank_transfer', 'card', 'cash')`,
+    ),
+    check(
+      "vendor_bill_payment_check_number_check",
+      sql`${table.checkNumber} IS NULL OR (${table.method} = 'check' AND ${table.checkNumber} > 0)`,
+    ),
+  ],
+);
+
+// A bill entered in error, reversed with a reason. The bill's ledger entry is reversed in the same
+// batch; the bill row is never edited. A trigger refuses a reversal of a bill with payments and a
+// payment against a reversed bill. Append-only by trigger.
+export const vendorBillReversal = sqliteTable(
+  "vendor_bill_reversal",
+  {
+    id: text("id").primaryKey().$type<VendorBillReversalId>(), // vendorBillReversal_ handle
+    vendorBillId: text("vendor_bill_id")
+      .notNull()
+      .$type<VendorBillId>()
+      .references(() => vendorBill.id),
+    entryId: text("entry_id")
+      .notNull()
+      .$type<LedgerEntryId>()
+      .references(() => ledgerEntry.id),
+    reason: text("reason").notNull(),
+    reversedBy: text("reversed_by").notNull().$type<UserId>(),
+    reversedAt: text("reversed_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("vendor_bill_reversal_bill_unique_index").on(table.vendorBillId),
+    check("vendor_bill_reversal_reason_nonempty_check", sql`length(trim(${table.reason})) > 0`),
   ],
 );
 

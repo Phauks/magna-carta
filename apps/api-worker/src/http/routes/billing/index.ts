@@ -6,6 +6,8 @@ import { registerBillingGuideReportRoutes } from "./billing-guide-report.ts";
 import { registerClientStatementReportRoutes } from "./client-statement-report.ts";
 import { registerCostsRoutes } from "./costs.ts";
 import { registerPaymentRoutes } from "./payments.ts";
+import { registerLedgerAccountRoutes } from "./ledger-accounts.ts";
+import { registerVendorBillRoutes } from "./vendor-bills.ts";
 import { registerReportExportRoutes } from "./report-exports.ts";
 import { registerActivityReportsRoutes } from "./activity-reports.ts";
 import { registerFinancialReportsRoutes } from "./financial-reports.ts";
@@ -25,6 +27,9 @@ export function mountBilling(app: AppRouter, chokepoint: Chokepoint, _deps: Doma
   registerReportExportRoutes(domain, chokepoint);
   // Costs / disbursements — the cost-entry WIP store, composed through the same chokepoint.
   registerCostsRoutes(domain, chokepoint);
+  // The operating books: the chart of accounts, the firm's own bank accounts, and vendor bills.
+  registerLedgerAccountRoutes(domain, chokepoint);
+  registerVendorBillRoutes(domain, chokepoint);
   // Reporting — projections over records the firm already holds. Read-only by construction: the
   // reporting package composes nothing, and every route registered here is a GET.
   registerReportsRoutes(domain, chokepoint);

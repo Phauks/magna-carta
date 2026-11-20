@@ -17,9 +17,14 @@ import type {
   InvoiceLineId,
   InvoiceTrustApplicationLineId,
   InvoiceWipClaimId,
+  LedgerAccountId,
   LedgerEntryId,
   LocationId,
   MatterId,
+  PaymentDepositFeeId,
+  PaymentDepositFileId,
+  PaymentDepositId,
+  PaymentDepositNoteId,
   PaymentReceiptId,
   TrustDisbursementRequestId,
   TrustTransferId,
@@ -1352,11 +1357,49 @@ export function insertInvoiceDeliveryStatement(
     );
 }
 
+export interface InsertPaymentDepositInput {
+  readonly id: PaymentDepositId;
+  readonly depositToAccountId: LedgerAccountId;
+  readonly depositedOn: string;
+  readonly slipNumber: string | null;
+  readonly currency: string;
+  readonly entryId: string;
+  readonly recordedBy: UserId | null;
+  readonly now: string;
+}
+
+export function insertPaymentDepositStatement(
+  database: SqlDatabase,
+  input: InsertPaymentDepositInput,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO payment_deposit (id, deposit_to_account_id, deposited_on, slip_number, currency, entry_id, recorded_by, recorded_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`,
+    )
+    .bind(
+      input.id,
+      input.depositToAccountId,
+      input.depositedOn,
+      input.slipNumber,
+      input.currency,
+      input.entryId,
+      input.recordedBy,
+      input.now,
+    );
+}
+
 export interface InsertPaymentReceiptInput {
   readonly id: PaymentReceiptId;
+  readonly depositId: PaymentDepositId;
+  readonly lineNumber: number;
   readonly applicationId: InvoiceApplicationId;
   readonly method: string;
   readonly reference: string | null;
+  readonly receivedFrom: string;
+  readonly memo: string | null;
+  /** JSON object, already checked against the method. */
+  readonly details: string;
   readonly recordedBy: UserId | null;
   readonly now: string;
 }
@@ -1367,77 +1410,105 @@ export function insertPaymentReceiptStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO payment_receipt (id, application_id, method, reference, recorded_by, recorded_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
+      `INSERT INTO payment_receipt (id, deposit_id, line_number, application_id, method, reference, received_from, memo, details, recorded_by, recorded_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)`,
     )
     .bind(
       input.id,
+      input.depositId,
+      input.lineNumber,
       input.applicationId,
       input.method,
       input.reference,
+      input.receivedFrom,
+      input.memo,
+      input.details,
       input.recordedBy,
       input.now,
     );
 }
 
-export interface PaymentReceiptSnapshot {
-  readonly id: PaymentReceiptId;
-  readonly applicationId: InvoiceApplicationId;
-  readonly matterId: MatterId;
-  readonly amountMinor: number;
-  readonly currency: string;
-  readonly effectiveDate: string;
-  readonly method: string;
-  readonly reference: string | null;
-  /** The reversal that undid this payment's application, where one did. */
-  readonly reversedByApplicationId: InvoiceApplicationId | null;
-  readonly recordedBy: UserId | null;
-  readonly recordedAt: string;
+export function insertPaymentDepositFeeStatement(
+  database: SqlDatabase,
+  input: {
+    readonly id: PaymentDepositFeeId;
+    readonly depositId: PaymentDepositId;
+    readonly lineNumber: number;
+    readonly description: string;
+    readonly amountMinor: number;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO payment_deposit_fee (id, deposit_id, line_number, description, amount_minor) VALUES (?1, ?2, ?3, ?4, ?5)`,
+    )
+    .bind(input.id, input.depositId, input.lineNumber, input.description, input.amountMinor);
 }
 
-/** Every payment recorded by hand against one bill, oldest first, reversed ones included. */
-export async function readPaymentReceiptsForInvoice(
+export function insertPaymentDepositNoteStatement(
   database: SqlDatabase,
-  invoiceId: InvoiceId,
-): Promise<readonly PaymentReceiptSnapshot[]> {
-  const { results } = await database
+  input: {
+    readonly id: PaymentDepositNoteId;
+    readonly depositId: PaymentDepositId;
+    readonly receiptId: PaymentReceiptId | null;
+    readonly body: string;
+    readonly writtenBy: UserId | null;
+    readonly now: string;
+  },
+): SqlStatement {
+  return database
     .prepare(
-      `SELECT receipt.id, receipt.application_id, application.matter_id, application.amount_minor,
-              application.currency, application.effective_date, receipt.method, receipt.reference,
-              reversal.id AS reversed_by_application_id, receipt.recorded_by, receipt.recorded_at
-         FROM payment_receipt AS receipt
-         JOIN invoice_application AS application ON application.id = receipt.application_id
-         LEFT JOIN invoice_application AS reversal ON reversal.reverses_application_id = application.id
-        WHERE application.invoice_id = ?1
-        ORDER BY application.effective_date, receipt.recorded_at, receipt.id`,
+      `INSERT INTO payment_deposit_note (id, deposit_id, receipt_id, body, written_by, written_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
     )
-    .bind(invoiceId)
-    .all<{
-      id: PaymentReceiptId;
-      application_id: InvoiceApplicationId;
-      matter_id: MatterId;
-      amount_minor: number;
-      currency: string;
-      effective_date: string;
-      method: string;
-      reference: string | null;
-      reversed_by_application_id: InvoiceApplicationId | null;
-      recorded_by: UserId | null;
-      recorded_at: string;
-    }>();
-  return results.map((row) => ({
-    id: row.id,
-    applicationId: row.application_id,
-    matterId: row.matter_id,
-    amountMinor: row.amount_minor,
-    currency: row.currency,
-    effectiveDate: row.effective_date,
-    method: row.method,
-    reference: row.reference,
-    reversedByApplicationId: row.reversed_by_application_id,
-    recordedBy: row.recorded_by,
-    recordedAt: row.recorded_at,
-  }));
+    .bind(input.id, input.depositId, input.receiptId, input.body, input.writtenBy, input.now);
+}
+
+export function insertPaymentDepositFileStatement(
+  database: SqlDatabase,
+  input: {
+    readonly id: PaymentDepositFileId;
+    readonly depositId: PaymentDepositId;
+    readonly receiptId: PaymentReceiptId | null;
+    readonly kind: "scan" | "file";
+    readonly name: string;
+    readonly contentType: string;
+    readonly sizeBytes: number;
+    readonly objectKey: string;
+    readonly sha256: string;
+    readonly removesFileId: PaymentDepositFileId | null;
+    readonly recordedBy: UserId | null;
+    readonly now: string;
+  },
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO payment_deposit_file (id, deposit_id, receipt_id, kind, name, content_type, size_bytes, object_key, sha256, removes_file_id, recorded_by, recorded_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)`,
+    )
+    .bind(
+      input.id,
+      input.depositId,
+      input.receiptId,
+      input.kind,
+      input.name,
+      input.contentType,
+      input.sizeBytes,
+      input.objectKey,
+      input.sha256,
+      input.removesFileId,
+      input.recordedBy,
+      input.now,
+    );
+}
+
+/** The ledger cash leaf of every open operating bank account: where a deposit may go. */
+export async function readOpenOperatingAccountLedgerIds(
+  database: SqlDatabase,
+): Promise<ReadonlySet<string>> {
+  const { results } = await database
+    .prepare(`SELECT ledger_account_id FROM operating_bank_account WHERE closed_at IS NULL`)
+    .all<{ ledger_account_id: string }>();
+  return new Set(results.map((row) => row.ledger_account_id));
 }
 
 export interface InvoiceDeliverySnapshot {

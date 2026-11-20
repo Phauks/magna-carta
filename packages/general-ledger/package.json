@@ -1,0 +1,41 @@
+{
+  "name": "@magna-carta/general-ledger",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./general-ledger-validation": "./src/general-ledger-validation.ts",
+    "./sections": "./src/sections.ts",
+    "./trust-refusal": "./src/trust-refusal.ts",
+    "./chart": "./src/chart.ts",
+    "./starter-chart": "./src/starter-chart.ts",
+    "./role-configuration": "./src/role-configuration.ts",
+    "./operating-accounts": "./src/operating-accounts.ts",
+    "./vendor-bills": "./src/vendor-bills.ts",
+    "./vendor-bill-reads": "./src/vendor-bill-reads.ts",
+    "./fitness": "./src/fitness.ts",
+    "./types": "./src/types.ts",
+    "./contract": "./src/contract.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/account-roles": "workspace:*",
+    "@magna-carta/civil-time": "workspace:*",
+    "@magna-carta/costs": "workspace:*",
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/ledger": "workspace:*",
+    "@magna-carta/money": "workspace:*",
+    "@magna-carta/trust": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

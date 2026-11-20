@@ -6174,6 +6174,1163 @@
           "fileId"
         ]
       },
+      "LedgerChartResponse": {
+        "type": "object",
+        "properties": {
+          "accounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LedgerChartAccount"
+            }
+          },
+          "operatingAccounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OperatingBankAccount"
+            }
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "accounts_receivable",
+                    "fee_income",
+                    "client_costs_advanced",
+                    "cost_recovery_income",
+                    "tax_payable",
+                    "fee_adjustments",
+                    "fee_write_off",
+                    "operating_bank",
+                    "client_credit_liability",
+                    "accounts_payable",
+                    "owners_equity",
+                    "undeposited_funds",
+                    "bank_fees"
+                  ]
+                },
+                "ledgerAccountId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "role",
+                "ledgerAccountId"
+              ]
+            }
+          },
+          "suggestedRoles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "accounts_receivable",
+                    "fee_income",
+                    "client_costs_advanced",
+                    "cost_recovery_income",
+                    "tax_payable",
+                    "fee_adjustments",
+                    "fee_write_off",
+                    "operating_bank",
+                    "client_credit_liability",
+                    "accounts_payable",
+                    "owners_equity",
+                    "undeposited_funds",
+                    "bank_fees"
+                  ]
+                },
+                "ledgerAccountId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "role",
+                "ledgerAccountId"
+              ]
+            }
+          },
+          "hasStandardChart": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "accounts",
+          "operatingAccounts",
+          "roles",
+          "suggestedRoles",
+          "hasStandardChart"
+        ]
+      },
+      "LedgerChartAccount": {
+        "type": "object",
+        "properties": {
+          "ledgerAccountId": {
+            "type": "string"
+          },
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "asset",
+              "liability",
+              "equity",
+              "income",
+              "expense"
+            ]
+          },
+          "statementSection": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "systemAccount": {
+            "type": "boolean"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "parentAccountId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hasChildren": {
+            "type": "boolean"
+          },
+          "balanceMinor": {
+            "type": "integer"
+          },
+          "trustRegistration": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "bank",
+              "liabilityRoot",
+              "client",
+              "matter",
+              "firmFunds",
+              null
+            ]
+          },
+          "operatingBankAccountId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "accounts_receivable",
+                "fee_income",
+                "client_costs_advanced",
+                "cost_recovery_income",
+                "tax_payable",
+                "fee_adjustments",
+                "fee_write_off",
+                "operating_bank",
+                "client_credit_liability",
+                "accounts_payable",
+                "owners_equity",
+                "undeposited_funds",
+                "bank_fees"
+              ]
+            }
+          }
+        },
+        "required": [
+          "ledgerAccountId",
+          "code",
+          "name",
+          "type",
+          "statementSection",
+          "description",
+          "systemAccount",
+          "active",
+          "parentAccountId",
+          "hasChildren",
+          "balanceMinor",
+          "trustRegistration",
+          "operatingBankAccountId",
+          "roles"
+        ]
+      },
+      "OperatingBankAccount": {
+        "type": "object",
+        "properties": {
+          "operatingBankAccountId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "bankName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "accountNumberLastFour": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ledgerAccountId": {
+            "type": "string"
+          },
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "openedOn": {
+            "type": "string"
+          },
+          "closedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "balanceMinor": {
+            "type": "integer"
+          },
+          "isDefault": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "operatingBankAccountId",
+          "name",
+          "bankName",
+          "accountNumberLastFour",
+          "ledgerAccountId",
+          "code",
+          "openedOn",
+          "closedAt",
+          "balanceMinor",
+          "isDefault"
+        ]
+      },
+      "LedgerCreatedResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "LedgerCreateAccountRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "asset",
+              "liability",
+              "equity",
+              "income",
+              "expense"
+            ]
+          },
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 20
+          },
+          "statementSection": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "cash",
+              "currentAssets",
+              "fixedAssets",
+              "otherAssets",
+              "trustAssets",
+              "currentLiabilities",
+              "longTermLiabilities",
+              "clientTrustLiability",
+              "equity",
+              "feeIncome",
+              "otherIncome",
+              "costOfServices",
+              "operatingExpenses",
+              "otherExpenses",
+              null
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          },
+          "parentAccountId": {
+            "type": "string",
+            "pattern": "^ledgerAccount_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ]
+      },
+      "LedgerUpdateAccountRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 20
+          },
+          "statementSection": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "cash",
+              "currentAssets",
+              "fixedAssets",
+              "otherAssets",
+              "trustAssets",
+              "currentLiabilities",
+              "longTermLiabilities",
+              "clientTrustLiability",
+              "equity",
+              "feeIncome",
+              "otherIncome",
+              "costOfServices",
+              "operatingExpenses",
+              "otherExpenses",
+              null
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          }
+        }
+      },
+      "LedgerCountResponse": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count"
+        ]
+      },
+      "LedgerRoleAssignmentsRequest": {
+        "type": "object",
+        "properties": {
+          "assignments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "accounts_receivable",
+                    "fee_income",
+                    "client_costs_advanced",
+                    "cost_recovery_income",
+                    "tax_payable",
+                    "fee_adjustments",
+                    "fee_write_off",
+                    "operating_bank",
+                    "client_credit_liability",
+                    "accounts_payable",
+                    "owners_equity",
+                    "undeposited_funds",
+                    "bank_fees"
+                  ]
+                },
+                "ledgerAccountId": {
+                  "type": "string",
+                  "pattern": "^ledgerAccount_[A-Za-z0-9_-]{21}$"
+                }
+              },
+              "required": [
+                "role",
+                "ledgerAccountId"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 20
+          }
+        },
+        "required": [
+          "assignments"
+        ]
+      },
+      "OpenOperatingBankAccountRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "bankName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "accountNumberLastFour": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4
+          },
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 20
+          },
+          "openedOn": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "makeDefault": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "openedOn"
+        ]
+      },
+      "EditOperatingBankAccountRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "bankName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "accountNumberLastFour": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4
+          }
+        }
+      },
+      "VendorBillBoard": {
+        "type": "object",
+        "properties": {
+          "totals": {
+            "type": "object",
+            "properties": {
+              "openMinor": {
+                "type": "integer"
+              },
+              "overdueMinor": {
+                "type": "integer"
+              },
+              "dueThisWeekMinor": {
+                "type": "integer"
+              },
+              "openBillCount": {
+                "type": "integer"
+              },
+              "paidThisMonthMinor": {
+                "type": "integer"
+              },
+              "paidThisMonthCount": {
+                "type": "integer"
+              },
+              "unpaidCount": {
+                "type": "integer"
+              },
+              "paidCount": {
+                "type": "integer"
+              },
+              "allCount": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "openMinor",
+              "overdueMinor",
+              "dueThisWeekMinor",
+              "openBillCount",
+              "paidThisMonthMinor",
+              "paidThisMonthCount",
+              "unpaidCount",
+              "paidCount",
+              "allCount"
+            ]
+          },
+          "vendors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "vendorId": {
+                  "type": "string"
+                },
+                "vendorName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "openMinor": {
+                  "type": "integer"
+                },
+                "aging": {
+                  "type": "object",
+                  "properties": {
+                    "current": {
+                      "type": "integer"
+                    },
+                    "days1To30": {
+                      "type": "integer"
+                    },
+                    "days31To60": {
+                      "type": "integer"
+                    },
+                    "days61To90": {
+                      "type": "integer"
+                    },
+                    "over90": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "current",
+                    "days1To30",
+                    "days31To60",
+                    "days61To90",
+                    "over90"
+                  ]
+                },
+                "bills": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VendorBillSummary"
+                  }
+                }
+              },
+              "required": [
+                "vendorId",
+                "vendorName",
+                "openMinor",
+                "aging",
+                "bills"
+              ]
+            }
+          }
+        },
+        "required": [
+          "totals",
+          "vendors"
+        ]
+      },
+      "VendorBillSummary": {
+        "type": "object",
+        "properties": {
+          "vendorBillId": {
+            "type": "string"
+          },
+          "vendorId": {
+            "type": "string"
+          },
+          "billReference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "billDate": {
+            "type": "string"
+          },
+          "dueDate": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "amountMinor": {
+            "type": "integer"
+          },
+          "paidMinor": {
+            "type": "integer"
+          },
+          "openMinor": {
+            "type": "integer"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "unpaid",
+              "partPaid",
+              "paid",
+              "reversed"
+            ]
+          },
+          "agingBucket": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "current",
+              "days1To30",
+              "days31To60",
+              "days61To90",
+              "over90",
+              null
+            ]
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "vendorBillId",
+          "vendorId",
+          "billReference",
+          "billDate",
+          "dueDate",
+          "amountMinor",
+          "paidMinor",
+          "openMinor",
+          "state",
+          "agingBucket",
+          "memo",
+          "matterIds"
+        ]
+      },
+      "VendorBillDetail": {
+        "type": "object",
+        "properties": {
+          "vendorBillId": {
+            "type": "string"
+          },
+          "vendorId": {
+            "type": "string"
+          },
+          "billReference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "billDate": {
+            "type": "string"
+          },
+          "dueDate": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "amountMinor": {
+            "type": "integer"
+          },
+          "paidMinor": {
+            "type": "integer"
+          },
+          "openMinor": {
+            "type": "integer"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "unpaid",
+              "partPaid",
+              "paid",
+              "reversed"
+            ]
+          },
+          "agingBucket": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "current",
+              "days1To30",
+              "days31To60",
+              "days61To90",
+              "over90",
+              null
+            ]
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "matterIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "vendorName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "lineIndex": {
+                  "type": "integer"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "amountMinor": {
+                  "type": "integer"
+                },
+                "matterId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "matterTitle": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "disbursementClass": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "hard",
+                    "soft",
+                    null
+                  ]
+                },
+                "costEntryId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "ledgerAccountId": {
+                  "type": "string"
+                },
+                "ledgerAccountName": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "lineIndex",
+                "description",
+                "amountMinor",
+                "matterId",
+                "matterTitle",
+                "disbursementClass",
+                "costEntryId",
+                "ledgerAccountId",
+                "ledgerAccountName"
+              ]
+            }
+          },
+          "payments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "vendorBillPaymentId": {
+                  "type": "string"
+                },
+                "operatingBankAccountId": {
+                  "type": "string"
+                },
+                "operatingBankAccountName": {
+                  "type": "string"
+                },
+                "amountMinor": {
+                  "type": "integer"
+                },
+                "paidOn": {
+                  "type": "string"
+                },
+                "method": {
+                  "type": "string",
+                  "enum": [
+                    "check",
+                    "bank_transfer",
+                    "card",
+                    "cash"
+                  ]
+                },
+                "checkNumber": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "reference": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "vendorBillPaymentId",
+                "operatingBankAccountId",
+                "operatingBankAccountName",
+                "amountMinor",
+                "paidOn",
+                "method",
+                "checkNumber",
+                "reference"
+              ]
+            }
+          },
+          "reversal": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "reason": {
+                "type": "string"
+              },
+              "reversedAt": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "reason",
+              "reversedAt"
+            ]
+          }
+        },
+        "required": [
+          "vendorBillId",
+          "vendorId",
+          "billReference",
+          "billDate",
+          "dueDate",
+          "amountMinor",
+          "paidMinor",
+          "openMinor",
+          "state",
+          "agingBucket",
+          "memo",
+          "matterIds",
+          "vendorName",
+          "lines",
+          "payments",
+          "reversal"
+        ]
+      },
+      "RecordVendorBillRequest": {
+        "type": "object",
+        "properties": {
+          "vendorId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "billReference": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 100
+          },
+          "billDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "dueDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "description": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "amountMinor": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "matterId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+                },
+                "disbursementClass": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "hard",
+                    "soft",
+                    null
+                  ]
+                },
+                "ledgerAccountId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "pattern": "^ledgerAccount_[A-Za-z0-9_-]{21}$"
+                },
+                "billable": {
+                  "type": "boolean"
+                },
+                "utbmsExpenseCodeId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "description",
+                "amountMinor"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 200
+          }
+        },
+        "required": [
+          "vendorId",
+          "billDate",
+          "lines"
+        ]
+      },
+      "VendorBillPaymentsResponse": {
+        "type": "object",
+        "properties": {
+          "paymentIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "paymentIds"
+        ]
+      },
+      "PayVendorBillsRequest": {
+        "type": "object",
+        "properties": {
+          "operatingBankAccountId": {
+            "type": "string",
+            "pattern": "^operatingBankAccount_[A-Za-z0-9_-]{21}$"
+          },
+          "paidOn": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "check",
+              "bank_transfer",
+              "card",
+              "cash"
+            ]
+          },
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "payments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "vendorBillId": {
+                  "type": "string",
+                  "pattern": "^vendorBill_[A-Za-z0-9_-]{21}$"
+                },
+                "amountMinor": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "checkNumber": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "exclusiveMinimum": 0
+                }
+              },
+              "required": [
+                "vendorBillId",
+                "amountMinor"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 500
+          }
+        },
+        "required": [
+          "operatingBankAccountId",
+          "paidOn",
+          "method",
+          "payments"
+        ]
+      },
+      "ReverseVendorBillRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "reversedOn": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          }
+        },
+        "required": [
+          "reason",
+          "reversedOn"
+        ]
+      },
+      "VendorDefaultAccountResponse": {
+        "type": "object",
+        "properties": {
+          "ledgerAccountId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "ledgerAccountId"
+        ]
+      },
+      "SetVendorDefaultAccountRequest": {
+        "type": "object",
+        "properties": {
+          "ledgerAccountId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^ledgerAccount_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "ledgerAccountId"
+        ]
+      },
       "TrustCompliancePack": {
         "type": "object",
         "properties": {
@@ -12213,7 +13370,11 @@
               "fee_adjustments",
               "fee_write_off",
               "operating_bank",
-              "client_credit_liability"
+              "client_credit_liability",
+              "accounts_payable",
+              "owners_equity",
+              "undeposited_funds",
+              "bank_fees"
             ]
           },
           "ledgerAccountId": {
@@ -13824,66 +14985,565 @@
           "feeLines"
         ]
       },
-      "BillingPaymentReceiptAck": {
+      "BillingOpenBills": {
         "type": "object",
         "properties": {
-          "receiptId": {
-            "type": "string"
-          },
-          "applicationId": {
-            "type": "string"
-          },
-          "invoiceId": {
-            "type": "string"
-          },
-          "matterId": {
-            "type": "string"
+          "bills": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "invoiceId": {
+                  "type": "string"
+                },
+                "invoiceNumber": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "issueDate": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "matterId": {
+                  "type": "string"
+                },
+                "matterNumber": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "matterTitle": {
+                  "type": "string"
+                },
+                "clientName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "currency": {
+                  "type": "string"
+                },
+                "owedMinor": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "invoiceId",
+                "invoiceNumber",
+                "issueDate",
+                "matterId",
+                "matterNumber",
+                "matterTitle",
+                "clientName",
+                "currency",
+                "owedMinor"
+              ]
+            }
           }
         },
         "required": [
-          "receiptId",
-          "applicationId",
-          "invoiceId",
-          "matterId"
+          "bills"
         ]
       },
-      "BillingPaymentReceiptRequest": {
+      "BillingRecordDepositAck": {
         "type": "object",
         "properties": {
-          "matterId": {
+          "depositId": {
+            "type": "string"
+          },
+          "receiptIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "depositId",
+          "receiptIds"
+        ]
+      },
+      "BillingRecordDepositRequest": {
+        "type": "object",
+        "properties": {
+          "depositToAccountId": {
             "type": "string",
-            "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            "pattern": "^ledgerAccount_[A-Za-z0-9_-]{21}$"
           },
-          "amountMinor": {
-            "type": "integer",
-            "exclusiveMinimum": 0
-          },
-          "method": {
+          "depositedOn": {
             "type": "string",
-            "enum": [
-              "check",
-              "cash",
-              "bank_transfer",
-              "card_terminal"
-            ]
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
           },
-          "reference": {
+          "slipNumber": {
             "type": [
               "string",
               "null"
             ],
             "maxLength": 200
           },
-          "effectiveDate": {
-            "type": "string",
-            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "invoiceId": {
+                  "type": "string",
+                  "pattern": "^invoice_[A-Za-z0-9_-]{21}$"
+                },
+                "matterId": {
+                  "type": "string",
+                  "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+                },
+                "amountMinor": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                "method": {
+                  "type": "string",
+                  "enum": [
+                    "check",
+                    "cashiers_check",
+                    "money_order",
+                    "cash",
+                    "ach",
+                    "wire",
+                    "card",
+                    "payment_app",
+                    "other"
+                  ]
+                },
+                "reference": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 200
+                },
+                "receivedFrom": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "receivedOn": {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                },
+                "memo": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 200
+                },
+                "details": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "integer"
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "note": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 4000
+                }
+              },
+              "required": [
+                "invoiceId",
+                "matterId",
+                "amountMinor",
+                "method",
+                "receivedFrom",
+                "receivedOn"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 60
+          },
+          "fees": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "description": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "amountMinor": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                }
+              },
+              "required": [
+                "description",
+                "amountMinor"
+              ]
+            },
+            "maxItems": 10
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4000
           }
         },
         "required": [
-          "matterId",
-          "amountMinor",
-          "method",
-          "effectiveDate"
+          "depositToAccountId",
+          "depositedOn",
+          "lines"
+        ]
+      },
+      "BillingDepositDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "depositToAccountId": {
+            "type": "string"
+          },
+          "depositToName": {
+            "type": "string"
+          },
+          "depositedOn": {
+            "type": "string"
+          },
+          "slipNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": "string"
+          },
+          "paymentsMinor": {
+            "type": "integer"
+          },
+          "feesMinor": {
+            "type": "integer"
+          },
+          "depositMinor": {
+            "type": "integer"
+          },
+          "recordedBy": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recordedAt": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "receiptId": {
+                  "type": "string"
+                },
+                "lineNumber": {
+                  "type": "integer"
+                },
+                "invoiceId": {
+                  "type": "string"
+                },
+                "invoiceNumber": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "matterId": {
+                  "type": "string"
+                },
+                "matterNumber": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "matterTitle": {
+                  "type": "string"
+                },
+                "method": {
+                  "type": "string",
+                  "enum": [
+                    "check",
+                    "cashiers_check",
+                    "money_order",
+                    "cash",
+                    "ach",
+                    "wire",
+                    "card",
+                    "payment_app",
+                    "other"
+                  ]
+                },
+                "reference": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "receivedFrom": {
+                  "type": "string"
+                },
+                "receivedOn": {
+                  "type": "string"
+                },
+                "amountMinor": {
+                  "type": "integer"
+                },
+                "memo": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "details": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "number"
+                        }
+                      }
+                    ]
+                  }
+                },
+                "reversed": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "receiptId",
+                "lineNumber",
+                "invoiceId",
+                "invoiceNumber",
+                "matterId",
+                "matterNumber",
+                "matterTitle",
+                "method",
+                "reference",
+                "receivedFrom",
+                "receivedOn",
+                "amountMinor",
+                "memo",
+                "details",
+                "reversed"
+              ]
+            }
+          },
+          "fees": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "lineNumber": {
+                  "type": "integer"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "amountMinor": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "lineNumber",
+                "description",
+                "amountMinor"
+              ]
+            }
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "receiptId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "body": {
+                  "type": "string"
+                },
+                "writtenBy": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "writtenAt": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "receiptId",
+                "body",
+                "writtenBy",
+                "writtenAt"
+              ]
+            }
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "receiptId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "scan",
+                    "file"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                },
+                "contentType": {
+                  "type": "string"
+                },
+                "sizeBytes": {
+                  "type": "integer"
+                },
+                "recordedAt": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "receiptId",
+                "kind",
+                "name",
+                "contentType",
+                "sizeBytes",
+                "recordedAt"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "depositToAccountId",
+          "depositToName",
+          "depositedOn",
+          "slipNumber",
+          "currency",
+          "paymentsMinor",
+          "feesMinor",
+          "depositMinor",
+          "recordedBy",
+          "recordedAt",
+          "lines",
+          "fees",
+          "notes",
+          "files"
+        ]
+      },
+      "BillingDepositAcknowledged": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "BillingDepositNoteRequest": {
+        "type": "object",
+        "properties": {
+          "receiptId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^paymentReceipt_[A-Za-z0-9_-]{21}$"
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "body"
+        ]
+      },
+      "BillingDepositFileRequest": {
+        "type": "object",
+        "properties": {
+          "receiptId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^paymentReceipt_[A-Za-z0-9_-]{21}$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "scan",
+              "file"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "dataBase64": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "dataBase64"
         ]
       },
       "DownloadSnapshotCreatedResponse": {
@@ -67299,6 +68959,1772 @@
         }
       }
     },
+    "/api/v1/ledger/accounts": {
+      "get": {
+        "description": "The chart of accounts: every account outside trust's per-client tree, the firm's operating bank accounts with the default marked, the accounts the app posts to, and the standard chart's suggestions for any it has not been told.",
+        "operationId": "ledger.chart",
+        "tags": [
+          "ledger"
+        ],
+        "x-mc-operationId": "ledger.chart",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "ledger"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The chart",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedgerChartResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The account or bill is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Adds an account to the chart. Trust accounts are opened on the Trust screen.",
+        "operationId": "ledger.createAccount",
+        "tags": [
+          "ledger"
+        ],
+        "x-mc-operationId": "ledger.createAccount",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:configure",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "ledger"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LedgerCreateAccountRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedgerCreatedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The account or bill is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Someone else changed this first, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The books refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ledger/accounts/{ledgerAccountId}": {
+      "patch": {
+        "description": "Renames, renumbers, places or describes an account. An account's type never changes.",
+        "operationId": "ledger.updateAccount",
+        "tags": [
+          "ledger"
+        ],
+        "x-mc-operationId": "ledger.updateAccount",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:configure",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "ledger"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^ledgerAccount_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "ledgerAccountId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LedgerUpdateAccountRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedgerCreatedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The account or bill is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Someone else changed this first, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The books refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ledger/standard-chart": {
+      "post": {
+        "description": "Adds the standard chart of accounts for a law firm, once. Nothing is mapped to the app's accounts until the firm saves them.",
+        "operationId": "ledger.adoptStandardChart",
+        "tags": [
+          "ledger"
+        ],
+        "x-mc-operationId": "ledger.adoptStandardChart",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:configure",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "ledger"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedgerCountResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The account or bill is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Someone else changed this first, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The books refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ledger/account-roles": {
+      "put": {
+        "description": "Sets which account the app posts to for each purpose. A trust account, an account with accounts under it, or an account of the wrong type is refused.",
+        "operationId": "ledger.setAccountRoles",
+        "tags": [
+          "ledger"
+        ],
+        "x-mc-operationId": "ledger.setAccountRoles",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:configure",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "ledger"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LedgerRoleAssignmentsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedgerCountResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The account or bill is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Someone else changed this first, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The books refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ledger/operating-accounts": {
+      "post": {
+        "description": "Adds one of the firm's own bank accounts. The first one becomes the default; any open one can pay a vendor bill.",
+        "operationId": "ledger.openOperatingAccount",
+        "tags": [
+          "ledger"
+        ],
+        "x-mc-operationId": "ledger.openOperatingAccount",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:configure",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "ledger"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenOperatingBankAccountRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedgerCreatedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The account or bill is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Someone else changed this first, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The books refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ledger/operating-accounts/{operatingBankAccountId}": {
+      "patch": {
+        "description": "Renames a bank account or changes its bank name or last four digits.",
+        "operationId": "ledger.editOperatingAccount",
+        "tags": [
+          "ledger"
+        ],
+        "x-mc-operationId": "ledger.editOperatingAccount",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:configure",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "ledger"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^operatingBankAccount_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "operatingBankAccountId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditOperatingBankAccountRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedgerCreatedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The account or bill is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Someone else changed this first, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The books refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ledger/operating-accounts/{operatingBankAccountId}/default": {
+      "post": {
+        "description": "Makes this bank account the one the payment window offers first.",
+        "operationId": "ledger.setDefaultOperatingAccount",
+        "tags": [
+          "ledger"
+        ],
+        "x-mc-operationId": "ledger.setDefaultOperatingAccount",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:configure",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "ledger"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^operatingBankAccount_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "operatingBankAccountId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedgerCreatedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The account or bill is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Someone else changed this first, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The books refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payables/bills": {
+      "get": {
+        "description": "Vendor bills grouped by vendor, with each vendor's open amount by age and the totals above the list.",
+        "operationId": "payables.board",
+        "tags": [
+          "payables"
+        ],
+        "x-mc-operationId": "payables.board",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "payables"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "unpaid",
+                "paid",
+                "all"
+              ]
+            },
+            "required": false,
+            "name": "filter",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": false,
+            "name": "vendorId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": false,
+            "name": "matterId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": false,
+            "name": "asOf",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The board",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorBillBoard"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The account or bill is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Enters a vendor bill. A line on a matter becomes an approved cost on that matter, picked up by its next draft invoice; a hard cost goes to Client Costs Advanced, anything else to its expense account.",
+        "operationId": "payables.recordBill",
+        "tags": [
+          "payables"
+        ],
+        "x-mc-operationId": "payables.recordBill",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "payables:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "payables"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordVendorBillRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Entered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedgerCreatedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The account or bill is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Someone else changed this first, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The books refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payables/bills/{vendorBillId}": {
+      "get": {
+        "description": "One vendor bill: its lines, where each went, and its payments.",
+        "operationId": "payables.bill",
+        "tags": [
+          "payables"
+        ],
+        "x-mc-operationId": "payables.bill",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "payables"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^vendorBill_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "vendorBillId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "required": false,
+            "name": "asOf",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The bill",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorBillDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The account or bill is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payables/payments": {
+      "post": {
+        "description": "Pays one or more vendor bills from one of the firm's operating accounts. Never from trust. A check with no number waits to be printed.",
+        "operationId": "payables.payBills",
+        "tags": [
+          "payables"
+        ],
+        "x-mc-operationId": "payables.payBills",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "payables:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "payables"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayVendorBillsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Paid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorBillPaymentsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The account or bill is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Someone else changed this first, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The books refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payables/bills/{vendorBillId}/reverse": {
+      "post": {
+        "description": "Reverses a bill entered in error, with its matter costs. A bill with payments, or whose cost is on a finalized invoice, is refused.",
+        "operationId": "payables.reverseBill",
+        "tags": [
+          "payables"
+        ],
+        "x-mc-operationId": "payables.reverseBill",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "payables:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "payables"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^vendorBill_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "vendorBillId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReverseVendorBillRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Reversed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedgerCreatedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The account or bill is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Someone else changed this first, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The books refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payables/vendors/{vendorId}/default-account": {
+      "get": {
+        "description": "The account a new bill from this vendor fills in first, if one is set.",
+        "operationId": "payables.vendorDefaultAccount",
+        "tags": [
+          "payables"
+        ],
+        "x-mc-operationId": "payables.vendorDefaultAccount",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "payables"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": true,
+            "name": "vendorId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorDefaultAccountResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The account or bill is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "description": "Sets or clears the expense account a vendor's bills usually go to.",
+        "operationId": "payables.setVendorDefaultAccount",
+        "tags": [
+          "payables"
+        ],
+        "x-mc-operationId": "payables.setVendorDefaultAccount",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "payables:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "payables"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": true,
+            "name": "vendorId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetVendorDefaultAccountRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedgerCreatedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The account or bill is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Someone else changed this first, or the Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The books refuse this",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/reports/trust-compliance/{trustAccountId}": {
       "get": {
         "description": "The trust-compliance pack for one trust account over one period: every movement of client money, each client's and each matter's ledger, what the firm attested to at each reconciliation, and every item that did not tie out. Give it a period and a knowledge instant and every figure re-derives from records that can never change, so the same request answers identically however much has been recorded since; omit the knowledge instant and the answer covers everything known now, which is stamped and is not claimed to reproduce. Two blocks are labelled as outside that claim and carry their own instant: the three-way proof shown beside each attestation, and the outstanding items, unmatched statement lines and stored-balance checks in the exceptions section — each is read through the one definition the trust and ledger records already have, and none of those definitions is taken as at a past moment. A period too large to return in one document is refused by name rather than answered short.",
@@ -73933,14 +77359,98 @@
         }
       }
     },
-    "/api/v1/billing/invoices/{invoiceId}/payments": {
-      "post": {
-        "description": "Records a payment the firm received by hand against what one matter owes on a bill: a check, cash, a bank transfer, or a card run on the firm's own terminal. The money is booked into the firm's operating bank account and the bill's balance comes down by the same amount. It cannot exceed what the matter still owes on the bill; record what is owed and return or credit the rest. Money a client sends to be held in trust is a trust deposit, not a payment, and is recorded on the client's trust ledger instead. A payment recorded in error is undone by reversing it, which keeps both records.",
-        "operationId": "billing.recordPayment",
+    "/api/v1/billing/open-bills": {
+      "get": {
+        "description": "Every issued bill with something still owing, one row per matter it bills: what a deposit line can pay.",
+        "operationId": "billing.openBills",
         "tags": [
           "billing"
         ],
-        "x-mc-operationId": "billing.recordPayment",
+        "x-mc-operationId": "billing.openBills",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "billing"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The open bills",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingOpenBills"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the invoice is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/deposits": {
+      "post": {
+        "description": "Records payments the firm received by hand and took to the bank together on one deposit slip: checks, cash, money orders, transfers, cards run on the firm's own terminal. Each line pays one matter's share of one bill, so one deposit can pay many matters. Each line comes off what the client owes on the date it was received, into Undeposited Funds; the deposit moves the total, less any bank fees, into the operating account on the date deposited. A line cannot pay more than its bill still owes. Money to hold in trust is a trust deposit, not this.",
+        "operationId": "billing.recordDeposit",
+        "tags": [
+          "billing"
+        ],
+        "x-mc-operationId": "billing.recordDeposit",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
         "x-mc-permission": "billing:apply",
@@ -73957,15 +77467,6 @@
           {
             "schema": {
               "type": "string",
-              "pattern": "^invoice_[A-Za-z0-9_-]{21}$"
-            },
-            "required": true,
-            "name": "invoiceId",
-            "in": "path"
-          },
-          {
-            "schema": {
-              "type": "string",
               "minLength": 1
             },
             "required": true,
@@ -73978,18 +77479,18 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/BillingPaymentReceiptRequest"
+                "$ref": "#/components/schemas/BillingRecordDepositRequest"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "The payment was recorded",
+            "description": "The deposit was recorded",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BillingPaymentReceiptAck"
+                  "$ref": "#/components/schemas/BillingRecordDepositAck"
                 }
               }
             }
@@ -74036,6 +77537,626 @@
           },
           "409": {
             "description": "A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/deposits/{depositId}": {
+      "get": {
+        "description": "One recorded deposit: its lines, bank fees, notes and files.",
+        "operationId": "billing.deposit",
+        "tags": [
+          "billing"
+        ],
+        "x-mc-operationId": "billing.deposit",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "billing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^paymentDeposit_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "depositId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The deposit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingDepositDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the invoice is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/deposits/{depositId}/notes": {
+      "post": {
+        "description": "Adds a note to a deposit or one of its lines. Notes are never edited or removed.",
+        "operationId": "billing.addDepositNote",
+        "tags": [
+          "billing"
+        ],
+        "x-mc-operationId": "billing.addDepositNote",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:apply",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "billing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^paymentDeposit_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "depositId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillingDepositNoteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The note was kept",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingDepositAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the invoice is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/deposits/{depositId}/files": {
+      "post": {
+        "description": "Keeps a file with a deposit or one of its lines: a check scan, the deposit slip, a wire confirmation. PDF, PNG or JPEG, up to 25 MB. The file is malware-scanned first and not kept when the scan flags it.",
+        "operationId": "billing.attachDepositFile",
+        "tags": [
+          "billing"
+        ],
+        "x-mc-operationId": "billing.attachDepositFile",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:apply",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "billing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^paymentDeposit_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "depositId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BillingDepositFileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The file was kept",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingDepositAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the invoice is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The malware-scan engine did not answer; nothing was kept",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/deposits/{depositId}/files/{fileId}/removal": {
+      "post": {
+        "description": "Takes a file off a deposit. The bytes are kept, as payment records are.",
+        "operationId": "billing.removeDepositFile",
+        "tags": [
+          "billing"
+        ],
+        "x-mc-operationId": "billing.removeDepositFile",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:apply",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "billing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^paymentDeposit_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "depositId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^paymentDepositFile_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "fileId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The file was taken off",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingDepositAcknowledged"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the invoice is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is in progress, the invoice is no longer a draft, or another draft already holds this work",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is invalid, the Idempotency-Key was reused with a different payload, a ledger account role the posting needs is unmapped, or the billing rules refuse the change",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/deposits/{depositId}/files/{fileId}": {
+      "get": {
+        "description": "A file kept with a deposit, as it was attached.",
+        "operationId": "billing.depositFile",
+        "tags": [
+          "billing"
+        ],
+        "x-mc-operationId": "billing.depositFile",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "billing:read",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-firmlessSession": "reject",
+        "x-mc-tags": [
+          "billing"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^paymentDeposit_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "depositId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^paymentDepositFile_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "fileId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks the required capability",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the invoice is unknown",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -160824,6 +164945,9 @@
       "name": "invitations"
     },
     {
+      "name": "ledger"
+    },
+    {
       "name": "locations"
     },
     {
@@ -160885,6 +165009,9 @@
     },
     {
       "name": "onboarding"
+    },
+    {
+      "name": "payables"
     },
     {
       "name": "platform"

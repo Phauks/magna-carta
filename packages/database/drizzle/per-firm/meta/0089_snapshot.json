@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "5638524a-b63c-4b24-bc48-8b24a214ae33",
+  "id": "62ef1cb5-4d0b-4666-884f-24b0d901bb6f",
   "prevId": "86518891-14f3-40a9-aa17-ea1506d5b8df",
   "tables": {
     "account_balance": {
@@ -11522,7 +11522,7 @@
       "checkConstraints": {
         "firm_account_role_role_check": {
           "name": "firm_account_role_role_check",
-          "value": "\"firm_account_role\".\"role\" IN ('accounts_receivable', 'fee_income', 'client_costs_advanced', 'cost_recovery_income', 'tax_payable', 'fee_adjustments', 'fee_write_off', 'operating_bank', 'client_credit_liability')"
+          "value": "\"firm_account_role\".\"role\" IN ('accounts_receivable', 'fee_income', 'client_costs_advanced', 'cost_recovery_income', 'tax_payable', 'fee_adjustments', 'fee_write_off', 'operating_bank', 'client_credit_liability', 'accounts_payable', 'owners_equity', 'undeposited_funds', 'bank_fees')"
         }
       }
     },
@@ -15159,6 +15159,35 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "statement_section": {
+          "name": "statement_section",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "system_account": {
+          "name": "system_account",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -15166,6 +15195,21 @@
           "name": "ledger_account_parent_account_id_index",
           "columns": [
             "parent_account_id"
+          ],
+          "isUnique": false
+        },
+        "ledger_account_code_unique_index": {
+          "name": "ledger_account_code_unique_index",
+          "columns": [
+            "code"
+          ],
+          "isUnique": true,
+          "where": "\"ledger_account\".\"code\" IS NOT NULL"
+        },
+        "ledger_account_statement_section_index": {
+          "name": "ledger_account_statement_section_index",
+          "columns": [
+            "statement_section"
           ],
           "isUnique": false
         }
@@ -15188,6 +15232,18 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {
+        "ledger_account_code_nonempty_check": {
+          "name": "ledger_account_code_nonempty_check",
+          "value": "\"ledger_account\".\"code\" IS NULL OR length(\"ledger_account\".\"code\") > 0"
+        },
+        "ledger_account_system_account_check": {
+          "name": "ledger_account_system_account_check",
+          "value": "\"ledger_account\".\"system_account\" IN (0, 1)"
+        },
+        "ledger_account_statement_section_check": {
+          "name": "ledger_account_statement_section_check",
+          "value": "\"ledger_account\".\"statement_section\" IS NULL\n        OR (\"ledger_account\".\"type\" = 'asset' AND \"ledger_account\".\"statement_section\" IN ('cash', 'currentAssets', 'fixedAssets', 'otherAssets', 'trustAssets'))\n        OR (\"ledger_account\".\"type\" = 'liability' AND \"ledger_account\".\"statement_section\" IN ('currentLiabilities', 'longTermLiabilities', 'clientTrustLiability'))\n        OR (\"ledger_account\".\"type\" = 'equity' AND \"ledger_account\".\"statement_section\" IN ('equity'))\n        OR (\"ledger_account\".\"type\" = 'income' AND \"ledger_account\".\"statement_section\" IN ('feeIncome', 'otherIncome'))\n        OR (\"ledger_account\".\"type\" = 'expense' AND \"ledger_account\".\"statement_section\" IN ('costOfServices', 'operatingExpenses', 'otherExpenses'))"
+        },
         "ledger_account_name_nonempty_check": {
           "name": "ledger_account_name_nonempty_check",
           "value": "length(\"ledger_account\".\"name\") > 0"
@@ -26926,6 +26982,125 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "operating_bank_account": {
+      "name": "operating_bank_account",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bank_name": {
+          "name": "bank_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "account_number_last_four": {
+          "name": "account_number_last_four",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ledger_account_id": {
+          "name": "ledger_account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "opened_on": {
+          "name": "opened_on",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "closed_at": {
+          "name": "closed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "operating_bank_account_ledger_account_unique_index": {
+          "name": "operating_bank_account_ledger_account_unique_index",
+          "columns": [
+            "ledger_account_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "operating_bank_account_ledger_account_id_ledger_account_id_fk": {
+          "name": "operating_bank_account_ledger_account_id_ledger_account_id_fk",
+          "tableFrom": "operating_bank_account",
+          "tableTo": "ledger_account",
+          "columnsFrom": [
+            "ledger_account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "operating_bank_account_name_nonempty_check": {
+          "name": "operating_bank_account_name_nonempty_check",
+          "value": "length(\"operating_bank_account\".\"name\") > 0"
+        },
+        "operating_bank_account_currency_check": {
+          "name": "operating_bank_account_currency_check",
+          "value": "\"operating_bank_account\".\"currency\" = 'USD'"
+        },
+        "operating_bank_account_opened_on_shape_check": {
+          "name": "operating_bank_account_opened_on_shape_check",
+          "value": "\"operating_bank_account\".\"opened_on\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
+        },
+        "operating_bank_account_last_four_check": {
+          "name": "operating_bank_account_last_four_check",
+          "value": "\"operating_bank_account\".\"account_number_last_four\" IS NULL OR (length(\"operating_bank_account\".\"account_number_last_four\") = 4 AND \"operating_bank_account\".\"account_number_last_four\" GLOB '[0-9][0-9][0-9][0-9]')"
+        }
+      }
+    },
     "outbox": {
       "name": "outbox",
       "columns": {
@@ -27008,588 +27183,6 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
-    },
-    "payment_deposit": {
-      "name": "payment_deposit",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "deposit_to_account_id": {
-          "name": "deposit_to_account_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "deposited_on": {
-          "name": "deposited_on",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "slip_number": {
-          "name": "slip_number",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "currency": {
-          "name": "currency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "entry_id": {
-          "name": "entry_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "recorded_by": {
-          "name": "recorded_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "recorded_at": {
-          "name": "recorded_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "payment_deposit_entry_unique_index": {
-          "name": "payment_deposit_entry_unique_index",
-          "columns": [
-            "entry_id"
-          ],
-          "isUnique": true
-        },
-        "payment_deposit_deposited_on_index": {
-          "name": "payment_deposit_deposited_on_index",
-          "columns": [
-            "deposited_on"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "payment_deposit_deposit_to_account_id_ledger_account_id_fk": {
-          "name": "payment_deposit_deposit_to_account_id_ledger_account_id_fk",
-          "tableFrom": "payment_deposit",
-          "tableTo": "ledger_account",
-          "columnsFrom": [
-            "deposit_to_account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "payment_deposit_entry_id_ledger_entry_id_fk": {
-          "name": "payment_deposit_entry_id_ledger_entry_id_fk",
-          "tableFrom": "payment_deposit",
-          "tableTo": "ledger_entry",
-          "columnsFrom": [
-            "entry_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "payment_deposit_slip_number_nonempty_check": {
-          "name": "payment_deposit_slip_number_nonempty_check",
-          "value": "\"payment_deposit\".\"slip_number\" IS NULL OR length(trim(\"payment_deposit\".\"slip_number\")) > 0"
-        }
-      }
-    },
-    "payment_deposit_fee": {
-      "name": "payment_deposit_fee",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "deposit_id": {
-          "name": "deposit_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "line_number": {
-          "name": "line_number",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "amount_minor": {
-          "name": "amount_minor",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "payment_deposit_fee_line_unique_index": {
-          "name": "payment_deposit_fee_line_unique_index",
-          "columns": [
-            "deposit_id",
-            "line_number"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "payment_deposit_fee_deposit_id_payment_deposit_id_fk": {
-          "name": "payment_deposit_fee_deposit_id_payment_deposit_id_fk",
-          "tableFrom": "payment_deposit_fee",
-          "tableTo": "payment_deposit",
-          "columnsFrom": [
-            "deposit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "payment_deposit_fee_amount_check": {
-          "name": "payment_deposit_fee_amount_check",
-          "value": "\"payment_deposit_fee\".\"amount_minor\" > 0"
-        },
-        "payment_deposit_fee_description_check": {
-          "name": "payment_deposit_fee_description_check",
-          "value": "length(trim(\"payment_deposit_fee\".\"description\")) > 0"
-        }
-      }
-    },
-    "payment_deposit_file": {
-      "name": "payment_deposit_file",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "deposit_id": {
-          "name": "deposit_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "receipt_id": {
-          "name": "receipt_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "content_type": {
-          "name": "content_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "size_bytes": {
-          "name": "size_bytes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "object_key": {
-          "name": "object_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "sha256": {
-          "name": "sha256",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "removes_file_id": {
-          "name": "removes_file_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "recorded_by": {
-          "name": "recorded_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "recorded_at": {
-          "name": "recorded_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "payment_deposit_file_deposit_index": {
-          "name": "payment_deposit_file_deposit_index",
-          "columns": [
-            "deposit_id"
-          ],
-          "isUnique": false
-        },
-        "payment_deposit_file_removes_unique_index": {
-          "name": "payment_deposit_file_removes_unique_index",
-          "columns": [
-            "removes_file_id"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "payment_deposit_file_deposit_id_payment_deposit_id_fk": {
-          "name": "payment_deposit_file_deposit_id_payment_deposit_id_fk",
-          "tableFrom": "payment_deposit_file",
-          "tableTo": "payment_deposit",
-          "columnsFrom": [
-            "deposit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "payment_deposit_file_receipt_id_payment_receipt_id_fk": {
-          "name": "payment_deposit_file_receipt_id_payment_receipt_id_fk",
-          "tableFrom": "payment_deposit_file",
-          "tableTo": "payment_receipt",
-          "columnsFrom": [
-            "receipt_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "payment_deposit_file_kind_check": {
-          "name": "payment_deposit_file_kind_check",
-          "value": "\"payment_deposit_file\".\"kind\" IN ('scan', 'file')"
-        },
-        "payment_deposit_file_name_check": {
-          "name": "payment_deposit_file_name_check",
-          "value": "length(\"payment_deposit_file\".\"name\") > 0"
-        },
-        "payment_deposit_file_size_check": {
-          "name": "payment_deposit_file_size_check",
-          "value": "\"payment_deposit_file\".\"size_bytes\" >= 0"
-        }
-      }
-    },
-    "payment_deposit_note": {
-      "name": "payment_deposit_note",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "deposit_id": {
-          "name": "deposit_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "receipt_id": {
-          "name": "receipt_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "body": {
-          "name": "body",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "written_by": {
-          "name": "written_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "written_at": {
-          "name": "written_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "payment_deposit_note_deposit_index": {
-          "name": "payment_deposit_note_deposit_index",
-          "columns": [
-            "deposit_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "payment_deposit_note_deposit_id_payment_deposit_id_fk": {
-          "name": "payment_deposit_note_deposit_id_payment_deposit_id_fk",
-          "tableFrom": "payment_deposit_note",
-          "tableTo": "payment_deposit",
-          "columnsFrom": [
-            "deposit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "payment_deposit_note_receipt_id_payment_receipt_id_fk": {
-          "name": "payment_deposit_note_receipt_id_payment_receipt_id_fk",
-          "tableFrom": "payment_deposit_note",
-          "tableTo": "payment_receipt",
-          "columnsFrom": [
-            "receipt_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "payment_deposit_note_body_check": {
-          "name": "payment_deposit_note_body_check",
-          "value": "length(trim(\"payment_deposit_note\".\"body\")) > 0"
-        }
-      }
-    },
-    "payment_receipt": {
-      "name": "payment_receipt",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "deposit_id": {
-          "name": "deposit_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "line_number": {
-          "name": "line_number",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "application_id": {
-          "name": "application_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "method": {
-          "name": "method",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "reference": {
-          "name": "reference",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "received_from": {
-          "name": "received_from",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "memo": {
-          "name": "memo",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "details": {
-          "name": "details",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "recorded_by": {
-          "name": "recorded_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "recorded_at": {
-          "name": "recorded_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "payment_receipt_application_unique_index": {
-          "name": "payment_receipt_application_unique_index",
-          "columns": [
-            "application_id"
-          ],
-          "isUnique": true
-        },
-        "payment_receipt_deposit_line_unique_index": {
-          "name": "payment_receipt_deposit_line_unique_index",
-          "columns": [
-            "deposit_id",
-            "line_number"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {
-        "payment_receipt_deposit_id_payment_deposit_id_fk": {
-          "name": "payment_receipt_deposit_id_payment_deposit_id_fk",
-          "tableFrom": "payment_receipt",
-          "tableTo": "payment_deposit",
-          "columnsFrom": [
-            "deposit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "payment_receipt_application_id_invoice_application_id_fk": {
-          "name": "payment_receipt_application_id_invoice_application_id_fk",
-          "tableFrom": "payment_receipt",
-          "tableTo": "invoice_application",
-          "columnsFrom": [
-            "application_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "payment_receipt_method_check": {
-          "name": "payment_receipt_method_check",
-          "value": "\"payment_receipt\".\"method\" IN ('check', 'cashiers_check', 'money_order', 'cash', 'ach', 'wire', 'card', 'payment_app', 'other')"
-        },
-        "payment_receipt_reference_check": {
-          "name": "payment_receipt_reference_check",
-          "value": "(\"payment_receipt\".\"reference\" IS NULL AND \"payment_receipt\".\"method\" IN ('cash', 'other')) OR length(trim(\"payment_receipt\".\"reference\")) > 0"
-        },
-        "payment_receipt_received_from_check": {
-          "name": "payment_receipt_received_from_check",
-          "value": "length(trim(\"payment_receipt\".\"received_from\")) > 0"
-        },
-        "payment_receipt_line_number_check": {
-          "name": "payment_receipt_line_number_check",
-          "value": "\"payment_receipt\".\"line_number\" >= 1"
-        },
-        "payment_receipt_details_check": {
-          "name": "payment_receipt_details_check",
-          "value": "json_valid(\"payment_receipt\".\"details\") AND json_type(\"payment_receipt\".\"details\") = 'object'"
-        }
-      }
     },
     "picklist_option": {
       "name": "picklist_option",
@@ -36765,6 +36358,683 @@
           "value": "\"utbms_code\".\"active\" IN (0, 1)"
         }
       }
+    },
+    "vendor_bill": {
+      "name": "vendor_bill",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "vendor_id": {
+          "name": "vendor_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bill_reference": {
+          "name": "bill_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "bill_date": {
+          "name": "bill_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "due_date": {
+          "name": "due_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "amount_minor": {
+          "name": "amount_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "memo": {
+          "name": "memo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "entry_id": {
+          "name": "entry_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "vendor_bill_entry_unique_index": {
+          "name": "vendor_bill_entry_unique_index",
+          "columns": [
+            "entry_id"
+          ],
+          "isUnique": true
+        },
+        "vendor_bill_vendor_index": {
+          "name": "vendor_bill_vendor_index",
+          "columns": [
+            "vendor_id",
+            "bill_date"
+          ],
+          "isUnique": false
+        },
+        "vendor_bill_due_date_index": {
+          "name": "vendor_bill_due_date_index",
+          "columns": [
+            "due_date"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "vendor_bill_entry_id_ledger_entry_id_fk": {
+          "name": "vendor_bill_entry_id_ledger_entry_id_fk",
+          "tableFrom": "vendor_bill",
+          "tableTo": "ledger_entry",
+          "columnsFrom": [
+            "entry_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "vendor_bill_amount_positive_check": {
+          "name": "vendor_bill_amount_positive_check",
+          "value": "\"vendor_bill\".\"amount_minor\" > 0"
+        },
+        "vendor_bill_currency_check": {
+          "name": "vendor_bill_currency_check",
+          "value": "\"vendor_bill\".\"currency\" = 'USD'"
+        },
+        "vendor_bill_bill_date_shape_check": {
+          "name": "vendor_bill_bill_date_shape_check",
+          "value": "\"vendor_bill\".\"bill_date\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
+        },
+        "vendor_bill_due_date_shape_check": {
+          "name": "vendor_bill_due_date_shape_check",
+          "value": "\"vendor_bill\".\"due_date\" IS NULL OR \"vendor_bill\".\"due_date\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
+        },
+        "vendor_bill_due_after_bill_check": {
+          "name": "vendor_bill_due_after_bill_check",
+          "value": "\"vendor_bill\".\"due_date\" IS NULL OR \"vendor_bill\".\"due_date\" >= \"vendor_bill\".\"bill_date\""
+        }
+      }
+    },
+    "vendor_bill_balance": {
+      "name": "vendor_bill_balance",
+      "columns": {
+        "vendor_bill_id": {
+          "name": "vendor_bill_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "amount_minor": {
+          "name": "amount_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "paid_minor": {
+          "name": "paid_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "vendor_bill_balance_vendor_bill_id_vendor_bill_id_fk": {
+          "name": "vendor_bill_balance_vendor_bill_id_vendor_bill_id_fk",
+          "tableFrom": "vendor_bill_balance",
+          "tableTo": "vendor_bill",
+          "columnsFrom": [
+            "vendor_bill_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "vendor_bill_balance_bounds_check": {
+          "name": "vendor_bill_balance_bounds_check",
+          "value": "\"vendor_bill_balance\".\"paid_minor\" >= 0 AND \"vendor_bill_balance\".\"paid_minor\" <= \"vendor_bill_balance\".\"amount_minor\""
+        }
+      }
+    },
+    "vendor_bill_line": {
+      "name": "vendor_bill_line",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "vendor_bill_id": {
+          "name": "vendor_bill_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "line_index": {
+          "name": "line_index",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "amount_minor": {
+          "name": "amount_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "disbursement_class": {
+          "name": "disbursement_class",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "matter_id": {
+          "name": "matter_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "disbursement_entry_id": {
+          "name": "disbursement_entry_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ledger_account_id": {
+          "name": "ledger_account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "vendor_bill_line_index_unique_index": {
+          "name": "vendor_bill_line_index_unique_index",
+          "columns": [
+            "vendor_bill_id",
+            "line_index"
+          ],
+          "isUnique": true
+        },
+        "vendor_bill_line_matter_index": {
+          "name": "vendor_bill_line_matter_index",
+          "columns": [
+            "matter_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "vendor_bill_line_vendor_bill_id_vendor_bill_id_fk": {
+          "name": "vendor_bill_line_vendor_bill_id_vendor_bill_id_fk",
+          "tableFrom": "vendor_bill_line",
+          "tableTo": "vendor_bill",
+          "columnsFrom": [
+            "vendor_bill_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "vendor_bill_line_matter_id_matter_id_fk": {
+          "name": "vendor_bill_line_matter_id_matter_id_fk",
+          "tableFrom": "vendor_bill_line",
+          "tableTo": "matter",
+          "columnsFrom": [
+            "matter_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "vendor_bill_line_disbursement_entry_id_cost_entry_id_fk": {
+          "name": "vendor_bill_line_disbursement_entry_id_cost_entry_id_fk",
+          "tableFrom": "vendor_bill_line",
+          "tableTo": "cost_entry",
+          "columnsFrom": [
+            "disbursement_entry_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "vendor_bill_line_ledger_account_id_ledger_account_id_fk": {
+          "name": "vendor_bill_line_ledger_account_id_ledger_account_id_fk",
+          "tableFrom": "vendor_bill_line",
+          "tableTo": "ledger_account",
+          "columnsFrom": [
+            "ledger_account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "vendor_bill_line_amount_positive_check": {
+          "name": "vendor_bill_line_amount_positive_check",
+          "value": "\"vendor_bill_line\".\"amount_minor\" > 0"
+        },
+        "vendor_bill_line_index_check": {
+          "name": "vendor_bill_line_index_check",
+          "value": "\"vendor_bill_line\".\"line_index\" >= 0"
+        },
+        "vendor_bill_line_description_nonempty_check": {
+          "name": "vendor_bill_line_description_nonempty_check",
+          "value": "length(\"vendor_bill_line\".\"description\") > 0"
+        },
+        "vendor_bill_line_disbursement_class_check": {
+          "name": "vendor_bill_line_disbursement_class_check",
+          "value": "\"vendor_bill_line\".\"disbursement_class\" IS NULL OR \"vendor_bill_line\".\"disbursement_class\" IN ('hard', 'soft')"
+        },
+        "vendor_bill_line_matter_shape_check": {
+          "name": "vendor_bill_line_matter_shape_check",
+          "value": "(\"vendor_bill_line\".\"matter_id\" IS NOT NULL AND \"vendor_bill_line\".\"disbursement_class\" IS NOT NULL AND \"vendor_bill_line\".\"disbursement_entry_id\" IS NOT NULL)\n        OR (\"vendor_bill_line\".\"matter_id\" IS NULL AND \"vendor_bill_line\".\"disbursement_class\" IS NULL AND \"vendor_bill_line\".\"disbursement_entry_id\" IS NULL)"
+        }
+      }
+    },
+    "vendor_bill_payment": {
+      "name": "vendor_bill_payment",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "vendor_bill_id": {
+          "name": "vendor_bill_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "operating_bank_account_id": {
+          "name": "operating_bank_account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "entry_id": {
+          "name": "entry_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "amount_minor": {
+          "name": "amount_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "paid_on": {
+          "name": "paid_on",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "method": {
+          "name": "method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "check_number": {
+          "name": "check_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "reference": {
+          "name": "reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "recorded_by": {
+          "name": "recorded_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "vendor_bill_payment_entry_unique_index": {
+          "name": "vendor_bill_payment_entry_unique_index",
+          "columns": [
+            "entry_id"
+          ],
+          "isUnique": true
+        },
+        "vendor_bill_payment_bill_index": {
+          "name": "vendor_bill_payment_bill_index",
+          "columns": [
+            "vendor_bill_id"
+          ],
+          "isUnique": false
+        },
+        "vendor_bill_payment_account_index": {
+          "name": "vendor_bill_payment_account_index",
+          "columns": [
+            "operating_bank_account_id",
+            "paid_on"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "vendor_bill_payment_vendor_bill_id_vendor_bill_id_fk": {
+          "name": "vendor_bill_payment_vendor_bill_id_vendor_bill_id_fk",
+          "tableFrom": "vendor_bill_payment",
+          "tableTo": "vendor_bill",
+          "columnsFrom": [
+            "vendor_bill_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "vendor_bill_payment_operating_bank_account_id_operating_bank_account_id_fk": {
+          "name": "vendor_bill_payment_operating_bank_account_id_operating_bank_account_id_fk",
+          "tableFrom": "vendor_bill_payment",
+          "tableTo": "operating_bank_account",
+          "columnsFrom": [
+            "operating_bank_account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "vendor_bill_payment_entry_id_ledger_entry_id_fk": {
+          "name": "vendor_bill_payment_entry_id_ledger_entry_id_fk",
+          "tableFrom": "vendor_bill_payment",
+          "tableTo": "ledger_entry",
+          "columnsFrom": [
+            "entry_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "vendor_bill_payment_amount_positive_check": {
+          "name": "vendor_bill_payment_amount_positive_check",
+          "value": "\"vendor_bill_payment\".\"amount_minor\" > 0"
+        },
+        "vendor_bill_payment_paid_on_shape_check": {
+          "name": "vendor_bill_payment_paid_on_shape_check",
+          "value": "\"vendor_bill_payment\".\"paid_on\" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
+        },
+        "vendor_bill_payment_method_check": {
+          "name": "vendor_bill_payment_method_check",
+          "value": "\"vendor_bill_payment\".\"method\" IN ('check', 'bank_transfer', 'card', 'cash')"
+        },
+        "vendor_bill_payment_check_number_check": {
+          "name": "vendor_bill_payment_check_number_check",
+          "value": "\"vendor_bill_payment\".\"check_number\" IS NULL OR (\"vendor_bill_payment\".\"method\" = 'check' AND \"vendor_bill_payment\".\"check_number\" > 0)"
+        }
+      }
+    },
+    "vendor_bill_reversal": {
+      "name": "vendor_bill_reversal",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "vendor_bill_id": {
+          "name": "vendor_bill_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "entry_id": {
+          "name": "entry_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reversed_by": {
+          "name": "reversed_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reversed_at": {
+          "name": "reversed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "vendor_bill_reversal_bill_unique_index": {
+          "name": "vendor_bill_reversal_bill_unique_index",
+          "columns": [
+            "vendor_bill_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "vendor_bill_reversal_vendor_bill_id_vendor_bill_id_fk": {
+          "name": "vendor_bill_reversal_vendor_bill_id_vendor_bill_id_fk",
+          "tableFrom": "vendor_bill_reversal",
+          "tableTo": "vendor_bill",
+          "columnsFrom": [
+            "vendor_bill_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "vendor_bill_reversal_entry_id_ledger_entry_id_fk": {
+          "name": "vendor_bill_reversal_entry_id_ledger_entry_id_fk",
+          "tableFrom": "vendor_bill_reversal",
+          "tableTo": "ledger_entry",
+          "columnsFrom": [
+            "entry_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "vendor_bill_reversal_reason_nonempty_check": {
+          "name": "vendor_bill_reversal_reason_nonempty_check",
+          "value": "length(trim(\"vendor_bill_reversal\".\"reason\")) > 0"
+        }
+      }
+    },
+    "vendor_default_account": {
+      "name": "vendor_default_account",
+      "columns": {
+        "vendor_id": {
+          "name": "vendor_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ledger_account_id": {
+          "name": "ledger_account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "vendor_default_account_ledger_account_id_ledger_account_id_fk": {
+          "name": "vendor_default_account_ledger_account_id_ledger_account_id_fk",
+          "tableFrom": "vendor_default_account",
+          "tableTo": "ledger_account",
+          "columnsFrom": [
+            "ledger_account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
     }
   },
   "views": {},

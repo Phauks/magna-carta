@@ -922,7 +922,7 @@ const errorResponses = {
   },
 } as const;
 
-const readErrorResponses = {
+export const readErrorResponses = {
   401: errorResponses[401],
   403: errorResponses[403],
   404: errorResponses[404],
@@ -968,7 +968,7 @@ export function writeMeta(operationId: string, permission: BillingPermission): R
   };
 }
 
-function readMeta(operationId: string): RouteMeta {
+export function readMeta(operationId: string): RouteMeta {
   return {
     operationId,
     surface: "app",
@@ -1747,7 +1747,9 @@ export function billingErrorResponse(
     error.code === "unknown-invoice-claim" ||
     error.code === "unknown-matter-recovery" ||
     error.code === "unknown-client-credit" ||
-    error.code === "unknown-invoice-application"
+    error.code === "unknown-invoice-application" ||
+    error.code === "unknown-deposit" ||
+    error.code === "unknown-deposit-file"
   ) {
     return problemJson(c, {
       type: "not-found",

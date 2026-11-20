@@ -628,6 +628,13 @@
     {
       "idx": 89,
       "version": "6",
+      "when": 1795204466479,
+      "tag": "20261120T195426_operating-books-and-vendor-bills",
+      "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "6",
       "when": 1795206932710,
       "tag": "20261120T203532_payments-recorded-by-hand",
       "breakpoints": true

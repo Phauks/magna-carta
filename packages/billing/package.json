@@ -25,7 +25,9 @@
     "./contingency": "./src/contingency.ts",
     "./credit-note": "./src/credit-note.ts",
     "./delivery": "./src/delivery.ts",
-    "./receipt": "./src/receipt.ts",
+    "./deposit": "./src/deposit.ts",
+    "./deposit-reads": "./src/deposit-reads.ts",
+    "./payment-methods": "./src/payment-methods.ts",
     "./close-precondition": "./src/close-precondition.ts",
     "./retainer": "./src/retainer.ts",
     "./render-shape": "./src/render-shape.ts"
@@ -34,6 +36,7 @@
     "test": "vp test run"
   },
   "dependencies": {
+    "@magna-carta/account-roles": "workspace:*",
     "@magna-carta/billing-core": "workspace:*",
     "@magna-carta/civil-time": "workspace:*",
     "@magna-carta/data-access": "workspace:*",

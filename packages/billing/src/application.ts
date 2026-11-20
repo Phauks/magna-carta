@@ -93,7 +93,7 @@ export interface ComposedInvoiceApplication {
 }
 
 // The kinds that have a write path today: every one the CHECK admits. A payment reaches this door
-// from `recordPaymentReceipt` in receipt.ts, which composes the operating-bank posting it names; the
+// from `recordPaymentDeposit` in deposit.ts, which composes the Undeposited Funds posting it names; the
 // pairing trigger still refuses one that names no entry, because an application with nothing on the
 // firm's books to match it would reduce what a client owes with no posting behind it.
 const KINDS_WITH_A_WRITE_PATH: ReadonlySet<InvoiceApplicationKind> = new Set([

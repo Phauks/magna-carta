@@ -61,6 +61,9 @@ export type BillingValidationCode =
   // A payment recorded by hand
   | "payment-receipt-invalid"
   | "payment-exceeds-unpaid-balance"
+  | "deposit-account-not-operating"
+  | "unknown-deposit"
+  | "unknown-deposit-file"
   | "unknown-client-credit"
   | "client-credit-exhausted"
   | "client-credit-client-mismatch"

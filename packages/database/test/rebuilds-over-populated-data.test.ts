@@ -116,7 +116,46 @@ const REBUILD_CASES: Record<string, RebuildCase> = {
     childrenAtSeed: countDownloadsResolvingToTheirMember,
     childrenAfterRebuild: countDownloadsResolvingToTheirMember,
   },
+  /*
+   * The role map gains Accounts Payable and Owner's Equity. Nothing points at `firm_account_role`,
+   * so the row that matters is the mapping itself and the ledger account it names: after the
+   * rebuild the role must still resolve to the same account. The chart columns the same file adds
+   * to `ledger_account` are ALTERs, so the seeded account also proves those land on a populated
+   * parent.
+   */
+  "20261120T195426_operating-books-and-vendor-bills": {
+    lineage: "per-firm",
+    rebuilt: "firm_account_role",
+    child: "ledger_account",
+    seed: seedMappedRole,
+    childrenAtSeed: countRolesResolvingToTheirAccount,
+    childrenAfterRebuild: countRolesResolvingToTheirAccount,
+  },
 };
+
+function seedMappedRole(raw: DatabaseSync): void {
+  raw
+    .prepare(
+      `INSERT INTO ledger_account (id, name, type, currency, parent_account_id, active, created_at)
+       VALUES ('ledgerAccount_seed', 'Accounts Receivable', 'asset', 'USD', NULL, 1, ?)`,
+    )
+    .run(NOW);
+  raw
+    .prepare(
+      `INSERT INTO firm_account_role (role, ledger_account_id, created_at, updated_at)
+       VALUES ('accounts_receivable', 'ledgerAccount_seed', ?, ?)`,
+    )
+    .run(NOW, NOW);
+}
+
+function countRolesResolvingToTheirAccount(raw: DatabaseSync): number {
+  return countJoin(
+    raw,
+    `SELECT COUNT(*) AS n FROM firm_account_role
+     JOIN ledger_account ON ledger_account.id = firm_account_role.ledger_account_id
+     WHERE firm_account_role.role = 'accounts_receivable'`,
+  );
+}
 
 /**
  * One member with one register row, at the schema as it stood before the rebuild: an artifact

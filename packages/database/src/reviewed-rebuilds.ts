@@ -125,4 +125,10 @@ export const REVIEWED_REBUILDS: ReadonlySet<string> = new Set<string>([
   // their paired-nullability CHECK. The copy is exhaustive over every existing column and NULL for
   // the two new ones; ids are preserved verbatim under PRAGMA foreign_keys=OFF/ON. The reasoning is
   // in the migration's own `-- contract:` header.
+  // `firm_account_role` gains `accounts_payable` and `owners_equity`, a CHECK that cannot be widened
+  // in place. Audited: the table is a LEAF (nothing references it), the copy is column-for-column
+  // over all four columns with no WHERE and no expression, and the CHECK cannot reject a copied row
+  // because the change only ADDS values. The table has no index or trigger to recreate beyond its
+  // primary key. The chart columns in the same file are ADDED to ledger_account, not rebuilt.
+  "20261120T195426_operating-books-and-vendor-bills",
 ]);
