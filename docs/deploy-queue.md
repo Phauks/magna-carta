@@ -147,7 +147,7 @@ order the features need them.
    a deploy fails on a queue that does not exist.
 5. **Re-apply the bucket lifecycle rules to every existing firm bucket.** The rules now live in
    `apps/api-worker/src/firm-resource-provider.ts`: staged recording audio under `meeting-recordings/`
-   expires after eight days, and unfinished multipart uploads under `files/` are aborted after seven.
+   expires after eight days, and unfinished multipart uploads under `files/` and `transfers/` (a record transfer's large source files) are aborted after seven.
    A firm provisioned after the merge gets them; a bucket provisioned before it keeps its old rule set
    until it is re-provisioned. Nothing is added by hand, because provisioning replaces a bucket's whole
    rule set and would delete a hand-added rule.

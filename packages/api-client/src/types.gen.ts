@@ -11446,6 +11446,19 @@ export type TrustFrozenProof = {
     balanced: boolean;
 };
 
+export type RecordPresence = {
+    others: Array<PresentMember>;
+};
+
+export type PresentMember = {
+    userId: string;
+    name: string;
+    /**
+     * When they last touched, as an ISO-8601 instant.
+     */
+    seenAt: string;
+};
+
 export type TrustBankReconciliationList = {
     reconciliations: Array<TrustBankReconciliationSummary>;
     nextStart: {
@@ -12219,6 +12232,29 @@ export type RecordTransferFileMapping = {
 
 export type SaveRecordTransferFileMappingRequest = {
     mapping: RecordTransferFileMapping;
+};
+
+export type StartRecordTransferFileUploadResponse = {
+    fileId: string;
+    uploadId: string;
+    partBytes: number;
+};
+
+export type RecordTransferFileUploadPartResponse = {
+    part: {
+        partNumber: number;
+        etag: string;
+    };
+};
+
+export type CompleteRecordTransferFileUploadRequest = {
+    uploadId: string;
+    fileName: string;
+    sourceKind: string;
+    parts: Array<{
+        partNumber: number;
+        etag: string;
+    }>;
 };
 
 export type RecordTransferPassResponse = {
@@ -53260,6 +53296,88 @@ export type TrustCloseReconciliationResponses = {
 
 export type TrustCloseReconciliationResponse = TrustCloseReconciliationResponses[keyof TrustCloseReconciliationResponses];
 
+export type TrustLeaveBankReconciliationPresenceData = {
+    body?: never;
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/presence';
+};
+
+export type TrustLeaveBankReconciliationPresenceErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member cannot read this record
+     */
+    403: Problem;
+    /**
+     * The record id is malformed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustLeaveBankReconciliationPresenceError = TrustLeaveBankReconciliationPresenceErrors[keyof TrustLeaveBankReconciliationPresenceErrors];
+
+export type TrustLeaveBankReconciliationPresenceResponses = {
+    /**
+     * Left
+     */
+    204: void;
+};
+
+export type TrustLeaveBankReconciliationPresenceResponse = TrustLeaveBankReconciliationPresenceResponses[keyof TrustLeaveBankReconciliationPresenceResponses];
+
+export type TrustTouchBankReconciliationPresenceData = {
+    body?: never;
+    path: {
+        reconciliationId: string;
+    };
+    query?: never;
+    url: '/api/v1/trust/bank-reconciliations/{reconciliationId}/presence';
+};
+
+export type TrustTouchBankReconciliationPresenceErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member cannot read this record
+     */
+    403: Problem;
+    /**
+     * The record is unknown
+     */
+    404: Problem;
+    /**
+     * The record id is malformed
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TrustTouchBankReconciliationPresenceError = TrustTouchBankReconciliationPresenceErrors[keyof TrustTouchBankReconciliationPresenceErrors];
+
+export type TrustTouchBankReconciliationPresenceResponses = {
+    /**
+     * Who else is here
+     */
+    200: RecordPresence;
+};
+
+export type TrustTouchBankReconciliationPresenceResponse = TrustTouchBankReconciliationPresenceResponses[keyof TrustTouchBankReconciliationPresenceResponses];
+
 export type TrustListBankReconciliationsData = {
     body?: never;
     path?: never;
@@ -55859,6 +55977,164 @@ export type RecordTransferSaveSourceFileMappingResponses = {
 };
 
 export type RecordTransferSaveSourceFileMappingResponse = RecordTransferSaveSourceFileMappingResponses[keyof RecordTransferSaveSourceFileMappingResponses];
+
+export type RecordTransferStartSourceFileUploadData = {
+    body?: never;
+    path: {
+        runId: string;
+    };
+    query?: never;
+    url: '/api/v1/record-transfer/runs/{runId}/file-uploads';
+};
+
+export type RecordTransferStartSourceFileUploadErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * The run has ended, a pass is still running, the file is already in the run, or the key is in progress
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferStartSourceFileUploadError = RecordTransferStartSourceFileUploadErrors[keyof RecordTransferStartSourceFileUploadErrors];
+
+export type RecordTransferStartSourceFileUploadResponses = {
+    /**
+     * The upload that was opened
+     */
+    201: StartRecordTransferFileUploadResponse;
+};
+
+export type RecordTransferStartSourceFileUploadResponse = RecordTransferStartSourceFileUploadResponses[keyof RecordTransferStartSourceFileUploadResponses];
+
+export type RecordTransferAddSourceFileUploadPartData = {
+    body: unknown;
+    path: {
+        runId: string;
+        fileId: string;
+        partNumber: number;
+    };
+    query: {
+        uploadId: string;
+    };
+    url: '/api/v1/record-transfer/runs/{runId}/file-uploads/{fileId}/parts/{partNumber}';
+};
+
+export type RecordTransferAddSourceFileUploadPartErrors = {
+    /**
+     * The Idempotency-Key header is missing, or the body is empty
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * The run has ended, a pass is still running, the file is already in the run, or the key is in progress
+     */
+    409: Problem;
+    /**
+     * The file is larger than a source file may be
+     */
+    413: Problem;
+    /**
+     * The request is not valid, or the Idempotency-Key was reused for another request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferAddSourceFileUploadPartError = RecordTransferAddSourceFileUploadPartErrors[keyof RecordTransferAddSourceFileUploadPartErrors];
+
+export type RecordTransferAddSourceFileUploadPartResponses = {
+    /**
+     * The piece as stored
+     */
+    200: RecordTransferFileUploadPartResponse;
+};
+
+export type RecordTransferAddSourceFileUploadPartResponse = RecordTransferAddSourceFileUploadPartResponses[keyof RecordTransferAddSourceFileUploadPartResponses];
+
+export type RecordTransferCompleteSourceFileUploadData = {
+    body: CompleteRecordTransferFileUploadRequest;
+    path: {
+        runId: string;
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/v1/record-transfer/runs/{runId}/file-uploads/{fileId}/complete';
+};
+
+export type RecordTransferCompleteSourceFileUploadErrors = {
+    /**
+     * The Idempotency-Key header is missing, or the body is empty
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:transferRecords
+     */
+    403: Problem;
+    /**
+     * The run, file or pass is unknown to this firm
+     */
+    404: Problem;
+    /**
+     * The run has ended, a pass is still running, the file is already in the run, or the key is in progress
+     */
+    409: Problem;
+    /**
+     * The file is larger than a source file may be
+     */
+    413: Problem;
+    /**
+     * The request is not valid, or the Idempotency-Key was reused for another request
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RecordTransferCompleteSourceFileUploadError = RecordTransferCompleteSourceFileUploadErrors[keyof RecordTransferCompleteSourceFileUploadErrors];
+
+export type RecordTransferCompleteSourceFileUploadResponses = {
+    /**
+     * The file as the run now holds it
+     */
+    201: RecordTransferSourceFileResponse;
+};
+
+export type RecordTransferCompleteSourceFileUploadResponse = RecordTransferCompleteSourceFileUploadResponses[keyof RecordTransferCompleteSourceFileUploadResponses];
 
 export type RecordTransferRequestPassData = {
     body: RequestRecordTransferPassRequest;
