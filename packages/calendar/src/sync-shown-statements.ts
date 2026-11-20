@@ -133,6 +133,20 @@ export function upsertExternalEventStatement(
     );
 }
 
+// Which calendar one of the account's own events was read from, or no row when a pass holds no
+// such event. What putting the event on a matter needs to know, and nothing of its content.
+export function selectExternalEventCalendarStatement(
+  database: SqlDatabase,
+  connectionId: IntegrationConnectionId,
+  remoteEventId: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT calendar_remote_id FROM ${EXTERNAL_CALENDAR_EVENT_TABLE} WHERE connection_id = ?1 AND remote_event_id = ?2`,
+    )
+    .bind(connectionId, remoteEventId);
+}
+
 // An event the provider no longer lists in the calendar a pass read it from. The calendar is part
 // of the match on purpose: an event moved to another shown calendar was written again under that
 // calendar earlier in the same batch, and must not then be removed as missing from the first.
