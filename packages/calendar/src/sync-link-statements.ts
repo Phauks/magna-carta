@@ -29,6 +29,8 @@ export interface SyncLinkRow {
   readonly remote_version_tag: string | null;
   readonly agreed_hash: string;
   readonly state: "pending" | "synced" | "failed";
+  // 1 where the provider's event was the member's own before it was a copy.
+  readonly adopted: number;
 }
 
 export function selectSyncLinksStatement(
@@ -37,9 +39,39 @@ export function selectSyncLinksStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT local_kind, local_id, calendar_remote_id, transaction_id, remote_event_id, remote_version_tag, agreed_hash, state FROM ${CALENDAR_SYNC_LINK_TABLE} WHERE connection_id = ?1`,
+      `SELECT local_kind, local_id, calendar_remote_id, transaction_id, remote_event_id, remote_version_tag, agreed_hash, state, adopted FROM ${CALENDAR_SYNC_LINK_TABLE} WHERE connection_id = ?1`,
     )
     .bind(connectionId);
+}
+
+// An event the member made in their own calendar becomes the copy of an event recorded here. The
+// link is written as already sent, naming the provider's event, with no agreement recorded: the
+// next pass finds the copy differs from the event as it should leave and writes it, which is what
+// puts the matter number on it. `adopted` is what keeps a pass from ever deleting it.
+// fitness:unguarded-write — an insert; a second one for the same event fails on the primary key
+export function insertAdoptedSyncLinkStatement(
+  database: SqlDatabase,
+  key: SyncLinkKey,
+  link: {
+    readonly calendarRemoteId: string;
+    readonly remoteEventId: string;
+    readonly transactionId: string;
+  },
+  now: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${CALENDAR_SYNC_LINK_TABLE} (connection_id, local_kind, local_id, calendar_remote_id, transaction_id, remote_event_id, remote_version_tag, agreed_hash, state, adopted, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, '', 'synced', 1, ?7, ?7)`,
+    )
+    .bind(
+      key.connectionId,
+      key.localKind,
+      key.localId,
+      link.calendarRemoteId,
+      link.transactionId,
+      link.remoteEventId,
+      now,
+    );
 }
 
 // Written before the provider is asked for anything, so the request's identifier survives a pass
