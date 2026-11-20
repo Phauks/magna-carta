@@ -1083,6 +1083,9 @@ importers:
       '@magna-carta/segmentation':
         specifier: workspace:*
         version: link:../../packages/segmentation
+      '@magna-carta/signing':
+        specifier: workspace:*
+        version: link:../../packages/signing
       '@magna-carta/tools':
         specifier: workspace:*
         version: link:../../packages/tools

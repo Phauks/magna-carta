@@ -14,15 +14,18 @@ The seal can already make a finished PDF tamper-evident and print a Certificate 
 
 ## 2. Who can sign, and how they prove it
 
-`AttributionLevel` in `packages/signing/src/esign.ts` already orders the ways. The first build offers three of the five:
+`AttributionLevel` in `packages/signing/src/esign.ts` orders the ways. What a member picks for an outside signer is a **signer check**, a module in `packages/signing/src/signer-checks.ts` that names the level it earns and what it needs before it can run. The firm turns each check on or off in its signing settings (`signing.signer_checks`, written only by `PATCH /api/v1/firm/signing/settings` under `esign:manageSettings`, Owner/Admin by seed), and the chooser lists what is turned on and ready:
 
-| On screen             | Level                  | First build | Why not yet                                                                  |
-| --------------------- | ---------------------- | ----------- | ---------------------------------------------------------------------------- |
-| Emailed Link          | `email-link`           | yes         |                                                                              |
-| Link and Email Code   | `access-code`          | yes         | The text-message variant waits on an SMS sender; email is the same code path |
-| Signed In to the Firm | `firm-authenticated`   | yes         |                                                                              |
-| ID Check              | `id-verified`          | no          | Needs an identity-verification provider behind a port                        |
-| Client Portal Sign-In | `portal-authenticated` | no          | The client portal is not built                                               |
+| On screen             | Check / level                          | Needs                                                                                           |
+| --------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Email Link            | `email-link`                           | nothing; always on, the floor every outside signer stands on                                    |
+| Email Code            | `email-code` / `access-code`, by email | nothing; on by default                                                                          |
+| Text Code             | `text-code` / `access-code`, by text   | the deployment's text service (Telnyx: `TELNYX_API_KEY` and `TELNYX_TEXT_FROM`); off by default |
+| Identity Check        | `identity-check` / `id-verified`       | a connected outside service (`packages/signing/src/outside-service.ts`); no vendor chosen yet   |
+| Signed In to the Firm | `firm-authenticated`                   | a firm member; not a choice                                                                     |
+| Client Portal Sign-In | `portal-authenticated`                 | the client portal, not built                                                                    |
+
+A text code is the same six digits, lifetime and tries as an email code; only where it goes differs (`signing_signer.code_channel`, with the number in E.164 in `mobile_number`). The send route refuses a request naming a check the firm has since turned off. The online notary is an outside service of its own kind behind the same port, not a signer check.
 
 An option that cannot be used is not shown, rather than shown disabled: a choice the member cannot make is noise on the screen.
 

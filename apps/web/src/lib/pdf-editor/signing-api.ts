@@ -11,14 +11,17 @@ import {
   signingRemindSigners,
   signingSaveDraft,
   signingSendRequest,
+  signingSettingsGet,
   type SaveSigningDraftRequest,
   type SigningRequestDetail,
   type SigningRequestList,
+  type SigningSettingsResponse,
 } from "@magna-carta/api-client";
 import { outcomeOf } from "$lib/api/api-client.ts";
 import type { ApiOutcome } from "$lib/api/request.ts";
 
 export type {
+  SigningSettingsResponse,
   SaveSigningDraftRequest,
   SigningRequestDetail,
   SigningRequestSummary,
@@ -67,4 +70,9 @@ export function cancelSigningRequest(
   return settled(() =>
     signingCancelRequest({ path: { requestId }, body: { reason }, throwOnError: true }),
   );
+}
+
+/** Which ways the firm's outside signers may prove who they are, and which a new one starts with. */
+export function readSigningSettings(): Promise<ApiOutcome<SigningSettingsResponse>> {
+  return settled(() => signingSettingsGet({ throwOnError: true }));
 }

@@ -43,6 +43,8 @@ export const OPERATIONS: readonly string[] = [
   "signing.remindSigners",
   "signing.saveDraft",
   "signing.sendRequest",
+  "signingSettings.get",
+  "signingSettings.update",
   "templates.addVersion",
   "templates.archive",
   "templates.deleteFieldMapping",

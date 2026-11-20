@@ -15,6 +15,11 @@ import type {
 } from "@magna-carta/identifiers/types";
 import type { AttributionLevel } from "@magna-carta/signing/esign";
 import {
+  textableNumber,
+  type CodeChannel,
+  type SignerCheck,
+} from "@magna-carta/signing/signer-checks";
+import {
   send,
   voidRequest,
   type RequestSigner,
@@ -116,6 +121,8 @@ export function stateOf(
       email: signer.email,
       attribution: signer.attributionLevel,
       ...(signer.userId === null ? {} : { userId: signer.userId }),
+      ...(signer.codeChannel === null ? {} : { codeChannel: signer.codeChannel }),
+      ...(signer.mobileNumber === null ? {} : { mobileNumber: signer.mobileNumber }),
       status: signer.status,
     })),
     fields: detail.fields.map((field) => ({
@@ -208,6 +215,10 @@ export interface DraftSigner {
   readonly email: string;
   readonly attribution: AttributionLevel;
   readonly userId?: UserId;
+  /** Where the code goes, for `access-code` only. */
+  readonly codeChannel?: CodeChannel;
+  /** The mobile number as the member entered it, for a text code only. */
+  readonly mobileNumber?: string;
 }
 
 export interface DraftField {
@@ -226,6 +237,30 @@ export interface DraftContents {
   readonly remindEveryDays: number | null;
   readonly signers: readonly DraftSigner[];
   readonly fields: readonly DraftField[];
+}
+
+/**
+ * Where a draft signer's code goes, as stored. Only an access-code signer has a channel, and only a
+ * text code keeps a number; a number that cannot be texted is refused here, at save, so the member
+ * hears about it while the signer is still in front of them.
+ */
+function codeDelivery(signer: DraftSigner): {
+  codeChannel: CodeChannel | null;
+  mobileNumber: string | null;
+} {
+  if (signer.attribution !== "access-code") return { codeChannel: null, mobileNumber: null };
+  if (signer.codeChannel !== "text") return { codeChannel: "email", mobileNumber: null };
+  const entered = signer.mobileNumber?.trim() ?? "";
+  if (entered === "") return { codeChannel: "text", mobileNumber: null };
+  const number = textableNumber(entered);
+  if (number === null) {
+    const who = signer.name.trim() === "" ? "A signer" : signer.name.trim();
+    throw new SigningRequestRefusal(
+      "invalid",
+      `${who}'s mobile number cannot be texted. Write it with its area code, or with + and the country code.`,
+    );
+  }
+  return { codeChannel: "text", mobileNumber: number };
 }
 
 /** Replace everything on a draft. Refused once it has been sent. */
@@ -294,6 +329,7 @@ export async function saveDraft(
           email: signer.email.trim(),
           attributionLevel: signer.attribution,
           userId: signer.attribution === "firm-authenticated" ? (signer.userId ?? null) : null,
+          ...codeDelivery(signer),
         },
         options.now,
       ),
@@ -332,10 +368,11 @@ export async function sendRequest(
   id: SigningRequestId,
   document: { readonly sha256: string; readonly pageCount: number },
   options: ServiceOptions,
+  offeredChecks?: readonly SignerCheck[],
 ): Promise<{ readonly effect: EffectWrite; readonly notify: readonly SigningSignerRow[] }> {
   const detail = await readRequestDetail(database, id);
   if (detail === undefined) throw new SigningRequestRefusal("not-found", "No such request.");
-  const outcome = send(stateOf(detail), document.pageCount);
+  const outcome = send(stateOf(detail), document.pageCount, offeredChecks);
   if (!outcome.ok) {
     throw new SigningRequestRefusal(
       detail.request.status === "draft" ? "invalid" : "not-draft",
