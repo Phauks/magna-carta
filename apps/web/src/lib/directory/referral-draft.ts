@@ -17,8 +17,7 @@ import type { EntityReferral, ReferralSource } from "./referral-api.ts";
 export const RETIRED_SOURCE_MARK = "(retired)";
 
 /** What the Referred By field says beneath itself. */
-export const REFERRED_BY_HINT =
-  "Leave blank for a source with no person, such as a search engine.";
+export const REFERRED_BY_HINT = "Leave blank for a source with no person, such as a search engine.";
 
 /** The value the Source field holds for "no source". */
 export const NO_SOURCE_VALUE = "";
