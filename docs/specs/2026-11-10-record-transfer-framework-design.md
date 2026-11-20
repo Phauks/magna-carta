@@ -382,4 +382,3 @@ Written 2026-11-20, when the owner said to assume the source hands over a databa
 3. **A saved mapping for a source's tables**, so a known source maps itself. Not built; it needs the real table and column names.
 
 **Passes that resume were measured, not built.** One pass is still one queue delivery. Under the local test pool a pass created 3,000 people in 7.8 seconds and passed over 3,000 already-linked rows in 1.1 seconds. A deployed pass will be slower per row, and these numbers are not a production measurement. They are enough to say that card and matter tables of a firm fit one delivery, and that when a pass does run out of time, asking for it again continues the work at several times the speed, because linked rows are only read. Resuming inside one pass waits for a table that proves to need it, which will be a ledger or time table in the money slice.
-

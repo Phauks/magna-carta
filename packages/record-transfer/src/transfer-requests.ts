@@ -38,7 +38,8 @@ export const TRANSFER_RUN_STARTED_EVENT = "recordTransfer.run_started";
 export const TRANSFER_SOURCE_FILE_REGISTERED_EVENT = "recordTransfer.source_file_registered";
 export const TRANSFER_PASS_REQUESTED_EVENT = "recordTransfer.pass_requested";
 
-export const TRANSFER_SOURCE_FILE_UPLOAD_STARTED_EVENT = "recordTransfer.source_file_upload_started";
+export const TRANSFER_SOURCE_FILE_UPLOAD_STARTED_EVENT =
+  "recordTransfer.source_file_upload_started";
 export const TRANSFER_SOURCE_FILE_PART_RECEIVED_EVENT = "recordTransfer.source_file_part_received";
 export const TRANSFER_FILE_MAPPING_SAVED_EVENT = "recordTransfer.file_mapping_saved";
 export const TRANSFER_RUN_ACCEPTED_EVENT = "recordTransfer.run_accepted";
