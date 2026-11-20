@@ -20,6 +20,7 @@ import { malwareScanCapability } from "./capabilities/malware-scan.ts";
 import { metadataCapability } from "./capabilities/metadata.ts";
 import { emailCapability } from "./capabilities/email.ts";
 import { convertCapability } from "./capabilities/convert.ts";
+import { pdfCapability } from "./capabilities/pdf.ts";
 import { repairCapability } from "./capabilities/repair.ts";
 import { textRecognitionCapability } from "./capabilities/text-recognition.ts";
 import { unlockCapability } from "./capabilities/unlock.ts";
@@ -32,8 +33,10 @@ export const CAPABILITIES: readonly CapabilityModule[] = [
   malwareScanCapability,
   metadataCapability,
   emailCapability,
-  // Asked for, and each produces a new file beside the original.
+  // Asked for, and each produces a new file beside the original. PDF reads the file as it opens and
+  // hands it to the PDF Editor, which brings what it makes back to the bench.
   convertCapability,
+  pdfCapability,
   repairCapability,
   textRecognitionCapability,
   // A decision of their own, every time, per file.

@@ -14,6 +14,7 @@ import type {
 } from "@magna-carta/pdf";
 import type { ArrangementPlan } from "./page-arrangement.ts";
 import type { DocumentReadings } from "./secure.ts";
+import type { PdfSummary } from "./pdf-summary.ts";
 
 /** One operation the worker can run. Each later tool adds its own variant here. */
 export type PdfOperation =
@@ -59,6 +60,10 @@ export type PdfOperation =
       readonly scrubFirst: boolean;
     }
   | {
+      /** Read what the PDF is: pages, form, password, Bates labels (`pdf-summary.ts`). Makes no document. */
+      readonly kind: "summarize";
+    }
+  | {
       /** Read the form's fields and their current values (`forms.ts`). Makes no document. */
       readonly kind: "readForm";
     }
@@ -100,6 +105,8 @@ export type PdfOperationReply =
       readonly readings?: DocumentReadings;
       /** The form's fields. Present for a form reading only. */
       readonly fields?: readonly FormField[];
+      /** What the PDF is. Present for a summary only. */
+      readonly summary?: PdfSummary;
     }
   | {
       readonly kind: "failed";
