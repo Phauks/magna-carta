@@ -100,7 +100,8 @@ import batesNumbersSql from "@magna-carta/database/drizzle/per-firm/20261119T202
 import translationToolPermissionSql from "@magna-carta/database/drizzle/per-firm/20261119T202718_translation-tool-permission.sql";
 import theFrontDeskKeepsAnInOutLogSql from "@magna-carta/database/drizzle/per-firm/20261119T203231_the-front-desk-keeps-an-in-out-log.sql";
 import recordPresenceSql from "@magna-carta/database/drizzle/per-firm/20261120T201547_record-presence.sql";
-import referralSourcesSql from "@magna-carta/database/drizzle/per-firm/20261120T203304_referral-sources.sql";
+import batesLogsSql from "@magna-carta/database/drizzle/per-firm/20261120T203600_bates-logs.sql";
+import referralSourcesSql from "@magna-carta/database/drizzle/per-firm/20261120T205605_referral-sources.sql";
 
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
@@ -205,7 +206,8 @@ export function perFirmMigrations(): Migration[] {
     "20261119T202718_translation-tool-permission": translationToolPermissionSql,
     "20261119T203231_the-front-desk-keeps-an-in-out-log": theFrontDeskKeepsAnInOutLogSql,
     "20261120T201547_record-presence": recordPresenceSql,
-    "20261120T203304_referral-sources": referralSourcesSql,
+    "20261120T203600_bates-logs": batesLogsSql,
+    "20261120T205605_referral-sources": referralSourcesSql,
   });
 }
 

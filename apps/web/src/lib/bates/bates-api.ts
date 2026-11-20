@@ -1,24 +1,27 @@
 /*
  * The matter's Bates numbers over the wire: the `bates.*` operations, reached through the generated
- * client. Every stamp takes its range here before it stamps, so two documents stamped on one matter
- * under one prefix never share a number, and records the saved copy after.
+ * client. A matter keeps several Bates logs, one per filing or production; every stamp takes its
+ * range from one of them before it stamps, so two documents in a log never share a number, and
+ * records the saved copy after.
  *
  * Every write carries a fresh idempotency key: a retried take answers the range it took rather than
  * taking a second one.
  */
 import {
-  batesListBatesPrefixes,
+  batesCreateBatesLog,
+  batesListBatesLogs,
   batesListBatesRanges,
   batesRecordBatesStampedFile,
   batesTakeBatesRange,
-  type BatesPrefixSummary,
+  type BatesLogRecord,
+  type BatesLogSummary,
   type BatesRange,
   type TakenBatesRange,
 } from "@magna-carta/api-client";
 import { outcomeOf } from "$lib/api/api-client.ts";
 import type { ApiOutcome } from "$lib/api/request.ts";
 
-export type { BatesPrefixSummary, BatesRange, TakenBatesRange };
+export type { BatesLogRecord, BatesLogSummary, BatesRange, TakenBatesRange };
 export type BatesPurpose = BatesRange["purpose"];
 
 /** How far a range list read walks before it stops. */
@@ -33,15 +36,38 @@ async function attempt<T>(call: () => Promise<{ data: T }>): Promise<ApiOutcome<
   }
 }
 
-/** Each prefix stamped on the matter, most recently used first, with its next number. */
-export async function listBatesPrefixes(
+/** The matter's Bates logs, the one used most recently first, each with its next number. */
+export async function listBatesLogs(
   fetchImpl: typeof fetch,
   matterId: string,
-): Promise<ApiOutcome<BatesPrefixSummary[]>> {
+): Promise<ApiOutcome<BatesLogSummary[]>> {
   const outcome = await attempt(() =>
-    batesListBatesPrefixes({ fetch: fetchImpl, path: { matterId }, throwOnError: true }),
+    batesListBatesLogs({ fetch: fetchImpl, path: { matterId }, throwOnError: true }),
   );
   return outcome.kind === "ok" ? { kind: "ok", value: outcome.value.data } : outcome;
+}
+
+export interface NewBatesLog {
+  readonly name: string;
+  readonly prefix: string;
+  readonly digits: number;
+}
+
+/** Starts a Bates log on the matter. Refused when another log has the name. */
+export function createBatesLog(
+  fetchImpl: typeof fetch,
+  matterId: string,
+  log: NewBatesLog,
+): Promise<ApiOutcome<BatesLogRecord>> {
+  return attempt(() =>
+    batesCreateBatesLog({
+      fetch: fetchImpl,
+      path: { matterId },
+      body: { ...log },
+      headers: { "idempotency-key": crypto.randomUUID() },
+      throwOnError: true,
+    }),
+  );
 }
 
 /** Every range taken on the matter, newest first. */
@@ -69,10 +95,9 @@ export async function listBatesRanges(
 }
 
 export interface TakeRangeRequest {
-  readonly prefix: string;
-  readonly digits: number;
+  readonly logId: string;
   readonly pageCount: number;
-  /** Absent takes the next number under the prefix. */
+  /** Absent takes the next number in the log. */
   readonly firstNumber?: number;
   readonly purpose: BatesPurpose;
   readonly sourceFileId?: string;
@@ -112,4 +137,31 @@ export function recordBatesStampedFile(
       throwOnError: true,
     }),
   );
+}
+
+/** Which log a stamp takes its numbers from: one the matter keeps, or a new one to start. */
+export type BatesLogChoice =
+  | { readonly kind: "log"; readonly log: BatesLogSummary }
+  | {
+      readonly kind: "new";
+      readonly name: string;
+      readonly prefix: string;
+      readonly digits: number;
+    };
+
+/** The chosen log, started first when it is a new one. */
+export async function resolveBatesLog(
+  fetchImpl: typeof fetch,
+  matterId: string,
+  choice: BatesLogChoice,
+): Promise<ApiOutcome<BatesLogRecord>> {
+  if (choice.kind === "log") {
+    const { id, name, prefix, digits } = choice.log;
+    return { kind: "ok", value: { id, name, prefix, digits } };
+  }
+  return createBatesLog(fetchImpl, matterId, {
+    name: choice.name.trim(),
+    prefix: choice.prefix,
+    digits: choice.digits,
+  });
 }

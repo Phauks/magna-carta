@@ -1,4 +1,5 @@
 import { type Chokepoint } from "../../chokepoint/chokepoint.ts";
+import { registerBatesLogRoutes } from "./bates-logs.ts";
 import { registerBatesRoutes } from "./bates.ts";
 import { type AppRouter, createDomainApp, type DomainDeps } from "../domain-app.ts";
 import { registerExhibitSetFolderRoutes } from "./exhibit-set-folder.ts";
@@ -49,8 +50,9 @@ export function mountMatters(app: AppRouter, chokepoint: Chokepoint, _deps: Doma
   registerExhibitSetFolderRoutes(domain, chokepoint);
   registerExhibitSetRoutes(domain, chokepoint);
   registerExhibitSetIssueRoutes(domain, chokepoint);
-  // Bates numbers: the matter's one register of stamped page numbers, which every stamp takes its
-  // range from so two documents never share a number.
+  // Bates numbers: the matter's logs of stamped page numbers, one per filing or production, which
+  // every stamp takes its range from so two documents in a log never share a number.
+  registerBatesLogRoutes(domain, chokepoint);
   registerBatesRoutes(domain, chokepoint);
   app.route("/", domain);
 }

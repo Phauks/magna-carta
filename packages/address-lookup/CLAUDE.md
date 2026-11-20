@@ -1,9 +1,9 @@
 # @magna-carta/address-lookup — local notes
 
-The **address autocomplete port and its engines**: the port a surface asks "what addresses match what
+The **address autocomplete port and its engine**: the port a surface asks "what addresses match what
 this person has typed" through, the deferred implementation that answers honestly while no engine is
-provisioned, the self-hosted adapter over the platform's own US index, the Smarty adapter for every
-other country, and the routed port that composes them by country, plus the API contract shapes of the two lookup routes.
+provisioned, and the Google Places adapter, the only engine (owner, 2026-11-20; the platform's own US
+index and the Smarty adapter were removed then), plus the API contract shapes of the two lookup routes.
 Pure package — no `env`, no UI; each adapter's transport is injected, and the Worker decides which port
 a request gets.
 
@@ -19,17 +19,9 @@ same reason.
   `deferredAddressLookupPort()`
 - `src/google.ts` — `googleAddressLookupPort(apiKey, fetch)`: Places API (New) Autocomplete and Place
   Details, every country
-- `src/smarty.ts` — `smartyAddressLookupPort(credentials, fetch)`: US Autocomplete Pro for the United
-  States, International Autocomplete everywhere else
-- `src/self-hosted.ts` — `selfHostedAddressLookupPort(binding)`: the port over `apps/address-worker`'s
-  `/suggestions` and `/units`, translating the engine's corpus vocabulary into a record's parts
-- `src/routed.ts` — `routedAddressLookupPort({ byCountry, otherwise })`: one port over several, with the
-  minting engine's name prefixed to every identifier so `resolve` can route
 - `src/contract.ts` — the request and response bodies of `/api/v1/address-lookup/*`, as plain zod
   named with `.meta({ id })`; the route module in `apps/api-worker` declares only the routes
-- `src/opaque-handle.ts` — the base64url JSON identifier both adapters mint and decode
-- `src/country-alpha-three.ts` — alpha-2 to alpha-3, because the international service alone asks for
-  the longer code
+- `src/opaque-handle.ts` — the base64url JSON identifier an adapter mints and decodes
 
 ## Invariants that apply here
 
@@ -56,9 +48,7 @@ same reason.
 
 ## Dependencies & contracts
 
-- One runtime dependency, `zod`, for `src/contract.ts`; the port and the adapters import nothing.
-  `@magna-carta/address-formats` is a DEV dependency only, for the test that
-  holds the alpha-3 table against every country the address form publishes a format for.
+- One runtime dependency, `zod`, for `src/contract.ts`; the port and the adapter import nothing.
 - The postal-code and administrative-area **constraints** are a different package with a different
   job — `@magna-carta/address-formats`, which needs no engine and ships today. Lookup offers
   addresses; formats says what a well-formed one looks like. Neither imports the other.
@@ -81,33 +71,11 @@ same reason.
   than parts; a surface that wrote a group's line into a record would address a letter to a building
   whose client lives in one of its units.
 
-## The Smarty adapter
-
-- **Chosen on storage terms, and that is the constraint to keep.** The address a person picks is
-  written into a permanent record. Of the large autocomplete services, one lets a customer store only
-  its own place identifier and another treats every result as temporary; Smarty lets the firm keep the
-  data, including after cancelling. A replacement provider that forbids storing results is not a
-  drop-in, however good its coverage.
-- **The credentials ride in the query string**, which is how Smarty authenticates server-side calls.
-  So the request URL carries the secret AND the client's address, and it is never quoted — not in a
-  failure's `detail`, not in a log. A failure carries a fixed sentence and at most the status code.
-- **`prefer_geolocation=none` on every US call.** The default biases answers toward the caller's IP,
-  and the caller is a Worker in an edge data centre.
-- **Thirty-two characters is the service's ceiling on `search`.** The query is a prefix, so the first
-  thirty-two are still the right question.
-- **An offer's identifier can hold an address** (a US address carries its own parts, so resolving it
-  costs nothing and reaches nobody). It is therefore opaque, travels only in request bodies, and is
-  untrusted on the way back: a shape the adapter did not mint answers `expired`, and only the known
-  string parts survive a decode.
-- **International is two steps, and only the second is charged.** A search returns lines of text and
-  identifiers; the parts arrive when somebody chooses one. That is why an international suggestion's
-  `parts` holds only the country.
-
 ## The Google adapter
 
-- **A trial, chosen against the storage rule above, on the owner's word (2026-11-13).** Google lets a
-  customer keep only its place ID. The adapter returns parts like any other, and the record keeps
-  them; whoever makes Google permanent settles the terms first (runbook, operations section 19a).
+- **The only engine, chosen on the owner's word (trial 2026-11-13, kept 2026-11-20).** Google lets a
+  customer keep only its place ID. The adapter returns parts, and the record keeps them; the owner
+  chose Google with that explained, and the runbook (operations section 19) records it as open.
 - **The key rides in a header and the query in a body**, so neither is in a URL. A failure carries a
   fixed sentence and at most the status code.
 - **The field mask is the price.** `DETAILS_FIELD_MASK` names only Essentials-tier fields; one field
@@ -118,28 +86,3 @@ same reason.
   refused before any request, so a forged identifier cannot steer the request path.
 - **Attribution is the route's, not the adapter's.** The Worker marks Google's answers
   `attribution: "google-maps"` and the address field shows the name.
-
-## The self-hosted adapter
-
-- **The engine speaks corpus vocabulary; this adapter is where it becomes a record's.** OpenAddresses
-  holds a house number, a street and a unit in capitals. The adapter assembles the street line, puts
-  the unit on the second line behind `#` (the corpus does not say whether it is an apartment or a
-  suite, and `#` is the designator the postal service accepts for any), and writes street and city in
-  the case a person would (`inWrittenCase`). Do that here once, never in a form.
-- **`unavailable` from the engine is `engine-not-implemented` here.** The engine is deployed but no
-  index has been published yet, which a person experiences exactly like no engine at all.
-- **An identifier outlives the index build that minted it.** An address identifier carries its parts
-  and coordinates; a group identifier carries its building (number, street, city, region, postcode),
-  not a row id. A monthly rebuild between the offer and the choice therefore changes nothing.
-- **`near` is a bias, never a filter**, and the engine is what applies it. The adapter forwards it in
-  capitals and drops nothing else.
-
-## The routed port
-
-- **Every identifier leaving it is `<engine name>.<engine's identifier>`.** `resolve` has only an
-  identifier, so the prefix is the routing. An identifier with no known prefix is `expired`, and no
-  engine is asked about it. Engine names are lowercase letters — a name with a `.` in it would split
-  wrongly.
-- **A country with no engine is `no-coverage`**, not `engine-not-implemented`: some engine is
-  provisioned, it just does not cover that country. The Worker returns the bare deferred port, not a
-  routed one, when nothing at all is provisioned.

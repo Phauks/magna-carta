@@ -693,6 +693,31 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     shipped: true,
   },
   {
+    // The problems the firm's members report, for whoever answers them, and the switch that also
+    // sends them to Magna Carta. Beside System Status: both are about the platform underneath
+    // rather than the practice on top. Gated by incidents:viewDescription, which the page reads
+    // through its own list (a member without it is told who answers reports).
+    id: "problem-reports",
+    label: "Problem Reports",
+    href: "/settings/problem-reports",
+    group: "data-platform",
+    scope: "firm",
+    commitMode: "instant",
+    shipped: true,
+  },
+  {
+    // The problems this member reported and where each stands. Their own, so My Settings; nothing
+    // on it is edited, so read-only.
+    id: "my-reports",
+    label: "My Reports",
+    href: "/settings/my-reports",
+    group: "connections",
+    scope: "user",
+    commitMode: "instant",
+    readOnly: true,
+    shipped: true,
+  },
+  {
     id: "system-status",
     label: "System Status",
     href: "/settings/system-status",

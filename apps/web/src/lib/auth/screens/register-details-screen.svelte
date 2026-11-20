@@ -29,6 +29,7 @@
    * opening and then rejecting: a form that lets you press the button and then tells you off has
    * spent a round trip to say what it already knew.
    */
+  import type { Snippet } from "svelte";
   import Button from "@magna-carta/design-system/button";
   import { opensBeside } from "$lib/navigation/open-beside.ts";
   import Checkbox from "@magna-carta/design-system/checkbox";
@@ -40,6 +41,7 @@
   import { QUIET_LINK } from "../quiet-link.ts";
 
   let {
+    humanCheck,
     firstName = $bindable(""),
     lastName = $bindable(""),
     email = $bindable(""),
@@ -55,6 +57,8 @@
     onSubmit,
     back,
   }: {
+    /** The bot check, drawn just above the main button when the page supplies one. */
+    humanCheck?: Snippet;
     firstName?: string;
     lastName?: string;
     email?: string;
@@ -191,6 +195,8 @@
           </Label>
         </div>
       </div>
+
+      {@render humanCheck?.()}
 
       <Button type="submit" variant="primary" size="lg" class="w-full" disabled={!canSubmit}>
         {pending ? "Sending…" : "Send Confirmation Email"}

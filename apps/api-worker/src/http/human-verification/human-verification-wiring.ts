@@ -3,7 +3,7 @@
 // Resolution is by the PRESENCE of the credential, on the same terms `files/scan-port-binding.ts`
 // selects an engine and `conversions/conversion-engine.ts` selects a conversion port: no flag to
 // forget to flip, no construction-time throw, and the not-configured path is the default everywhere
-// the secret is absent — which today is every environment, local, test and production alike.
+// either Turnstile key is absent — which is every environment until the owner creates the widget.
 
 import type { Bindings } from "../../bindings.ts";
 import { verifierNotConfigured, type HumanVerificationPort } from "./human-verification-port.ts";
@@ -31,11 +31,35 @@ export type UnverifiedPosture = "fail-open" | "fail-closed";
 // refusal aimed at the member for an engine that is not there.
 const DEFAULT_UNVERIFIED_POSTURE: UnverifiedPosture = "fail-open";
 
-/** Resolve the verifier for an environment. Absent credential -> the honest not-configured port. */
+/** The widget's two keys: the public one the browser renders with and the secret the server checks with. */
+export interface TurnstileKeys {
+  readonly siteKey: string;
+  readonly secretKey: string;
+}
+
+/**
+ * Both Turnstile keys, or `null` unless BOTH are set.
+ *
+ * Requiring the pair is what makes the switch-on order safe. With the secret alone, the server would
+ * demand a solution that no screen can mint, because the screens render the widget only when they
+ * are handed a site key, and every sign-in and registration would be refused. With the site key
+ * alone, the widget renders and its solution is ignored, which costs nothing. So the check turns on
+ * only at the moment the screens can satisfy it, whichever key is added first.
+ */
+export function resolveTurnstileKeys(env: Bindings): TurnstileKeys | null {
+  const siteKey = env.TURNSTILE_SITE_KEY;
+  const secretKey = env.TURNSTILE_SECRET_KEY;
+  if (siteKey === undefined || siteKey === "" || secretKey === undefined || secretKey === "") {
+    return null;
+  }
+  return { siteKey, secretKey };
+}
+
+/** Resolve the verifier for an environment. Either key absent -> the honest not-configured port. */
 export function resolveHumanVerificationPort(env: Bindings): HumanVerificationPort {
-  const secret = env.TURNSTILE_SECRET_KEY;
-  if (secret === undefined || secret === "") return verifierNotConfigured;
-  return createTurnstileVerifier(secret);
+  const keys = resolveTurnstileKeys(env);
+  if (keys === null) return verifierNotConfigured;
+  return createTurnstileVerifier(keys.secretKey);
 }
 
 /**

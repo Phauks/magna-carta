@@ -50,6 +50,7 @@ export type MeResponse = {
     };
     joining?: JoiningState;
     membership?: Membership;
+    meetings?: MeetingsDeployment;
 };
 
 export type JoiningState = {
@@ -91,6 +92,13 @@ export type Membership = {
      * Whether this account's member record has reached the firm's own database. `provisioning` is a wait, not a permission somebody has to grant; `stalled` is that write having been given up on, which waiting will not fix; `unknown` is a read that did not answer, which is not a verdict about the account.
      */
     state: 'active' | 'provisioning' | 'stalled' | 'unknown';
+};
+
+export type MeetingsDeployment = {
+    /**
+     * Whether this deployment opens meetings end-to-end encrypted. False, every meeting opens in the clear whatever Start asks for.
+     */
+    endToEndEncryption: boolean;
 };
 
 export type FirmMemberListResponse = {
@@ -231,6 +239,13 @@ export type SetMemberPhotoRequest = {
 
 export type CommunityHandoff = {
     url: string;
+};
+
+export type HumanVerificationSettings = {
+    /**
+     * The Cloudflare Turnstile site key the browser renders the widget with, or null when the bot check is not set up and no widget should be shown.
+     */
+    siteKey: string | null;
 };
 
 export type StartRegistrationResponse = {
@@ -571,42 +586,24 @@ export type ErrorRecord = {
     correlationId: string | null;
 } | null;
 
-export type ReportIncidentResponse = {
-    id: string;
-    status: string;
+export type SharedProblemReportList = {
+    reports: Array<SharedProblemReportSummary>;
 };
 
-export type ReportIncidentRequest = {
-    errorIds: Array<string>;
-    breadcrumbs: Array<{
-        at: string;
-        action: string;
-        route: string;
-    }>;
-    description: string;
-    context: {
-        route: string;
-        appVersion: string;
-        clientAt: string;
-        deployment?: string;
-    };
-};
-
-export type IncidentList = {
-    incidents: Array<IncidentSummary>;
-};
-
-export type IncidentSummary = {
-    id: string;
-    createdAt: string;
-    status: 'open' | 'investigating' | 'fixed' | 'closed';
-    statusChangedAt: string | null;
-    reportedBy: string;
-    reporterName: string | null;
-    summary: string | null;
+export type SharedProblemReportSummary = {
+    incidentId: string;
+    firmId: string;
+    firmName: string;
+    sentAt: string;
     route: string | null;
     errorIdCount: number;
-    hasScreenshot: boolean;
+    status: 'open' | 'investigating' | 'fixed' | 'closed';
+};
+
+export type SharedProblemReportDetail = {
+    firmId: string;
+    firmName: string;
+    report: IncidentDetail;
 };
 
 export type IncidentDetail = {
@@ -628,6 +625,48 @@ export type IncidentDetail = {
     route: string | null;
     appVersion: string | null;
     deployment: string | null;
+    hasScreenshot: boolean;
+};
+
+export type ReportIncidentResponse = {
+    id: string;
+    status: string;
+};
+
+export type ReportIncidentRequest = {
+    errorIds: Array<string>;
+    breadcrumbs: Array<{
+        at: string;
+        action: string;
+        route: string;
+    }>;
+    description: string;
+    context: {
+        route: string;
+        appVersion: string;
+        clientAt: string;
+        deployment?: string;
+    };
+};
+
+export type ProblemReportSharing = {
+    sharesWithMagnaCarta: boolean;
+};
+
+export type IncidentList = {
+    incidents: Array<IncidentSummary>;
+};
+
+export type IncidentSummary = {
+    id: string;
+    createdAt: string;
+    status: 'open' | 'investigating' | 'fixed' | 'closed';
+    statusChangedAt: string | null;
+    reportedBy: string;
+    reporterName: string | null;
+    summary: string | null;
+    route: string | null;
+    errorIdCount: number;
     hasScreenshot: boolean;
 };
 
@@ -6224,18 +6263,38 @@ export type ContinueExhibitSetRequest = {
     name: string;
 };
 
-export type BatesPrefixList = {
-    data: Array<BatesPrefixSummary>;
+export type BatesLogList = {
+    data: Array<BatesLogSummary>;
     capped: boolean;
 };
 
-export type BatesPrefixSummary = {
+export type BatesLogSummary = {
+    id: string;
+    name: string;
     prefix: string;
     digits: number;
     nextNumber: number;
     rangeCount: number;
     pagesStamped: number;
-    lastStampedAt: string;
+    lastStampedAt: string | null;
+    createdAt: string;
+};
+
+export type BatesLogRecord = {
+    id: string;
+    name: string;
+    prefix: string;
+    digits: number;
+};
+
+export type CreateBatesLogRequest = {
+    name: string;
+    prefix: string;
+    digits: number;
+};
+
+export type RenameBatesLogRequest = {
+    name: string;
 };
 
 export type BatesRangeList = {
@@ -6245,6 +6304,8 @@ export type BatesRangeList = {
 
 export type BatesRange = {
     id: string;
+    logId: string | null;
+    logName: string | null;
     prefix: string;
     digits: number;
     firstNumber: number;
@@ -6263,6 +6324,7 @@ export type BatesRange = {
 
 export type TakenBatesRange = {
     id: string;
+    logId: string;
     prefix: string;
     digits: number;
     firstNumber: number;
@@ -6270,8 +6332,7 @@ export type TakenBatesRange = {
 };
 
 export type TakeBatesRangeRequest = {
-    prefix: string;
-    digits: number;
+    logId: string;
     pageCount: number;
     firstNumber?: number;
     purpose: 'pdfEditor' | 'exhibitPackage';
@@ -13246,6 +13307,31 @@ export type MeCommunityHandoffResponses = {
 
 export type MeCommunityHandoffResponse = MeCommunityHandoffResponses[keyof MeCommunityHandoffResponses];
 
+export type HumanVerificationSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/human-verification';
+};
+
+export type HumanVerificationSettingsErrors = {
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type HumanVerificationSettingsError = HumanVerificationSettingsErrors[keyof HumanVerificationSettingsErrors];
+
+export type HumanVerificationSettingsResponses = {
+    /**
+     * The site key, or null
+     */
+    200: HumanVerificationSettings;
+};
+
+export type HumanVerificationSettingsResponse = HumanVerificationSettingsResponses[keyof HumanVerificationSettingsResponses];
+
 export type RegistrationsStartData = {
     body: StartRegistrationRequest;
     headers?: {
@@ -13997,6 +14083,119 @@ export type PlatformErrorLookupResponses = {
 
 export type PlatformErrorLookupResponse = PlatformErrorLookupResponses[keyof PlatformErrorLookupResponses];
 
+export type PlatformSharedProblemReportsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/platform/problem-reports';
+};
+
+export type PlatformSharedProblemReportsErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformSharedProblemReportsError = PlatformSharedProblemReportsErrors[keyof PlatformSharedProblemReportsErrors];
+
+export type PlatformSharedProblemReportsResponses = {
+    /**
+     * The shared reports
+     */
+    200: SharedProblemReportList;
+};
+
+export type PlatformSharedProblemReportsResponse = PlatformSharedProblemReportsResponses[keyof PlatformSharedProblemReportsResponses];
+
+export type PlatformSharedProblemReportData = {
+    body?: never;
+    path: {
+        firmId: string;
+        incidentId: string;
+    };
+    query?: never;
+    url: '/api/v1/platform/problem-reports/{firmId}/{incidentId}';
+};
+
+export type PlatformSharedProblemReportErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * No such report, or its firm does not share it
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformSharedProblemReportError = PlatformSharedProblemReportErrors[keyof PlatformSharedProblemReportErrors];
+
+export type PlatformSharedProblemReportResponses = {
+    /**
+     * The report
+     */
+    200: SharedProblemReportDetail;
+};
+
+export type PlatformSharedProblemReportResponse = PlatformSharedProblemReportResponses[keyof PlatformSharedProblemReportResponses];
+
+export type PlatformSharedProblemReportScreenshotData = {
+    body?: never;
+    path: {
+        firmId: string;
+        incidentId: string;
+    };
+    query?: never;
+    url: '/api/v1/platform/problem-reports/{firmId}/{incidentId}/screenshot';
+};
+
+export type PlatformSharedProblemReportScreenshotErrors = {
+    /**
+     * Not signed in
+     */
+    401: Problem;
+    /**
+     * Not a platform operator, or 2FA not enabled
+     */
+    403: Problem;
+    /**
+     * No such report, or its firm does not share it
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformSharedProblemReportScreenshotError = PlatformSharedProblemReportScreenshotErrors[keyof PlatformSharedProblemReportScreenshotErrors];
+
+export type PlatformSharedProblemReportScreenshotResponses = {
+    /**
+     * The image bytes
+     */
+    200: string;
+};
+
+export type PlatformSharedProblemReportScreenshotResponse = PlatformSharedProblemReportScreenshotResponses[keyof PlatformSharedProblemReportScreenshotResponses];
+
 export type IncidentsListData = {
     body?: never;
     path?: never;
@@ -14074,6 +14273,76 @@ export type IncidentsReportResponses = {
 };
 
 export type IncidentsReportResponse = IncidentsReportResponses[keyof IncidentsReportResponses];
+
+export type IncidentsGetSharingData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/incidents/sharing';
+};
+
+export type IncidentsGetSharingErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the route's permission
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type IncidentsGetSharingError = IncidentsGetSharingErrors[keyof IncidentsGetSharingErrors];
+
+export type IncidentsGetSharingResponses = {
+    /**
+     * The firm's switch
+     */
+    200: ProblemReportSharing;
+};
+
+export type IncidentsGetSharingResponse = IncidentsGetSharingResponses[keyof IncidentsGetSharingResponses];
+
+export type IncidentsSetSharingData = {
+    body: ProblemReportSharing;
+    path?: never;
+    query?: never;
+    url: '/api/v1/incidents/sharing';
+};
+
+export type IncidentsSetSharingErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the route's permission
+     */
+    403: Problem;
+    /**
+     * The body failed validation
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type IncidentsSetSharingError = IncidentsSetSharingErrors[keyof IncidentsSetSharingErrors];
+
+export type IncidentsSetSharingResponses = {
+    /**
+     * The firm's switch, as set
+     */
+    200: ProblemReportSharing;
+};
+
+export type IncidentsSetSharingResponse = IncidentsSetSharingResponses[keyof IncidentsSetSharingResponses];
 
 export type IncidentsListMineData = {
     body?: never;
@@ -32069,16 +32338,16 @@ export type ExhibitsContinueExhibitSetResponses = {
 
 export type ExhibitsContinueExhibitSetResponse = ExhibitsContinueExhibitSetResponses[keyof ExhibitsContinueExhibitSetResponses];
 
-export type BatesListBatesPrefixesData = {
+export type BatesListBatesLogsData = {
     body?: never;
     path: {
         matterId: string;
     };
     query?: never;
-    url: '/api/v1/matters/{matterId}/bates-prefixes';
+    url: '/api/v1/matters/{matterId}/bates-logs';
 };
 
-export type BatesListBatesPrefixesErrors = {
+export type BatesListBatesLogsErrors = {
     /**
      * No valid session
      */
@@ -32088,7 +32357,7 @@ export type BatesListBatesPrefixesErrors = {
      */
     403: Problem;
     /**
-     * The matter, file, exhibit set or range is unknown on this matter
+     * The matter, Bates log, file, exhibit set or range is unknown on this matter
      */
     404: Problem;
     /**
@@ -32097,16 +32366,125 @@ export type BatesListBatesPrefixesErrors = {
     429: Problem;
 };
 
-export type BatesListBatesPrefixesError = BatesListBatesPrefixesErrors[keyof BatesListBatesPrefixesErrors];
+export type BatesListBatesLogsError = BatesListBatesLogsErrors[keyof BatesListBatesLogsErrors];
 
-export type BatesListBatesPrefixesResponses = {
+export type BatesListBatesLogsResponses = {
     /**
-     * The matter's Bates prefixes
+     * The matter's Bates logs
      */
-    200: BatesPrefixList;
+    200: BatesLogList;
 };
 
-export type BatesListBatesPrefixesResponse = BatesListBatesPrefixesResponses[keyof BatesListBatesPrefixesResponses];
+export type BatesListBatesLogsResponse = BatesListBatesLogsResponses[keyof BatesListBatesLogsResponses];
+
+export type BatesCreateBatesLogData = {
+    body: CreateBatesLogRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/bates-logs';
+};
+
+export type BatesCreateBatesLogErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The matter, Bates log, file, exhibit set or range is unknown on this matter
+     */
+    404: Problem;
+    /**
+     * Some number in the range is already stamped in that log, another log has that name, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type BatesCreateBatesLogError = BatesCreateBatesLogErrors[keyof BatesCreateBatesLogErrors];
+
+export type BatesCreateBatesLogResponses = {
+    /**
+     * The log started
+     */
+    201: BatesLogRecord;
+};
+
+export type BatesCreateBatesLogResponse = BatesCreateBatesLogResponses[keyof BatesCreateBatesLogResponses];
+
+export type BatesRenameBatesLogData = {
+    body: RenameBatesLogRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        matterId: string;
+        logId: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{matterId}/bates-logs/{logId}';
+};
+
+export type BatesRenameBatesLogErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The matter, Bates log, file, exhibit set or range is unknown on this matter
+     */
+    404: Problem;
+    /**
+     * Some number in the range is already stamped in that log, another log has that name, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid
+     */
+    422: Problem;
+    /**
+     * Rate limited
+     */
+    429: Problem;
+};
+
+export type BatesRenameBatesLogError = BatesRenameBatesLogErrors[keyof BatesRenameBatesLogErrors];
+
+export type BatesRenameBatesLogResponses = {
+    /**
+     * The log renamed
+     */
+    200: BatesLogRecord;
+};
+
+export type BatesRenameBatesLogResponse = BatesRenameBatesLogResponses[keyof BatesRenameBatesLogResponses];
 
 export type BatesListBatesRangesData = {
     body?: never;
@@ -32115,7 +32493,7 @@ export type BatesListBatesRangesData = {
     };
     query?: {
         cursor?: string;
-        prefix?: string;
+        logId?: string;
     };
     url: '/api/v1/matters/{matterId}/bates-ranges';
 };
@@ -32130,7 +32508,7 @@ export type BatesListBatesRangesErrors = {
      */
     403: Problem;
     /**
-     * The matter, file, exhibit set or range is unknown on this matter
+     * The matter, Bates log, file, exhibit set or range is unknown on this matter
      */
     404: Problem;
     /**
@@ -32176,11 +32554,11 @@ export type BatesTakeBatesRangeErrors = {
      */
     403: Problem;
     /**
-     * The matter, file, exhibit set or range is unknown on this matter
+     * The matter, Bates log, file, exhibit set or range is unknown on this matter
      */
     404: Problem;
     /**
-     * Some number in the range is already stamped under that prefix, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress
+     * Some number in the range is already stamped in that log, another log has that name, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress
      */
     409: Problem;
     /**
@@ -32231,11 +32609,11 @@ export type BatesRecordBatesStampedFileErrors = {
      */
     403: Problem;
     /**
-     * The matter, file, exhibit set or range is unknown on this matter
+     * The matter, Bates log, file, exhibit set or range is unknown on this matter
      */
     404: Problem;
     /**
-     * Some number in the range is already stamped under that prefix, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress
+     * Some number in the range is already stamped in that log, another log has that name, the range's saved copy is already recorded, or a request with this Idempotency-Key is still in progress
      */
     409: Problem;
     /**

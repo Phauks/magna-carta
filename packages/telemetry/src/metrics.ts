@@ -475,7 +475,7 @@ export const emailDeliveryFailed = defineMetric("email.delivery_failed", [
 // first sign the provider has refused — a spent subscription answers exactly that way. There is
 // deliberately no dimension that could hold what was typed: the query is a client's address.
 //   operation: suggest | resolve
-//   engine:    smarty | deferred
+//   engine:    google | deferred
 //   outcome:   suggestions | address | group | expired | no-coverage | unavailable | failed
 export const addressesLookup = defineMetric("addresses.lookup", [
   "operation",

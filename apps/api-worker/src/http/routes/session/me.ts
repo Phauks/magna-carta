@@ -21,6 +21,7 @@ import { OUTBOX_TABLE } from "@magna-carta/data-access/outbox-statements";
 import { MEMBER_PROVISION_TOPIC } from "../shared/member-provision-topic.ts";
 import { evaluateCatalog, isReleaseChannel, type ReleaseChannel } from "@magna-carta/feature-flags";
 import { resolveFlagEvaluator } from "../../../flags/flag-evaluator.ts";
+import { MeetingsDeployment, meetingsDeployment } from "../../../meetings/encryption-switch.ts";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 
 // HOW FAR THE BUILD HAS GOT, as facts rather than as a fraction. Provisioning is a handful of steps
@@ -92,15 +93,13 @@ const MeResponse = z
     // Present only alongside a firm: whether this account's member record has landed in it. The
     // guards read it to keep somebody out of a workspace that would refuse them everything.
     membership: Membership.optional(),
+    meetings: MeetingsDeployment.optional(),
   })
   .openapi("MeResponse");
 
-// The route metadata: the chokepoint reads it at registration to enforce
-// tenancy/authn/RBAC/idempotency/rate-limit; the document emits each field as an x-mc-* extension.
-// permission: null — any authenticated member may read their OWN bootstrap (a non-mutating read,
-// the legitimate authenticated-null case the route-meta guard permits); the chokepoint resolves the
-// session and firm (404 on structural absence / deactivation) and skips the permission gate, and
-// this handler loads the effective permissions itself.
+// The route metadata the chokepoint enforces and the document emits as x-mc-* extensions.
+// permission: null — any member may read their OWN bootstrap (the authenticated-null case the
+// guard permits); this handler loads the effective permissions itself.
 export const meMeta: RouteMeta = {
   operationId: "me.get",
   surface: "app",
@@ -293,6 +292,7 @@ export function registerMeRoute(
           userId,
           permissions.size,
         ),
+        meetings: meetingsDeployment(c.env),
       },
       200,
     );

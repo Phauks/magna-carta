@@ -16,3 +16,12 @@ export function endToEndEncryptionEnabled(
 ): boolean {
   return env.MEETINGS_END_TO_END_ENCRYPTION === "on";
 }
+
+export { MeetingsDeployment } from "@magna-carta/meetings/deployment-contract";
+
+/** What the session's bootstrap says about meetings on this deployment. */
+export function meetingsDeployment(env: Pick<Bindings, "MEETINGS_END_TO_END_ENCRYPTION">): {
+  endToEndEncryption: boolean;
+} {
+  return { endToEndEncryption: endToEndEncryptionEnabled(env) };
+}
